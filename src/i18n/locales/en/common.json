@@ -1,0 +1,39 @@
+{
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "cart": "Cart",
+    "orders": "My Orders",
+    "profile": "Profile",
+    "about": "About Us"
+  },
+  "home": {
+    "title": "Kangaroo Japan",
+    "subtitle": "Cross-border E-commerce Price Comparison",
+    "search": "Search products...",
+    "featured": "Featured Products",
+    "categories": "Categories",
+    "priceCompare": "Price Compare"
+  },
+  "product": {
+    "addToCart": "Add to Cart",
+    "buyNow": "Buy Now",
+    "price": "Price",
+    "rating": "Rating",
+    "reviews": "Reviews",
+    "platform": "Platform",
+    "compare": "Compare"
+  },
+  "cart": {
+    "empty": "Your cart is empty",
+    "total": "Total",
+    "checkout": "Checkout",
+    "remove": "Remove"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "currency": "$"
+  }
+}

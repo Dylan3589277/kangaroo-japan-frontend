@@ -1,0 +1,39 @@
+{
+  "nav": {
+    "home": "首页",
+    "products": "商品",
+    "cart": "购物车",
+    "orders": "我的订单",
+    "profile": "个人中心",
+    "about": "关于我们"
+  },
+  "home": {
+    "title": "袋鼠君日本站",
+    "subtitle": "跨境电商比价平台",
+    "search": "搜索商品...",
+    "featured": "精选商品",
+    "categories": "商品分类",
+    "priceCompare": "价格对比"
+  },
+  "product": {
+    "addToCart": "加入购物车",
+    "buyNow": "立即购买",
+    "price": "价格",
+    "rating": "评分",
+    "reviews": "评论",
+    "platform": "平台",
+    "compare": "比价"
+  },
+  "cart": {
+    "empty": "购物车是空的",
+    "total": "总计",
+    "checkout": "结算",
+    "remove": "移除"
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "出错了",
+    "retry": "重试",
+    "currency": "¥"
+  }
+}

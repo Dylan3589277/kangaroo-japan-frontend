@@ -1,0 +1,39 @@
+{
+  "nav": {
+    "home": "ホーム",
+    "products": "商品",
+    "cart": "カート",
+    "orders": "注文履歴",
+    "profile": "プロフィール",
+    "about": "会社概要"
+  },
+  "home": {
+    "title": "カンガルー君日本站",
+    "subtitle": "越境EC価格比較プラットフォーム",
+    "search": "商品を検索...",
+    "featured": "おすすめ商品",
+    "categories": "カテゴリー",
+    "priceCompare": "価格比較"
+  },
+  "product": {
+    "addToCart": "カートに追加",
+    "buyNow": "今すぐ購入",
+    "price": "価格",
+    "rating": "評価",
+    "reviews": "レビュー",
+    "platform": "プラットフォーム",
+    "compare": "比較"
+  },
+  "cart": {
+    "empty": "カートは空です",
+    "total": "合計",
+    "checkout": "Checkout",
+    "remove": "削除"
+  },
+  "common": {
+    "loading": "読み込み中...",
+    "error": "エラーが発生しました",
+    "retry": "再試行",
+    "currency": "¥"
+  }
+}
