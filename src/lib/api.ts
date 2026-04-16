@@ -133,6 +133,68 @@ class ApiClient {
       method: "PUT",
     });
   }
+
+  // Product endpoints
+  async getProducts(params?: {
+    lang?: string;
+    page?: number;
+    limit?: number;
+    platform?: string;
+    categoryId?: string;
+    priceMin?: number;
+    priceMax?: number;
+    sort?: string;
+    status?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.lang) searchParams.set("lang", params.lang);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.platform) searchParams.set("platform", params.platform);
+    if (params?.categoryId) searchParams.set("categoryId", params.categoryId);
+    if (params?.priceMin) searchParams.set("priceMin", String(params.priceMin));
+    if (params?.priceMax) searchParams.set("priceMax", String(params.priceMax));
+    if (params?.sort) searchParams.set("sort", params.sort);
+    if (params?.status) searchParams.set("status", params.status);
+
+    const query = searchParams.toString();
+    return this.request(`/products${query ? `?${query}` : ""}`);
+  }
+
+  async getProduct(id: string, lang = "zh") {
+    return this.request(`/products/${id}?lang=${lang}`);
+  }
+
+  async searchProducts(q: string, lang = "zh", page = 1, limit = 20) {
+    return this.request(`/products/search?q=${encodeURIComponent(q)}&lang=${lang}&page=${page}&limit=${limit}`);
+  }
+
+  async compareProducts(ids: string[], lang = "zh") {
+    return this.request(`/products/compare?ids=${ids.join(",")}&lang=${lang}`);
+  }
+
+  async getPriceHistory(productId: string, days = 30, currency = "CNY") {
+    return this.request(`/products/${productId}/price-history?days=${days}&currency=${currency}`);
+  }
+
+  async getCategories(lang = "zh") {
+    return this.request(`/categories?lang=${lang}`);
+  }
+
+  async getCategory(id: string, lang = "zh") {
+    return this.request(`/categories/${id}?lang=${lang}`);
+  }
+
+  async getCategoryProducts(categoryId: string, params?: any) {
+    const searchParams = new URLSearchParams();
+    if (params?.lang) searchParams.set("lang", params.lang);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.sort) searchParams.set("sort", params.sort);
+
+    const query = searchParams.toString();
+    return this.request(`/categories/${categoryId}/products${query ? `?${query}` : ""}`);
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
