@@ -298,6 +298,43 @@ class ApiClient {
   async trackOrder(id: string) {
     return this.request(`/orders/${id}/track`);
   }
+
+  // Payment endpoints
+  async createPaymentIntent(data: {
+    orderId: string;
+    method?: 'stripe' | 'alipay' | 'wechat_pay';
+    paymentMethodTypes?: string[];
+    currency?: 'CNY' | 'USD' | 'JPY';
+  }) {
+    return this.request('/payments/create-intent', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async confirmPayment(paymentId: string, paymentMethodId?: string) {
+    return this.request(`/payments/${paymentId}/confirm`, {
+      method: 'POST',
+      body: { payment_method_id: paymentMethodId },
+    });
+  }
+
+  async cancelPayment(paymentId: string) {
+    return this.request(`/payments/${paymentId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  async getPaymentStatus(paymentId: string) {
+    return this.request(`/payments/${paymentId}`);
+  }
+
+  async refundPayment(paymentId: string, amount?: number, reason?: string) {
+    return this.request(`/payments/${paymentId}/refund`, {
+      method: 'POST',
+      body: { amount, reason },
+    });
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
