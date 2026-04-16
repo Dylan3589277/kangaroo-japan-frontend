@@ -1,0 +1,48 @@
+# 袋鼠君日本独立站 - 项目索引
+
+project:
+  name: 袋鼠君日本独立站
+  name_en: Kangaroo Japan
+  version: v1.0
+  started: 2026-04-16
+
+repositories:
+  frontend:
+    path: /Users/hulonghua/workspace/kangaroo-japan
+    description: Next.js 14 前端应用
+    tech: Next.js 14, TypeScript, Tailwind, shadcn/ui
+    
+  backend:
+    path: /Users/hulonghua/workspace/kangaroo-japan-backend
+    description: NestJS 后端 API
+    tech: NestJS, TypeORM, PostgreSQL, Redis
+
+documents:
+  design:
+    - name: 产品需求文档 PRD
+      path: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/01_产品需求文档 PRD.md
+    - name: 技术架构文档
+      path: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/02_技术架构文档.md
+    - name: UI设计规范
+      path: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/03_UI设计规范.md
+    - name: 开发计划
+      path: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/04_开发计划与里程碑.md
+    - name: 技术选型确认
+      path: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/05_任务1.6_技术选型确认.md
+    - name: 数据库设计
+      path: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/06_任务1.7_数据库设计.md
+    - name: API设计
+      path: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/07_任务1.8_API设计.md
+    - name: 开发环境搭建
+      path: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/08_任务1.9_开发环境搭建.md
+
+state:
+  path: /Users/hulonghua/workspace/kangaroo-japan/STATE.md
+
+standards:
+  api: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/07_任务1.8_API设计.md
+  database: /Users/hulonghua/.openclaw/workspace/shared/袋鼠君独立站项目/06_任务1.7_数据库设计.md
+
+phase:
+  current: Phase 2
+  progress: 0
