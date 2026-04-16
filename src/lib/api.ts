@@ -195,6 +195,68 @@ class ApiClient {
     const query = searchParams.toString();
     return this.request(`/categories/${categoryId}/products${query ? `?${query}` : ""}`);
   }
+
+  // Cart endpoints
+  async getCart() {
+    return this.request<
+      {
+        id: string;
+        items: any[];
+        summary: {
+          totalItems: number;
+          subtotalJpy: number;
+          subtotalCny: number;
+          subtotalUsd: number;
+          estimatedShippingJpy: number;
+          estimatedShippingCny: number;
+          totalJpy: number;
+          totalCny: number;
+          currency: string;
+        };
+        groupedBySeller: any[];
+      }
+    >("/cart");
+  }
+
+  async addCartItem(data: {
+    productId: string;
+    quantity?: number;
+    options?: Record<string, any>;
+    buyerMessage?: string;
+  }) {
+    return this.request("/cart/items", {
+      method: "POST",
+      body: data,
+    });
+  }
+
+  async updateCartItem(
+    itemId: string,
+    data: { quantity?: number; options?: Record<string, any>; buyerMessage?: string },
+  ) {
+    return this.request(`/cart/items/${itemId}`, {
+      method: "PUT",
+      body: data,
+    });
+  }
+
+  async removeCartItem(itemId: string) {
+    return this.request(`/cart/items/${itemId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async clearCart() {
+    return this.request("/cart/items", {
+      method: "DELETE",
+    });
+  }
+
+  async calculateCart(addressId?: string) {
+    return this.request(`/cart/calculate${addressId ? `?addressId=${addressId}` : ""}`, {
+      method: "POST",
+    });
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
