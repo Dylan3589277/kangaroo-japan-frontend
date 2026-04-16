@@ -315,7 +315,7 @@ export default function CartPage() {
                       {/* Options */}
                       {item.options && Object.keys(item.options).length > 0 && (
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {item.options.gift_wrap && <span>Gift Wrap 🎁</span>}
+                          {(item.options as any).gift_wrap && <span>Gift Wrap 🎁</span>}
                         </div>
                       )}
 

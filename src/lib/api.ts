@@ -31,10 +31,25 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const { method = "GET", body, headers = {}, credentials = "include" } = options;
 
+    // Get token from auth store if available (browser only)
+    let authHeaders: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      try {
+        const { useAuthStore } = await import('@/lib/auth');
+        const token = useAuthStore.getState().accessToken;
+        if (token) {
+          authHeaders = { Authorization: `Bearer ${token}` };
+        }
+      } catch {
+        // Auth store not available
+      }
+    }
+
     const config: RequestInit = {
       method,
       headers: {
         "Content-Type": "application/json",
+        ...authHeaders,
         ...headers,
       },
       credentials,
