@@ -257,6 +257,47 @@ class ApiClient {
       method: "POST",
     });
   }
+
+  // Order endpoints
+  async getOrders(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    const query = searchParams.toString();
+    return this.request(`/orders${query ? `?${query}` : ""}`);
+  }
+
+  async getOrder(id: string) {
+    return this.request(`/orders/${id}`);
+  }
+
+  async createOrder(data: {
+    addressId: string;
+    currency?: string;
+    items: { cartItemId?: string; productId?: string; quantity?: number }[];
+    buyerMessage?: string;
+    couponCode?: string;
+  }) {
+    return this.request('/orders', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async cancelOrder(id: string) {
+    return this.request(`/orders/${id}/cancel`, {
+      method: 'PUT',
+    });
+  }
+
+  async trackOrder(id: string) {
+    return this.request(`/orders/${id}/track`);
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);
