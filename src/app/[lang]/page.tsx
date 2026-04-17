@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
+import Image from "next/image";
 import { routing } from "@/i18n/routing";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
@@ -293,10 +294,12 @@ export default function HomePage() {
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                     <div className="relative h-40 bg-muted">
                       {product.images && product.images[0] ? (
-                        <img
+                        <Image
                           src={product.images[0]}
                           alt={product.title}
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 50vw, 25vw"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
@@ -374,10 +377,12 @@ export default function HomePage() {
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                     <div className="relative h-40 bg-muted">
                       {product.images && product.images[0] ? (
-                        <img
+                        <Image
                           src={product.images[0]}
                           alt={product.title}
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 50vw, 25vw"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">

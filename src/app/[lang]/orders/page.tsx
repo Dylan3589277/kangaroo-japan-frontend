@@ -109,7 +109,6 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -127,7 +126,6 @@ export default function OrdersPage() {
         const payload = res.data as { orders: Order[]; pagination: { total_pages: number; total: number } };
         setOrders(payload.orders as Order[] || []);
         setTotalPages(payload.pagination?.total_pages || 1);
-        setTotal(payload.pagination?.total || 0);
       } else {
         setOrders([]);
       }

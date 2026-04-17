@@ -211,6 +211,22 @@ class ApiClient {
     return this.request(`/categories/${categoryId}/products${query ? `?${query}` : ""}`);
   }
 
+  // 统一搜索 - 并行搜索多个平台，返回统一格式
+  async unifiedSearch(params: {
+    keyword: string;
+    page?: number;
+    limit?: number;
+    platforms?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    searchParams.set("keyword", params.keyword);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.platforms) searchParams.set("platforms", params.platforms);
+
+    return this.request(`/integrations/search/unified?${searchParams.toString()}`);
+  }
+
   // Cart endpoints
   async getCart() {
     return this.request<

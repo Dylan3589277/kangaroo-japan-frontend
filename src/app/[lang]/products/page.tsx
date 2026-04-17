@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
+import Image from "next/image";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -140,10 +141,15 @@ export default function ProductsPage() {
 
     setLoading(true);
     try {
-      const res = await api.searchProducts(searchQuery, lang, pagination.page, 20);
+      // 使用统一搜索 API（并行搜索 Rakuten + Yahoo）
+      const res = await api.unifiedSearch({
+        keyword: searchQuery,
+        page: pagination.page,
+        limit: 20,
+      });
       if (res.success && res.data && typeof res.data === 'object') {
         const data = res.data as any;
-        setProducts(Array.isArray(data.data) ? data.data : []);
+        setProducts(Array.isArray(data.items) ? data.items : []);
         setPagination(data.pagination || pagination);
       }
     } catch (error) {
@@ -168,8 +174,26 @@ export default function ProductsPage() {
     }
   };
 
+  // JSON-LD for products listing page
+  const productsJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.slice(0, 10).map((product, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: `https://jp-buy.com/products/${product.id}`,
+      name: product.title,
+      image: product.images?.[0] || undefined,
+    })),
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productsJsonLd) }}
+      />
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">
@@ -332,10 +356,12 @@ export default function ProductsPage() {
                 {/* Image */}
                 <div className="relative h-48 bg-muted">
                   {product.images && product.images[0] ? (
-                    <img
+                    <Image
                       src={product.images[0]}
                       alt={product.title}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground">

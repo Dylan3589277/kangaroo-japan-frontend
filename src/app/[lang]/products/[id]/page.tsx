@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
+
 import { Link } from "@/i18n/navigation";
+import Image from "next/image";
 
 interface Product {
   id: string;
@@ -191,8 +192,48 @@ export default function ProductDetailPage() {
 
   const priceDisplay = getPriceByCurrency(product.priceJpy, product.priceCny, product.priceUsd);
 
+  // JSON-LD Structured Data for SEO
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    description: product.description || product.title,
+    image: product.images || [],
+    offers: {
+      "@type": "Offer",
+      price: product.priceCny.toFixed(2),
+      priceCurrency: "CNY",
+      availability: product.inStock
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+      url: `https://jp-buy.com/products/${product.id}`,
+      seller: {
+        "@type": "Organization",
+        name: product.platformName,
+      },
+    },
+    aggregateRating: product.rating
+      ? {
+          "@type": "AggregateRating",
+          ratingValue: product.rating.toString(),
+          reviewCount: product.reviewCount.toString(),
+        }
+      : undefined,
+    brand: {
+      "@type": "Brand",
+      name: product.sellerName || product.platformName,
+    },
+    sku: product.platformProductId,
+    mpn: product.platformProductId,
+    gtin: product.platformProductId,
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Breadcrumb */}
       <nav className="mb-6 text-sm">
         <ol className="flex items-center gap-2 text-muted-foreground">
@@ -225,10 +266,13 @@ export default function ProductDetailPage() {
         <div>
           <div className="relative aspect-square bg-muted rounded-lg overflow-hidden mb-4">
             {product.images && product.images.length > 0 ? (
-              <img
+              <Image
                 src={product.images[selectedImage]}
                 alt={product.title}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
+                priority
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -254,7 +298,7 @@ export default function ProductDetailPage() {
                     selectedImage === idx ? "border-primary" : "border-transparent"
                   }`}
                 >
-                  <img src={img} alt={`${product.title} ${idx + 1}`} className="w-full h-full object-cover" />
+                  <Image src={img} alt={`${product.title} ${idx + 1}`} fill className="object-cover" sizes="80px" />
                 </button>
               ))}
             </div>
@@ -486,7 +530,7 @@ export default function ProductDetailPage() {
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                     <div className="relative h-40 bg-muted">
                       {p.images && p.images[0] ? (
-                        <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" />
+                        <Image src={p.images[0]} alt={p.title} fill className="object-cover" sizes="(max-width: 768px) 50vw, 25vw" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
                           {lang === "zh" ? "无图片" : lang === "en" ? "No Image" : "画像なし"}
