@@ -55,8 +55,9 @@ export default function HomePage() {
   };
 
   const switchLocale = (newLocale: string) => {
-    const current = pathname;
-    return `/${newLocale}${current === "/" ? "" : current}`;
+    // Remove current locale prefix from pathname
+    const currentPath = pathname.replace(/^\/(zh|en)/, '') || '/';
+    return `/${newLocale}${currentPath === "/" ? "" : currentPath}`;
   };
 
   useEffect(() => {
