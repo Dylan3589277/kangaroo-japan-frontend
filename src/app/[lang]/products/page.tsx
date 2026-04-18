@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
@@ -83,16 +83,10 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState<string>("createdAt_desc");
   const [priceMin, setPriceMin] = useState<string>("");
   const [priceMax, setPriceMax] = useState<string>("");
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [imgErrorProducts, setImgErrorProducts] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    fetchCategories();
-  }, [lang]);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [lang, selectedPlatform, selectedCategory, sortBy, pagination.page]);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const res = await api.getCategories(lang);
       if (res.success && res.data && Array.isArray(res.data)) {
@@ -101,9 +95,9 @@ export default function ProductsPage() {
     } catch (error) {
       console.error("Failed to fetch categories:", error);
     }
-  };
+  }, [lang]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = {
@@ -126,26 +120,41 @@ export default function ProductsPage() {
         params.priceMax = Number(priceMax);
       }
 
+      // Preserve search state for pagination
+      if (searchQuery.trim() && isSearchMode) {
+        params.search = searchQuery;
+      }
+
       const res = await api.getProducts(params);
       if (res.success && res.data && typeof res.data === 'object') {
         const data = res.data as any;
         setProducts(Array.isArray(data.data) ? data.data : []);
-        setPagination(data.pagination || pagination);
+        setPagination((prev) => data.pagination || prev);
       }
     } catch (error) {
       console.error("Failed to fetch products:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [lang, selectedPlatform, selectedCategory, sortBy, pagination.page, priceMin, priceMax, searchQuery, isSearchMode]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) {
+      setIsSearchMode(false);
       fetchProducts();
       return;
     }
 
+    setIsSearchMode(true);
     setLoading(true);
     try {
       // 使用统一搜索 API（并行搜索 Rakuten + Yahoo）
@@ -167,7 +176,21 @@ export default function ProductsPage() {
   };
 
   const handlePageChange = (newPage: number) => {
-    setPagination((prev) => ({ ...prev, page: newPage }));
+    if (isSearchMode && searchQuery.trim()) {
+      // Re-run search with new page
+      setPagination((prev) => ({ ...prev, page: newPage }));
+      setLoading(true);
+      api.unifiedSearch({ keyword: searchQuery, page: newPage, limit: 20 }).then((res) => {
+        if (res.success && res.data && typeof res.data === 'object') {
+          const data = res.data as any;
+          setProducts(Array.isArray(data.items) ? data.items : []);
+          setPagination((prev) => data.pagination || prev);
+        }
+        setLoading(false);
+      }).catch(() => setLoading(false));
+    } else {
+      setPagination((prev) => ({ ...prev, page: newPage }));
+    }
   };
 
   const getPriceByCurrency = (product: Product) => {
@@ -175,9 +198,9 @@ export default function ProductsPage() {
       case "en":
         return `$${product.priceUsd.toFixed(2)}`;
       case "ja":
-        return `¥${product.priceJpy.toLocaleString()}`;
+        return `¥${Number(product.priceJpy).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
       default:
-        return `¥${product.priceCny.toFixed(2)}`;
+        return `¥${Number(product.priceCny).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
     }
   };
 
@@ -383,13 +406,16 @@ export default function ProductsPage() {
               <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                 {/* Image */}
                 <div className="relative h-48 bg-muted">
-                  {product.images && product.images[0] ? (
+                  {product.images && product.images[0] && !imgErrorProducts.has(product.id) ? (
                     <Image
                       src={product.images[0]}
                       alt={product.title}
                       fill
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                      onError={() => {
+                        setImgErrorProducts((prev) => new Set(prev).add(product.id));
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -434,7 +460,7 @@ export default function ProductsPage() {
                     </span>
                     {lang === "ja" && (
                       <span className="text-sm text-muted-foreground">
-                        (¥{Number(product.priceJpy).toLocaleString()})
+                        (¥{Number(product.priceJpy).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")})
                       </span>
                     )}
                   </div>

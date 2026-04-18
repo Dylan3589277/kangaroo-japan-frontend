@@ -5,7 +5,7 @@ import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/lib/auth";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface HeaderProps {
   showSearch?: boolean;
@@ -21,6 +21,23 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
   const { isAuthenticated, user } = useAuthStore();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMobileMenuOpen(false);
+      }
+    };
+    if (mobileMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [mobileMenuOpen]);
 
   const navItems = [
     { key: "home", href: "/", label: t("nav.home") },
@@ -79,8 +96,25 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
           </nav>
         </div>
 
+        {/* Mobile hamburger button */}
+        <button
+          className="md:hidden p-2 text-zinc-600 hover:text-rose-600"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          {mobileMenuOpen ? (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+
         <div className="flex items-center gap-4">
-          {/* Auth Nav */}
+          {/* Auth Nav - desktop */}
           <nav className="hidden md:flex items-center gap-4">
             {authNavItems.map((item) => (
               <Link
@@ -111,6 +145,35 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
           </div>
         </div>
       </div>
+
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <div ref={menuRef} className="md:hidden border-t bg-white">
+          <nav className="flex flex-col px-4 py-3 gap-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.key}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm font-medium text-zinc-600 hover:text-rose-600 hover:bg-rose-50 rounded px-3 py-2 transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
+            <div className="border-t my-2 pt-2" />
+            {authNavItems.map((item) => (
+              <Link
+                key={item.key}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm font-medium text-zinc-600 hover:text-rose-600 hover:bg-rose-50 rounded px-3 py-2 transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
 
       {/* Search Bar (optional) */}
       {showSearch && (

@@ -89,6 +89,86 @@ export default function CartPage() {
   const lang = (params.lang as string) || "zh";
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
+  // Simple i18n mapping
+  const i18n: Record<string, Record<string, string>> = {
+    zh: {
+      shoppingCart: "购物车",
+      yourCartIsEmpty: "购物车是空的",
+      startShopping: "开始购物以添加商品",
+      browseProducts: "浏览商品",
+      clearAll: "清空购物车",
+      orderSummary: "订单摘要",
+      items: "商品",
+      subtotalJpy: "小计 (JPY)",
+      estimatedShipping: "预计运费",
+      total: "总计",
+      proceedToCheckout: "去结算",
+      shippingFinalized: "运费将在结算时确定",
+      unknownSeller: "未知卖家",
+      noImage: "无图片",
+      giftWrap: "礼品包装 🎁",
+      messageForSeller: "留言给卖家（可选）",
+      save: "保存",
+      remove: "删除",
+      subtotal: "小计",
+      quantityUpdated: "数量已更新",
+      itemRemoved: "商品已从购物车移除",
+      messageSaved: "留言已保存",
+      confirmClear: "确定要清空购物车吗？",
+    },
+    en: {
+      shoppingCart: "Shopping Cart",
+      yourCartIsEmpty: "Your cart is empty",
+      startShopping: "Start shopping to add items to your cart",
+      browseProducts: "Browse Products",
+      clearAll: "Clear All",
+      orderSummary: "Order Summary",
+      items: "Items",
+      subtotalJpy: "Subtotal (JPY)",
+      estimatedShipping: "Estimated Shipping",
+      total: "Total",
+      proceedToCheckout: "Proceed to Checkout",
+      shippingFinalized: "Shipping cost will be finalized at checkout",
+      unknownSeller: "Unknown Seller",
+      noImage: "No Image",
+      giftWrap: "Gift Wrap 🎁",
+      messageForSeller: "Message for seller (optional)",
+      save: "Save",
+      remove: "Remove",
+      subtotal: "Subtotal",
+      quantityUpdated: "Quantity updated",
+      itemRemoved: "Item removed from cart",
+      messageSaved: "Message saved",
+      confirmClear: "Are you sure you want to clear all items?",
+    },
+    ja: {
+      shoppingCart: "カート",
+      yourCartIsEmpty: "カートは空です",
+      startShopping: "ショッピングを始めてカートに商品を追加しましょう",
+      browseProducts: "商品を見る",
+      clearAll: "全てクリア",
+      orderSummary: "注文概要",
+      items: "商品",
+      subtotalJpy: "小計 (JPY)",
+      estimatedShipping: "配送料（約）",
+      total: "合計",
+      proceedToCheckout: "お会計へ進む",
+      shippingFinalized: "送料はチェックアウト時に確定します",
+      unknownSeller: "不明な卖家",
+      noImage: "画像なし",
+      giftWrap: "ギフト包装 🎁",
+      messageForSeller: "卖家へのメッセージ（任意）",
+      save: "保存",
+      remove: "削除",
+      subtotal: "小計",
+      quantityUpdated: "数量を更新しました",
+      itemRemoved: "商品をカートから削除しました",
+      messageSaved: "メッセージを保存しました",
+      confirmClear: "カートを空にしてよろしいですか？",
+    },
+  };
+  const tr = (key: string) => i18n[lang]?.[key] || i18n["en"][key] || key;
+
   const [cart, setCart] = useState<CartData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -127,7 +207,7 @@ export default function CartPage() {
       const res = await api.updateCartItem(itemId, { quantity });
       if (res.success && res.data) {
         setCart(res.data as CartData);
-        toast.success("Quantity updated");
+        toast.success(tr("quantityUpdated"));
       } else {
         toast.error(res.error?.message || "Failed to update quantity");
       }
@@ -144,7 +224,7 @@ export default function CartPage() {
       const res = await api.removeCartItem(itemId);
       if (res.success && res.data) {
         setCart(res.data as CartData);
-        toast.success("Item removed from cart");
+        toast.success(tr("itemRemoved"));
       } else {
         toast.error(res.error?.message || "Failed to remove item");
       }
@@ -162,7 +242,7 @@ export default function CartPage() {
       const res = await api.updateCartItem(itemId, { buyerMessage: message });
       if (res.success && res.data) {
         setCart(res.data as CartData);
-        toast.success("Message saved");
+        toast.success(tr("messageSaved"));
       } else {
         toast.error(res.error?.message || "Failed to save message");
       }
@@ -174,13 +254,13 @@ export default function CartPage() {
   };
 
   const handleClearCart = async () => {
-    if (!confirm("Are you sure you want to clear all items?")) return;
+    if (!confirm(tr("confirmClear"))) return;
     setLoading(true);
     try {
       const res = await api.clearCart();
       if (res.success) {
-        setCart({ ...cart!, items: [], summary: { ...cart!.summary, totalItems: 0, subtotalJpy: 0, subtotalCny: 0 }, groupedBySeller: [] });
-        toast.success("Cart cleared");
+        setCart(null);
+        toast.success(tr("shoppingCart") + " cleared");
       } else {
         toast.error(res.error?.message || "Failed to clear cart");
       }
@@ -194,7 +274,7 @@ export default function CartPage() {
   if (authLoading || loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-8">Shopping Cart</h1>
+        <h1 className="text-2xl font-bold mb-8">{tr("shoppingCart")}</h1>
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="p-4">
@@ -217,10 +297,10 @@ export default function CartPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">🛒</div>
-        <h1 className="text-2xl font-bold mb-2">Your cart is empty</h1>
-        <p className="text-muted-foreground mb-8">Start shopping to add items to your cart</p>
+        <h1 className="text-2xl font-bold mb-2">{tr("yourCartIsEmpty")}</h1>
+        <p className="text-muted-foreground mb-8">{tr("startShopping")}</p>
         <Link href={`/${lang}/products`}>
-          <Button>Browse Products</Button>
+          <Button>{tr("browseProducts")}</Button>
         </Link>
       </div>
     );
@@ -233,9 +313,9 @@ export default function CartPage() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold">Shopping Cart</h1>
+          <h1 className="text-2xl font-bold">{tr("shoppingCart")}</h1>
           <Button variant="outline" size="sm" onClick={handleClearCart}>
-            Clear All
+            {tr("clearAll")}
           </Button>
         </div>
 
@@ -246,7 +326,7 @@ export default function CartPage() {
             <Card key={group.seller.id || "unknown"} className="p-4">
               <div className="flex items-center gap-2 mb-4 pb-3 border-b">
                 <div className="font-medium">
-                  {group.seller.name || "Unknown Seller"}
+                  {group.seller.name || tr("unknownSeller")}
                 </div>
               </div>
 
@@ -265,7 +345,7 @@ export default function CartPage() {
                         />
                       ) : (
                         <div className="w-20 h-20 bg-gray-100 rounded border flex items-center justify-center text-gray-400 text-xs">
-                          No Image
+                          {tr("noImage")}
                         </div>
                       )}
                     </Link>
@@ -320,14 +400,14 @@ export default function CartPage() {
                       {/* Options */}
                       {item.options && Object.keys(item.options).length > 0 && (
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {(item.options as any).gift_wrap && <span>Gift Wrap 🎁</span>}
+                          {(item.options as any).gift_wrap && <span>{tr("giftWrap")}</span>}
                         </div>
                       )}
 
                       {/* Buyer Message */}
                       <div className="mt-2 flex gap-2">
                         <Input
-                          placeholder="Message for seller (optional)"
+                          placeholder={tr("messageForSeller")}
                           value={messages[item.id] ?? item.buyerMessage ?? ""}
                           onChange={(e) =>
                             setMessages((prev) => ({ ...prev, [item.id]: e.target.value }))
@@ -337,7 +417,7 @@ export default function CartPage() {
                         />
                         {(messages[item.id] !== item.buyerMessage) && (
                           <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={() => handleSaveMessage(item.id)}>
-                            Save
+                            {tr("save")}
                           </Button>
                         )}
                       </div>
@@ -351,7 +431,7 @@ export default function CartPage() {
                           onClick={() => handleRemoveItem(item.id)}
                           disabled={updating === item.id}
                         >
-                          Remove
+                          {tr("remove")}
                         </Button>
                         <div className="text-sm">
                           <span className="text-muted-foreground line-through mr-2">
@@ -370,7 +450,7 @@ export default function CartPage() {
               {/* Seller Subtotal */}
               <div className="mt-4 pt-3 border-t flex justify-end">
                 <div className="text-sm">
-                  Subtotal: <span className="font-medium">¥{Math.round(group.subtotal).toLocaleString()}</span>
+                  {tr("subtotal")}: <span className="font-medium">¥{Math.round(group.subtotal).toLocaleString()}</span>
                 </div>
               </div>
             </Card>
@@ -380,25 +460,25 @@ export default function CartPage() {
         {/* Summary */}
         <div className="lg:col-span-1">
           <Card className="p-4 sticky top-4">
-            <h2 className="font-semibold mb-4">Order Summary</h2>
+            <h2 className="font-semibold mb-4">{tr("orderSummary")}</h2>
 
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Items ({cart.summary.totalItems})</span>
+                <span className="text-muted-foreground">{tr("items")} ({cart.summary.totalItems})</span>
                 <span>{formatCurrency(cart.summary.subtotalCny, "CNY")}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal (JPY)</span>
+                <span className="text-muted-foreground">{tr("subtotalJpy")}</span>
                 <span>¥{Math.round(cart.summary.subtotalJpy).toLocaleString()}</span>
               </div>
               <Separator />
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Estimated Shipping</span>
+                <span className="text-muted-foreground">{tr("estimatedShipping")}</span>
                 <span>{formatCurrency(cart.summary.estimatedShippingCny, "CNY")}</span>
               </div>
               <Separator />
               <div className="flex justify-between font-semibold text-base">
-                <span>Total</span>
+                <span>{tr("total")}</span>
                 <span>{formatCurrency(cart.summary.totalCny, "CNY")}</span>
               </div>
             </div>
@@ -408,11 +488,11 @@ export default function CartPage() {
               size="lg"
               onClick={() => router.push(`/${lang}/checkout`)}
             >
-              Proceed to Checkout
+              {tr("proceedToCheckout")}
             </Button>
 
             <p className="text-xs text-muted-foreground mt-3 text-center">
-              Shipping cost will be finalized at checkout
+              {tr("shippingFinalized")}
             </p>
           </Card>
         </div>
