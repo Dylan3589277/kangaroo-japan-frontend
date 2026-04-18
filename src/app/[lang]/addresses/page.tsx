@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,13 +58,10 @@ const COUNTRIES = [
   { value: "OTHER", label: "其他" },
 ];
 
-export default function AddressesPage({
-  params,
-}: {
-  params: Promise<{ lang: string }>;
-}) {
+export default function AddressesPage() {
   const t = useTranslations("address");
-  const tAuth = useTranslations("auth");
+  const params = useParams();
+  const lang = (params.lang as string) || "zh";
   const { isAuthenticated } = useAuthStore();
 
   const [addresses, setAddresses] = useState<Address[]>([]);

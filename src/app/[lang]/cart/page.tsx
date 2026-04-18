@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
+import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -226,13 +227,17 @@ export default function CartPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Shopping Cart</h1>
-        <Button variant="outline" size="sm" onClick={handleClearCart}>
-          Clear All
-        </Button>
-      </div>
+    <div className="min-h-screen bg-zinc-50">
+      {/* 全局 Header */}
+      <Header />
+
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-bold">Shopping Cart</h1>
+          <Button variant="outline" size="sm" onClick={handleClearCart}>
+            Clear All
+          </Button>
+        </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Items List */}
@@ -411,6 +416,7 @@ export default function CartPage() {
             </p>
           </Card>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Link, usePathname } from "@/i18n/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { routing } from "@/i18n/routing";
 import { useParams } from "next/navigation";
@@ -100,10 +100,12 @@ export default function HomePage() {
     }
   };
 
+  const router = useRouter();
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `/${lang}/products?search=${encodeURIComponent(searchQuery)}`;
+      router.push(`/${lang}/products?search=${encodeURIComponent(searchQuery)}`);
     }
   };
 

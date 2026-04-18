@@ -6,12 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/_next/", "/checkout", "/profile", "/orders"],
-      },
-      {
-        userAgent: "Googlebot",
-        allow: "/",
-        disallow: ["/api/", "/_next/", "/checkout", "/profile", "/orders"],
+        disallow: ["/api/", "/_next/", "/checkout", "/profile", "/orders", "/cart"],
       },
     ],
     sitemap: "https://jp-buy.com/sitemap.xml",

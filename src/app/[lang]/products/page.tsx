@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
+import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +24,6 @@ interface Product {
   platform: string;
   platformName: string;
   title: string;
-  coverImage?: string;
   priceJpy: number;
   priceCny: number;
   priceUsd: number;
@@ -35,6 +35,11 @@ interface Product {
   salesCount: number;
   inStock: boolean;
   status: string;
+  // UnifiedSearch 额外字段
+  url?: string;
+  brand?: string;
+  itemCondition?: string;
+  shipping?: string;
 }
 
 interface Category {
@@ -55,7 +60,9 @@ const PLATFORM_COLORS: Record<string, string> = {
 
 export default function ProductsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
+  const initialSearch = searchParams.get("search") || "";
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -70,7 +77,7 @@ export default function ProductsPage() {
   });
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("createdAt_desc");
@@ -188,18 +195,39 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="min-h-screen bg-zinc-50">
+      {/* 全局 Header */}
+      <Header
+        showSearch
+        initialSearchQuery={initialSearch}
+        onSearch={(query) => {
+          setSearchQuery(query);
+          if (query.trim()) {
+            // Trigger search
+            const form = document.getElementById("search-form") as HTMLFormElement;
+            if (form) form.requestSubmit();
+          }
+        }}
+      />
+
       {/* JSON-LD Structured Data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productsJsonLd) }}
       />
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">
-          {lang === "zh" ? "商品列表" : lang === "en" ? "Products" : "商品一覧"}
-        </h1>
-        <p className="text-muted-foreground">
+
+      <div className="container mx-auto py-8 px-4">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">
+            {lang === "zh" ? "商品列表" : lang === "en" ? "Products" : "商品一覧"}
+            {initialSearch && (
+              <span className="ml-2 text-lg font-normal text-muted-foreground">
+                - {initialSearch}
+              </span>
+            )}
+          </h1>
+          <p className="text-muted-foreground">
           {lang === "zh"
             ? "浏览我们的跨境电商比价商品"
             : lang === "en"
@@ -209,7 +237,7 @@ export default function ProductsPage() {
       </div>
 
       {/* Search Bar */}
-      <form onSubmit={handleSearch} className="mb-6">
+      <form id="search-form" onSubmit={handleSearch} className="mb-6">
         <div className="flex gap-2">
           <Input
             type="text"
@@ -439,6 +467,7 @@ export default function ProductsPage() {
           </Button>
         </div>
       )}
+      </div>
     </div>
   );
 }
