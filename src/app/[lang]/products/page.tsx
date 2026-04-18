@@ -151,14 +151,11 @@ export default function ProductsPage() {
       const doInitialSearch = async () => {
         setLoading(true);
         try {
-          const res = await api.unifiedSearch({
-            keyword: initialSearch,
-            page: 1,
-            limit: 20,
-          });
+          // 使用内部搜索 API（不需要认证）
+          const res = await api.searchProducts(initialSearch, lang, 1, 20);
           if (res.success && res.data && typeof res.data === 'object') {
             const data = res.data as any;
-            setProducts(Array.isArray(data.items) ? data.items : []);
+            setProducts(Array.isArray(data.data) ? data.data : []);
             setPagination((prev) => data.pagination || prev);
           }
         } catch (error) {

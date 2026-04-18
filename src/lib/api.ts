@@ -62,7 +62,20 @@ class ApiClient {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
       const data = await response.json();
-      return data;
+      
+      // Handle both response formats:
+      // 1. { success: true, data: {...} } - wrapped format
+      // 2. { data: [...], pagination: {...} } - direct format (Railway backend)
+      if (typeof data === 'object' && data !== null) {
+        if ('success' in data && data.success === true) {
+          return data as ApiResponse<T>;
+        }
+        if ('data' in data || 'items' in data) {
+          return { success: true, data } as ApiResponse<T>;
+        }
+      }
+      
+      return { success: true, data } as ApiResponse<T>;
     } catch (error) {
       console.error("API request failed:", error);
       return {
