@@ -184,15 +184,11 @@ export default function ProductsPage() {
     setIsSearchMode(true);
     setLoading(true);
     try {
-      // 使用统一搜索 API（并行搜索 Rakuten + Yahoo）
-      const res = await api.unifiedSearch({
-        keyword: searchQuery,
-        page: pagination.page,
-        limit: 20,
-      });
+      // 使用内部搜索 API（不需要认证）
+      const res = await api.searchProducts(searchQuery, lang, pagination.page, 20);
       if (res.success && res.data && typeof res.data === 'object') {
         const data = res.data as any;
-        setProducts(Array.isArray(data.items) ? data.items : []);
+        setProducts(Array.isArray(data.data) ? data.data : []);
         setPagination(data.pagination || pagination);
       }
     } catch (error) {
@@ -207,10 +203,10 @@ export default function ProductsPage() {
       // Re-run search with new page
       setPagination((prev) => ({ ...prev, page: newPage }));
       setLoading(true);
-      api.unifiedSearch({ keyword: searchQuery, page: newPage, limit: 20 }).then((res) => {
+      api.searchProducts(searchQuery, lang, newPage, 20).then((res) => {
         if (res.success && res.data && typeof res.data === 'object') {
           const data = res.data as any;
-          setProducts(Array.isArray(data.items) ? data.items : []);
+          setProducts(Array.isArray(data.data) ? data.data : []);
           setPagination((prev) => data.pagination || prev);
         }
         setLoading(false);
