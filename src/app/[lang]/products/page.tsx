@@ -142,9 +142,36 @@ export default function ProductsPage() {
     fetchCategories();
   }, [fetchCategories]);
 
+  // Handle initial search from URL
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    if (initialSearch && initialSearch.trim()) {
+      setSearchQuery(initialSearch);
+      setIsSearchMode(true);
+      // Trigger initial search
+      const doInitialSearch = async () => {
+        setLoading(true);
+        try {
+          const res = await api.unifiedSearch({
+            keyword: initialSearch,
+            page: 1,
+            limit: 20,
+          });
+          if (res.success && res.data && typeof res.data === 'object') {
+            const data = res.data as any;
+            setProducts(Array.isArray(data.items) ? data.items : []);
+            setPagination((prev) => data.pagination || prev);
+          }
+        } catch (error) {
+          console.error("Failed to initial search:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      doInitialSearch();
+    } else {
+      fetchProducts();
+    }
+  }, [initialSearch]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();

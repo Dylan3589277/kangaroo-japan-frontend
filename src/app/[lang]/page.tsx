@@ -8,6 +8,7 @@ import { routing } from "@/i18n/routing";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
+import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -124,60 +125,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl">🦘</span>
-              <span className="text-xl font-bold text-rose-600">{t("home.title")}</span>
-            </Link>
-            <nav className="hidden md:flex items-center gap-6">
-              {navItems.map((item) => (
-                <Link
-                  key={item.key}
-                  href={item.href}
-                  className="text-sm font-medium text-zinc-600 hover:text-rose-600 transition-colors"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Auth Nav */}
-            <nav className="hidden md:flex items-center gap-4">
-              {authNavItems.map((item) => (
-                <Link
-                  key={item.key}
-                  href={item.href}
-                  className="text-sm font-medium text-zinc-600 hover:text-rose-600 transition-colors"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-
-            {/* Language Switcher */}
-            <div className="flex items-center gap-1">
-              {routing.locales.map((locale) => (
-                <Link
-                  key={locale}
-                  href={switchLocale(locale)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
-                    lang === locale
-                      ? "bg-rose-600 text-white"
-                      : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                  }`}
-                >
-                  {locale.toUpperCase()}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* 全局 Header - 固定顶部 */}
+      <Header showSearch />
 
       {/* Hero */}
       <section className="bg-gradient-to-br from-rose-50 to-orange-50 py-16 md:py-24">
