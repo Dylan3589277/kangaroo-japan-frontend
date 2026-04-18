@@ -170,6 +170,31 @@ export default function ProductsPage() {
     }
   }, [initialSearch]);
 
+  // 直接搜索函数（不依赖表单事件）
+  const handleSearchDirectly = async (query: string) => {
+    if (!query.trim()) {
+      setIsSearchMode(false);
+      fetchProducts();
+      return;
+    }
+
+    setIsSearchMode(true);
+    setLoading(true);
+    try {
+      // 使用内部搜索 API（不需要认证）
+      const res = await api.searchProducts(query, lang, 1, 20);
+      if (res.success && res.data && typeof res.data === 'object') {
+        const data = res.data as any;
+        setProducts(Array.isArray(data.data) ? data.data : []);
+        setPagination((prev) => data.pagination || prev);
+      }
+    } catch (error) {
+      console.error("Failed to search products:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) {
@@ -246,9 +271,8 @@ export default function ProductsPage() {
         onSearch={(query) => {
           setSearchQuery(query);
           if (query.trim()) {
-            // Trigger search
-            const form = document.getElementById("search-form") as HTMLFormElement;
-            if (form) form.requestSubmit();
+            // 直接触发搜索，不依赖表单提交
+            handleSearchDirectly(query);
           }
         }}
       />
