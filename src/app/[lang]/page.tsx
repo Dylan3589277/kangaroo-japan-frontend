@@ -398,6 +398,11 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t bg-white py-8">
         <div className="mx-auto max-w-7xl px-4 text-center text-sm text-zinc-500">
+          <div className="flex justify-center gap-6 mb-4">
+            <a href="/contact" className="hover:text-rose-600 transition-colors">联系客服</a>
+            <a href="/faq" className="hover:text-rose-600 transition-colors">FAQ</a>
+            <a href="/about" className="hover:text-rose-600 transition-colors">关于我们</a>
+          </div>
           <p>© 2026 Kangaroo Japan. All rights reserved.</p>
         </div>
       </footer>
