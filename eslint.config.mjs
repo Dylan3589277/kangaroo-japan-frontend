@@ -16,7 +16,7 @@ const eslintConfig = defineConfig([
   {
     rules: {
       // Allow explicit any for API client flexibility (pre-existing pattern)
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
     },
   },
 ]);
