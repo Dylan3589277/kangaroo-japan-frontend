@@ -19,7 +19,7 @@
 | Phase 1 - 初始化 & 设计 | ✅ 完成   | 2026-04-16 | 完成项目初始化、技术选型、数据库设计、API设计、开发环境搭建 |
 | Phase 2 - 核心功能开发  | ✅ 完成   | 2026-04-16 | 完成用户认证、商品模块、购物车、订单、支付                  |
 | Phase 3 - 前后端联调    | ✅ 完成   | 2026-04-16 | 完成API对接、Bug修复、全部接口验证通过                      |
-| Phase 4 - 测试 & 上线   | ⏳ 待开始 | -          | 完成测试并部署                                              |
+| Phase 4 - 测试 & 上线   | 🔄 进行中 | 2026-04-23 | 完成测试并部署                                              |
 
 ---
 
@@ -188,6 +188,44 @@
 
 ---
 
+## Phase 4 测试验证 ✅ 进行中
+
+> 执行日期: 2026-04-23
+
+### 4.1 后端测试 ✅
+
+```
+✅ npm test — 1 passed (AppController root test)
+✅ npm run test:cov — 通过，覆盖率已生成
+   - 所有测试套件: 1 passed
+   - 所有测试用例: 1 passed
+```
+
+### 4.2 前端构建 ✅
+
+```
+✅ npm run build — Next.js 16 构建成功
+   - TypeScript 编译通过
+   - Turbopack 构建成功 (1865ms)
+   - 静态页面生成: 6/6 完成
+   - 所有页面路由已生成:
+     /, /[lang], /[lang]/addresses, /[lang]/cart
+     /[lang]/checkout, /[lang]/compare, /[lang]/contact
+     /[lang]/login, /[lang]/orders, /[lang]/orders/[id]
+     /[lang]/products, /[lang]/products/[id]
+     /[lang]/profile, /[lang]/register
+     /robots.txt, /sitemap.xml
+```
+
+### 4.3 Git 状态
+
+```
+后端: 已同步，无待提交更改 (最后提交: 02a9bbc4)
+前端: 已同步，无待提交更改
+```
+
+---
+
 ## 已完成的工作
 
 ### Phase 1 完成项
@@ -207,7 +245,7 @@
 
 ## 下次行动
 
-### Phase 4 待开始 ⏳
+### Phase 4 测试 & 上线 🔄 进行中
 
 1. **端到端测试**
    - 编写 E2E 测试用例
