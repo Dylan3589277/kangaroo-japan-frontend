@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
 import { Calendar, Eye } from "lucide-react";
 
 interface ArticleItem {
@@ -101,20 +102,18 @@ export default function ArticlesPage() {
       // Note: non-append loading state is managed by the caller (useEffect)
 
       try {
-        const res = await fetch("/api/articles/index", {
+        const res = await api.request("/articles/index", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
+          body: {
             page: pageNum,
             pageSize: 10,
             category_id: categoryId > 0 ? categoryId : undefined,
-          }),
+          },
         });
-        const data: { code: number; data: ArticleData } = await res.json();
-        if (data.code === 0 && data.data) {
-          const items = data.data.list || [];
-          const pages = data.data.totalPages || 1;
+        if (res.success && res.data) {
+          const d = res.data as any;
+          const items = d.list || [];
+          const pages = d.totalPages || 1;
           if (append) {
             setArticles((prev) => [...prev, ...items]);
           } else {
@@ -153,16 +152,16 @@ export default function ArticlesPage() {
 
   useEffect(() => {
     setLoading(true);
-    if (categoryRef.current !== activeCategory) {
-      categoryRef.current = activeCategory;
-      fetchArticles(1, activeCategory).finally(() => {
-        setLoading(false);
+    const initialFetch = async () => {
+      if (categoryRef.current !== activeCategory) {
+        categoryRef.current = activeCategory;
+        await fetchArticles(1, activeCategory);
         setPage(1);
-      });
-    } else {
-      // Initial load only
-      fetchArticles(1, activeCategory).finally(() => setLoading(false));
-    }
+      } else {
+        await fetchArticles(1, activeCategory);
+      }
+    };
+    initialFetch().finally(() => setLoading(false));
   }, [activeCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadMore = () => {

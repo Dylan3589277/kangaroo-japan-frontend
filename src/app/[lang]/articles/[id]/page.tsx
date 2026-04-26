@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
 import { Calendar, Eye, ArrowLeft } from "lucide-react";
 
 interface ArticleDetail {
@@ -104,15 +105,12 @@ export default function ArticleDetailPage() {
     const doFetch = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/articles/detail", {
+        const res = await api.request("/articles/detail", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ id: articleId }),
+          body: { id: articleId },
         });
-        const data: { code: number; data: ArticleDetail } = await res.json();
-        if (data.code === 0 && data.data) {
-          setArticle(data.data);
+        if (res.success && res.data) {
+          setArticle(res.data as unknown as ArticleDetail);
           return;
         }
       } catch {

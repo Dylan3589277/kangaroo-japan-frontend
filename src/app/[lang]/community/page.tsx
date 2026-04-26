@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { api } from "@/lib/api";
 import { Heart, MessageCircle, Plus } from "lucide-react";
 
 interface CommunityItem {
@@ -91,16 +92,14 @@ export default function CommunityPage() {
 
     try {
       // Try API first
-      const res = await fetch("/api/community/index", {
+      const res = await api.request("/community/index", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ page: pageNum, pageSize: 10 }),
+        body: { page: pageNum, pageSize: 10 },
       });
-      const data: { code: number; data: CommunityData } = await res.json();
-      if (data.code === 0 && data.data) {
-        const items = data.data.list || [];
-        const pages = data.data.totalPages || 1;
+      if (res.success && res.data) {
+        const d = res.data as any;
+        const items = d.list || [];
+        const pages = d.totalPages || 1;
         if (append) {
           setList((prev) => [...prev, ...items]);
         } else {
@@ -133,16 +132,14 @@ export default function CommunityPage() {
       setLoading(true);
       try {
         // Try API first
-        const res = await fetch("/api/community/index", {
+        const res = await api.request("/community/index", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ page: 1, pageSize: 10 }),
+          body: { page: 1, pageSize: 10 },
         });
-        const data: { code: number; data: CommunityData } = await res.json();
-        if (data.code === 0 && data.data) {
-          const items = data.data.list || [];
-          const pages = data.data.totalPages || 1;
+        if (res.success && res.data) {
+          const d = res.data as any;
+          const items = d.list || [];
+          const pages = d.totalPages || 1;
           setList(items);
           setTotalPages(pages);
           return;

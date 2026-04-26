@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { api } from "@/lib/api";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 
 const MAX_IMAGES = 9;
@@ -75,18 +76,17 @@ export default function CommunityCreatePage() {
         formData.append("images[]", file);
       });
 
-      const res = await fetch("/api/community/submit", {
+      const res = await api.request("/community/submit", {
         method: "POST",
-        credentials: "include",
         body: formData,
+        headers: {},
       });
-      const data = await res.json();
 
-      if (data.code === 0) {
+      if (res.success) {
         // Success — navigate back to community list
         router.push(`/${lang}/community`);
       } else {
-        throw new Error(data.message || "Submit failed");
+        throw new Error(res.error?.message || "Submit failed");
       }
     } catch {
       // Mock success fallback
