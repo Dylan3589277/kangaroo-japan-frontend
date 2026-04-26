@@ -20,62 +20,139 @@ interface ApiResponse<T = any> {
 
 class ApiClient {
   private baseUrl: string;
+  private isRefreshing = false;
+  private refreshQueue: Array<(token: string | null) => void> = [];
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: ApiOptions = {}
-  ): Promise<ApiResponse<T>> {
-    const { method = "GET", body, headers = {}, credentials = "include" } = options;
-
-    // Get token from auth store if available (browser only)
-    let authHeaders: Record<string, string> = {};
-    if (typeof window !== 'undefined') {
-      try {
-        const { useAuthStore } = await import('@/lib/auth');
-        const token = useAuthStore.getState().accessToken;
-        if (token) {
-          authHeaders = { Authorization: `Bearer ${token}` };
-        }
-      } catch {
-        // Auth store not available
+  // Request interceptor: read access token from persisted Zustand store
+  private getAccessToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = localStorage.getItem('auth-storage');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed?.state?.accessToken ?? null;
       }
+    } catch {
+      // ignore
     }
+    return null;
+  }
 
+  private buildConfig(method: string, body: any, headers: Record<string, string>, credentials: RequestCredentials, token: string | null): RequestInit {
+    const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const config: RequestInit = {
       method,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...authHeaders,
         ...headers,
       },
       credentials,
     };
+    if (body) config.body = JSON.stringify(body);
+    return config;
+  }
 
-    if (body) {
-      config.body = JSON.stringify(body);
+  private parseResponse<T>(data: unknown): ApiResponse<T> {
+    if (typeof data === 'object' && data !== null) {
+      const obj = data as Record<string, unknown>;
+      // Wrapped format: { success: true, data: {...} }
+      if ('success' in obj && obj.success === true) {
+        return obj as unknown as ApiResponse<T>;
+      }
+      // Direct format: { data: [...], pagination: {...} } (Railway backend)
+      if ('data' in obj || 'items' in obj) {
+        return { success: true, data: obj as T };
+      }
     }
+    return { success: true, data: data as T };
+  }
+
+  // Response interceptor: attempt token refresh, then retry or redirect to login
+  private async handleUnauthorized(): Promise<string | null> {
+    if (this.isRefreshing) {
+      return new Promise((resolve) => {
+        this.refreshQueue.push(resolve);
+      });
+    }
+
+    this.isRefreshing = true;
+    let newToken: string | null = null;
+
+    try {
+      const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        newToken =
+          data?.data?.tokens?.access_token ??
+          data?.data?.accessToken ??
+          data?.access_token ??
+          null;
+
+        if (newToken) {
+          const { useAuthStore } = await import('@/lib/auth');
+          useAuthStore.getState().setAccessToken(newToken);
+        }
+      }
+    } catch {
+      // refresh request failed
+    }
+
+    this.isRefreshing = false;
+    this.refreshQueue.forEach((resolve) => resolve(newToken));
+    this.refreshQueue = [];
+
+    if (!newToken && typeof window !== 'undefined') {
+      const { useAuthStore } = await import('@/lib/auth');
+      useAuthStore.getState().logout();
+      const pathParts = window.location.pathname.split('/');
+      const lang = ['zh', 'en', 'ja'].includes(pathParts[1]) ? pathParts[1] : 'zh';
+      window.location.href = `/${lang}/login`;
+    }
+
+    return newToken;
+  }
+
+  async request<T>(
+    endpoint: string,
+    options: ApiOptions = {}
+  ): Promise<ApiResponse<T>> {
+    const { method = "GET", body, headers = {}, credentials = "include" } = options;
+
+    // Request interceptor: attach Authorization header
+    const token = this.getAccessToken();
+    const config = this.buildConfig(method, body, headers, credentials, token);
 
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
-      const data = await response.json();
-      
-      // Handle both response formats:
-      // 1. { success: true, data: {...} } - wrapped format
-      // 2. { data: [...], pagination: {...} } - direct format (Railway backend)
-      if (typeof data === 'object' && data !== null) {
-        if ('success' in data && data.success === true) {
-          return data as ApiResponse<T>;
+
+      // Response interceptor: handle 401 Unauthorized
+      if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+        const newToken = await this.handleUnauthorized();
+        if (!newToken) {
+          return {
+            success: false,
+            error: { code: 'UNAUTHORIZED', message: 'Session expired' },
+          };
         }
-        if ('data' in data || 'items' in data) {
-          return { success: true, data } as ApiResponse<T>;
-        }
+        // Retry original request with refreshed token
+        const retryConfig = this.buildConfig(method, body, headers, credentials, newToken);
+        const retryResponse = await fetch(`${this.baseUrl}${endpoint}`, retryConfig);
+        const retryData = await retryResponse.json();
+        return this.parseResponse<T>(retryData);
       }
-      
-      return { success: true, data } as ApiResponse<T>;
+
+      const data = await response.json();
+      return this.parseResponse<T>(data);
     } catch (error) {
       console.error("API request failed:", error);
       return {

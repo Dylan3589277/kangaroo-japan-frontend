@@ -8,7 +8,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.amazon.co.jp" },
+      { protocol: "https", hostname: "m.media-amazon.com" },
       { protocol: "https", hostname: "**.mercari.com" },
+      { protocol: "https", hostname: "static.mercdn.net" },
       { protocol: "https", hostname: "**.rakuten.co.jp" },
       { protocol: "https", hostname: "**.shopping.yahoo.co.jp" },
       { protocol: "https", hostname: "**.auctions.yahoo.co.jp" },
