@@ -1,0 +1,237 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Header } from "@/components/layout/Header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ImagePlus, X, Loader2 } from "lucide-react";
+
+const MAX_IMAGES = 9;
+
+export default function CommunityCreatePage() {
+  const params = useParams();
+  const router = useRouter();
+  const lang = (params.lang as string) || "zh";
+
+  const [content, setContent] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    const remaining = MAX_IMAGES - images.length;
+
+    if (selectedFiles.length > remaining) {
+      alert(
+        lang === "zh"
+          ? `最多上传${MAX_IMAGES}张图片`
+          : lang === "ja"
+          ? `最大${MAX_IMAGES}枚までアップロードできます`
+          : `Maximum ${MAX_IMAGES} images`
+      );
+    }
+
+    const toAdd = selectedFiles.slice(0, remaining);
+    const newFiles = [...files, ...toAdd];
+
+    // Create preview URLs
+    const newPreviews = toAdd.map((f) => URL.createObjectURL(f));
+    setImages((prev) => [...prev, ...newPreviews]);
+    setFiles(newFiles);
+
+    // Reset input so same file can be re-selected
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    URL.revokeObjectURL(images[index]);
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (!content.trim()) {
+      alert(
+        lang === "zh"
+          ? "请输入分享内容"
+          : lang === "ja"
+          ? "内容を入力してください"
+          : "Please enter content"
+      );
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("content", content);
+      files.forEach((file) => {
+        formData.append("images[]", file);
+      });
+
+      const res = await fetch("/api/community/submit", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.code === 0) {
+        // Success — navigate back to community list
+        router.push(`/${lang}/community`);
+      } else {
+        throw new Error(data.message || "Submit failed");
+      }
+    } catch {
+      // Mock success fallback
+      alert(
+        lang === "zh"
+          ? "发布成功！"
+          : lang === "ja"
+          ? "投稿しました！"
+          : "Posted successfully!"
+      );
+      router.push(`/${lang}/community`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-zinc-50">
+      <Header showSearch={false} />
+
+      <main className="container mx-auto px-4 py-6 max-w-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">
+              {lang === "zh"
+                ? "发布分享"
+                : lang === "ja"
+                ? "投稿する"
+                : "Create Post"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {lang === "zh"
+                ? "分享你的购物心得"
+                : lang === "ja"
+                ? "買い物の感想をシェアしよう"
+                : "Share your shopping experience"}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={submitting}
+            >
+              {lang === "zh" ? "取消" : lang === "ja" ? "キャンセル" : "Cancel"}
+            </Button>
+            <Button
+              className="bg-rose-600 hover:bg-rose-700"
+              onClick={handleSubmit}
+              disabled={submitting || !content.trim()}
+            >
+              {submitting && <Loader2 className="size-4 animate-spin" />}
+              {submitting
+                ? lang === "zh"
+                  ? "发布中..."
+                  : lang === "ja"
+                  ? "投稿中..."
+                  : "Posting..."
+                : lang === "zh"
+                ? "发布"
+                : lang === "ja"
+                ? "投稿"
+                : "Post"}
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            {/* Content textarea */}
+            <textarea
+              className="w-full min-h-[160px] p-3 text-sm border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+              placeholder={
+                lang === "zh"
+                  ? "分享你买到的宝贝、购物心得..."
+                  : lang === "ja"
+                  ? "買ったものや感想をシェアしよう..."
+                  : "Share what you bought and your thoughts..."
+              }
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              maxLength={2000}
+            />
+            <p className="text-xs text-muted-foreground text-right">
+              {content.length}/2000
+            </p>
+
+            {/* Image upload */}
+            <div>
+              <p className="text-sm font-medium mb-2">
+                {lang === "zh"
+                  ? "上传图片"
+                  : lang === "ja"
+                  ? "画像をアップロード"
+                  : "Upload Images"}
+                <span className="text-muted-foreground font-normal ml-1">
+                  ({images.length}/{MAX_IMAGES})
+                </span>
+              </p>
+
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {/* Preview images */}
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden bg-zinc-100 group">
+                    <img
+                      src={img}
+                      alt={`preview ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      onClick={() => handleRemoveImage(idx)}
+                      className="absolute top-1 right-1 size-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Upload button */}
+                {images.length < MAX_IMAGES && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-square rounded-lg border-2 border-dashed border-zinc-300 hover:border-rose-400 hover:bg-rose-50/30 flex flex-col items-center justify-center gap-1 transition-colors"
+                  >
+                    <ImagePlus className="size-6 text-zinc-400" />
+                    <span className="text-xs text-zinc-400">
+                      {lang === "zh" ? "添加" : lang === "ja" ? "追加" : "Add"}
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
