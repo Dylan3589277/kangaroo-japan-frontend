@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -97,6 +98,7 @@ export default function YahooDetailPage() {
   const lang = (params.lang as string) || "zh";
   const id = params.id as string;
   const { isAuthenticated } = useAuthStore();
+  const t = useTranslations('yahoo');
 
   const [detail, setDetail] = useState<YahooDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,12 +116,6 @@ export default function YahooDetailPage() {
   const [bidHistoryLoading, setBidHistoryLoading] = useState(false);
 
   const countdown = useCountdown(detail?.left_timestamp);
-
-  const t = (zh: string, en: string, ja: string) => {
-    if (lang === "en") return en;
-    if (lang === "ja") return ja;
-    return zh;
-  };
 
   useEffect(() => {
     fetchDetail();
@@ -154,7 +150,7 @@ export default function YahooDetailPage() {
   const copyName = () => {
     if (detail?.goods_name) {
       navigator.clipboard.writeText(detail.goods_name).then(() => {
-        alert(t("已复制商品名称", "Copied item name", "商品名をコピーしました"));
+        alert(t('copiedName'));
       });
     }
   };
@@ -187,11 +183,11 @@ export default function YahooDetailPage() {
     }
 
     if (!bidAmount || Number(bidAmount) <= 0) {
-      setBidError(t("请输入有效的出价金额", "Please enter a valid bid amount", "有効な入札額を入力してください"));
+      setBidError(t('validBidAmount'));
       return;
     }
     if (!bidAgreed) {
-      setBidError(t("请阅读并同意出价协议", "Please read and agree to the bid terms", "入札条件を読み、同意してください"));
+      setBidError(t('agreeBidTerms'));
       return;
     }
 
@@ -206,13 +202,13 @@ export default function YahooDetailPage() {
         setBidDialogOpen(false);
         setBidAmount("");
         setBidAgreed(false);
-        alert(t("出价成功！", "Bid placed successfully!", "入札に成功しました！"));
+        alert(t('bidSuccess'));
         fetchDetail();
       } else {
-        setBidError(res.message || res.error?.message || t("出价失败", "Bid failed", "入札に失敗しました"));
+        setBidError(res.message || res.error?.message || t('bidFailed'));
       }
     } catch (error: any) {
-      setBidError(error.message || t("出价失败", "Bid failed", "入札に失敗しました"));
+      setBidError(error.message || t('bidFailed'));
     } finally {
       setBidLoading(false);
     }
@@ -269,10 +265,10 @@ export default function YahooDetailPage() {
       <div className="container mx-auto py-8 px-4 text-center">
         <div className="text-6xl mb-4">🔍</div>
         <h1 className="text-2xl font-bold mb-4">
-          {t("商品未找到", "Item Not Found", "商品が見つかりません")}
+          {t('emptyTitle')}
         </h1>
         <Button onClick={() => router.back()}>
-          {t("返回", "Go Back", "戻る")}
+          {t('emptyBack')}
         </Button>
       </div>
     );
@@ -299,13 +295,13 @@ export default function YahooDetailPage() {
         <ol className="flex items-center gap-2 text-muted-foreground">
           <li>
             <Link href="/" className="hover:text-primary">
-              {t("首页", "Home", "ホーム")}
+              {t('home')}
             </Link>
           </li>
           <li>/</li>
           <li>
             <Link href="/yahoo" className="hover:text-primary">
-              Yahoo{t("拍卖", " Auctions", "オークション")}
+              Yahoo{t('auctions')}
             </Link>
           </li>
           <li>/</li>
@@ -328,13 +324,13 @@ export default function YahooDetailPage() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                {t("无图片", "No Image", "画像なし")}
+                {t('noImage')}
               </div>
             )}
             {/* Status Badge */}
             {isEnded && (
               <Badge variant="destructive" className="absolute top-4 left-4 text-sm px-3 py-1">
-                {t("已结束", "Ended", "終了")}
+                {t('ended')}
               </Badge>
             )}
           </div>
@@ -369,7 +365,7 @@ export default function YahooDetailPage() {
           <h1
             className="text-2xl font-bold mb-4 cursor-pointer hover:text-primary transition-colors"
             onClick={copyName}
-            title={t("点击复制商品名称", "Click to copy item name", "クリックして商品名をコピー")}
+            title={t('clickToCopy')}
           >
             {detail.goods_name}
           </h1>
@@ -392,18 +388,18 @@ export default function YahooDetailPage() {
                 ¥{Number(detail.bid_price).toLocaleString()}
               </span>
               <span className="text-sm text-muted-foreground">
-                {t("日元", "JPY", "円")}
+                {t('yen')}
               </span>
             </div>
             <div className="text-sm text-muted-foreground mb-2">
-              {t("约", "Approx. ", "約")}¥{Number(detail.price_rmb).toFixed(2)}
-              {t("元人民币", " CNY", "元")}
+              {t('approx')}¥{Number(detail.price_rmb).toFixed(2)}
+              {t('cny')}
             </div>
             {/* Buyout Price */}
             {detail.fastprice && Number(detail.fastprice) > 0 && (
               <div className="flex items-baseline gap-2 mt-2 pt-2 border-t border-orange-200">
                 <span className="text-sm text-muted-foreground">
-                  {t("一口价", "Buyout", "即決")}:
+                  {t('buyout')}:
                 </span>
                 <span className="text-xl font-bold text-orange-600">
                   ¥{Number(detail.fastprice).toLocaleString()}
@@ -412,7 +408,7 @@ export default function YahooDetailPage() {
             )}
             {/* Exchange Rate */}
             <div className="text-xs text-muted-foreground mt-3 pt-2 border-t border-orange-200">
-              {t("当前汇率", "Current Rate", "現在のレート")}: 1日元=0.047人民币
+              {t('currentRate')}: 1日元=0.047人民币
             </div>
           </div>
 
@@ -420,7 +416,7 @@ export default function YahooDetailPage() {
           <div className="flex items-center gap-4 mb-4 p-4 bg-muted/30 rounded-lg">
             <div className="flex-1">
               <div className="text-sm text-muted-foreground mb-1">
-                {t("出价次数", "Bids", "入札数")}:
+                {t('bidCount')}:
               </div>
               <button
                 onClick={() => {
@@ -437,15 +433,15 @@ export default function YahooDetailPage() {
                 }}
                 className="text-lg font-bold text-primary hover:underline cursor-pointer"
               >
-                {detail.bid_num ?? 0} {t("次", " bids", "回")}
+                {detail.bid_num ?? 0} {t('bidNum')}
               </button>
             </div>
             <div className="flex-1">
               <div className="text-sm text-muted-foreground mb-1">
-                {t("剩余时间", "Time Left", "残り時間")}:
+                {t('timeLeft')}:
               </div>
               <div className={`text-lg font-bold ${countdown === "已结束" || countdown === "Ended" ? "text-red-500" : "text-orange-500"}`}>
-                {countdown || detail.remain_time || t("已结束", "Ended", "終了")}
+                {countdown || detail.remain_time || t('ended')}
               </div>
             </div>
           </div>
@@ -454,15 +450,15 @@ export default function YahooDetailPage() {
           {bidHistoryOpen && (
             <Card className="p-4 mb-4">
               <h4 className="text-sm font-semibold mb-3">
-                {t("出价历史", "Bid History", "入札履歴")}
+                {t('bidHistory')}
               </h4>
               {bidHistoryLoading ? (
                 <div className="text-sm text-muted-foreground py-2">
-                  {t("加载中...", "Loading...", "読み込み中...")}
+                  {t('loading')}
                 </div>
               ) : bidHistory.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-2">
-                  {t("暂无出价记录", "No bid history", "入札履歴がありません")}
+                  {t('noBidHistory')}
                 </div>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -517,12 +513,12 @@ export default function YahooDetailPage() {
                   )}
                   {detail.seller_info.score !== undefined && (
                     <span>
-                      {t("评分", "Score", "評価")}: {detail.seller_info.score}
+                      {t('score')}: {detail.seller_info.score}
                     </span>
                   )}
                   {detail.seller_info.good_rate !== undefined && (
                     <span>
-                      {t("好评率", "Good Rate", "良い評価")}: {detail.seller_info.good_rate}%
+                      {t('goodRate')}: {detail.seller_info.good_rate}%
                     </span>
                   )}
                 </div>
@@ -548,27 +544,27 @@ export default function YahooDetailPage() {
           {/* Fee Details */}
           <Card className="p-4 mb-6">
             <h3 className="text-sm font-semibold mb-3">
-              {t("费用明细", "Fee Details", "費用明細")}
+              {t('feeDetails')}
             </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("来源", "Source", "来源")}</span>
-                <span className="font-medium">Yahoo {t("拍卖", "Auctions", "オークション")}</span>
+                <span className="text-muted-foreground">{t('source')}</span>
+                <span className="font-medium">Yahoo {t('auctions')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("日本国内运费", "Domestic Shipping", "国内送料")}</span>
-                <span className="font-medium">{t("0日元", "0 JPY", "0円")}</span>
+                <span className="text-muted-foreground">{t('domesticShipping')}</span>
+                <span className="font-medium">{t('zeroYen')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("手续费", "Service Fee", "手数料")}</span>
+                <span className="text-muted-foreground">{t('serviceFee')}</span>
                 <span className="font-medium text-orange-500">
-                  {t("200日元(约11元人民币)", "200 JPY (~11 CNY)", "200円(約11元)")}
+                  {t('serviceFeeValue')}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("国际运费", "International Shipping", "国際送料")}</span>
+                <span className="text-muted-foreground">{t('internationalShipping')}</span>
                 <span className="font-medium">
-                  {t("到达日本仓库后称重收取", "Weighed after arrival at Japan warehouse", "日本倉庫到着後に計量して徴収")}
+                  {t('internationalShippingDesc')}
                 </span>
               </div>
             </div>
@@ -586,8 +582,8 @@ export default function YahooDetailPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
               {copied
-                ? t("已复制", "Copied!", "コピーしました")
-                : t("复制链接", "Copy Link", "リンクをコピー")}
+                ? t('copied')
+                : t('copyLink')}
             </Button>
             <Button
               variant="outline"
@@ -599,8 +595,8 @@ export default function YahooDetailPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
               {isCollected
-                ? t("已收藏", "Favorited", "お気に入り")
-                : t("收藏", "Favorite", "お気に入り")}
+                ? t('favorited')
+                : t('favorite')}
             </Button>
           </div>
         </div>
@@ -610,25 +606,21 @@ export default function YahooDetailPage() {
       <Tabs defaultValue="description" className="mb-12">
         <TabsList>
           <TabsTrigger value="description">
-            {t("商品介绍", "Description", "商品紹介")}
+            {t('details')}
           </TabsTrigger>
           <TabsTrigger value="shopping-info">
-            {t("购物说明", "Shopping Info", "ご購入案内")}
+            {t('shoppingInfoTitle')}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="description" className="mt-4">
           <Card className="p-6">
             <div className="text-xs text-muted-foreground mb-4">
-              {t(
-                "翻译仅做参考，不承担因翻译功能失误造成的损失。如需准确了解商品详情请咨询客服。",
-                "Translation is for reference only. We are not responsible for translation errors. Please contact customer service for accurate product details.",
-                "翻訳は参考用です。翻訳機能の誤りによる損害は負いかねます。正確な商品詳細についてはカスタマーサービスにお問い合わせください。"
-              )}
+              {t('translationNote')}
             </div>
             <div className="prose prose-sm max-w-none">
               <h3 className="text-lg font-semibold mb-2">
-                {t("详细介绍", "Details", "詳細")}
+                {t('details')}
               </h3>
               <div
                 className="whitespace-pre-wrap text-sm leading-relaxed"
@@ -636,7 +628,7 @@ export default function YahooDetailPage() {
               />
               {!detail.content && !detail.description && (
                 <p className="text-muted-foreground">
-                  {t("暂无介绍", "No description available", "説明がありません")}
+                  {t('noDescription')}
                 </p>
               )}
             </div>
@@ -646,22 +638,14 @@ export default function YahooDetailPage() {
         <TabsContent value="shopping-info" className="mt-4">
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">
-              {t("购物说明", "Shopping Information", "ご購入案内")}
+              {t('shoppingInfoTitle')}
             </h3>
             <div className="prose prose-sm max-w-none space-y-3">
               <p className="text-sm">
-                {t(
-                  "该商品下单后无法取消和退换货，介意勿拍。",
-                  "This item cannot be cancelled or returned after ordering. Please consider carefully before purchasing.",
-                  "ご注文後のキャンセルや返品はできません。ご了承の上ご購入ください。"
-                )}
+                {t('shoppingNote1')}
               </p>
               <p className="text-sm">
-                {t(
-                  "如商品存在未标明的瑕疵，请在收到商品后24小时内联系客服处理。",
-                  "If there are undisclosed defects, please contact customer service within 24 hours of receipt.",
-                  "明示されていない瑕疵がある場合は、商品到着後24時間以内にカスタマーサービスにお問い合わせください。"
-                )}
+                {t('shoppingNote2')}
               </p>
             </div>
           </Card>
@@ -682,7 +666,7 @@ export default function YahooDetailPage() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 11-12.728 0 9 9 0 0112.728 0zM12 8v4m0 4h.01" />
                 </svg>
-                <span className="text-xs">{t("客服", "Service", "カスタマーサービス")}</span>
+                <span className="text-xs">{t('customerService')}</span>
               </Button>
               <Button
                 variant="ghost"
@@ -693,7 +677,7 @@ export default function YahooDetailPage() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m0 4a8 8 0 01-8-8m0 0h16M5 19l2-4m0 0l2-4m-2 4l-2-4m2 4l2 4m6-8l-2 4m0 0l2 4m-2-4h-4m0 0l-2-4" />
                 </svg>
-                <span className="text-xs">{t("翻译", "Translate", "翻訳")}</span>
+                <span className="text-xs">{t('translate')}</span>
               </Button>
             </div>
             <div className="flex gap-2">
@@ -704,7 +688,7 @@ export default function YahooDetailPage() {
                   className="border-orange-300 text-orange-600 hover:bg-orange-50"
                   onClick={handleBidClick}
                 >
-                  {t("出价竞拍", "Place Bid", "入札する")}
+                  {t('placeBid')}
                 </Button>
               )}
               {/* 一口价购买 Button */}
@@ -714,12 +698,12 @@ export default function YahooDetailPage() {
                   className="bg-orange-500 hover:bg-orange-600"
                   onClick={handleBuyout}
                 >
-                  {t("一口价购买", "Buy Now", "今すぐ購入")}
+                  {t('buyNow')}
                 </Button>
               )}
               {isEnded && (
                 <Button variant="secondary" disabled>
-                  {t("已结束", "Ended", "終了")}
+                  {t('ended')}
                 </Button>
               )}
             </div>
@@ -732,14 +716,10 @@ export default function YahooDetailPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {t("出价竞拍", "Place a Bid", "入札する")}
+              {t('bidDialogTitle')}
             </DialogTitle>
             <DialogDescription>
-              {t(
-                "请输入您的出价金额，出价后无法取消。",
-                "Enter your bid amount. Bids cannot be cancelled.",
-                "入札金額を入力してください。入札後のキャンセルはできません。"
-              )}
+              {t('bidDialogDesc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -747,7 +727,7 @@ export default function YahooDetailPage() {
             {/* Current Price Display */}
             <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
               <span className="text-sm text-muted-foreground">
-                {t("当前价格", "Current Price", "現在の価格")}:
+                {t('currentPrice')}:
               </span>
               <span className="text-lg font-bold text-orange-500">
                 ¥{Number(detail.bid_price).toLocaleString()}
@@ -757,7 +737,7 @@ export default function YahooDetailPage() {
             {/* Bid Input */}
             <div>
               <label className="text-sm font-medium mb-1 block">
-                {t("您的出价（日元）", "Your Bid (JPY)", "入札額（円）")}
+                {t('yourBidJpy')}
               </label>
               <Input
                 type="number"
@@ -766,11 +746,11 @@ export default function YahooDetailPage() {
                   setBidAmount(e.target.value);
                   setBidError("");
                 }}
-                placeholder={t("请输入出价金额", "Enter bid amount", "入札額を入力")}
+                placeholder={t('enterBidAmount')}
                 min={detail.bid_price ? detail.bid_price + 1 : 1}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                {t("最低出价", "Minimum bid", "最低入札額")}: ¥{((detail.bid_price || 0) + 1).toLocaleString()}
+                {t('minBid')}: ¥{((detail.bid_price || 0) + 1).toLocaleString()}
               </p>
             </div>
 
@@ -786,11 +766,7 @@ export default function YahooDetailPage() {
                 className="mt-0.5"
               />
               <span className="text-xs text-muted-foreground">
-                {t(
-                  "我已阅读并同意：出价成功后无法取消，若竞拍成功需按时完成支付。",
-                  "I have read and agree: Once a bid is placed, it cannot be cancelled. If I win, I must complete payment on time.",
-                  "入札後のキャンセルはできません。落札した場合、期日までにお支払いいただく必要があることに同意します。"
-                )}
+                {t('bidConfirmNote')}
               </span>
             </label>
 
@@ -805,7 +781,7 @@ export default function YahooDetailPage() {
               variant="outline"
               onClick={() => setBidDialogOpen(false)}
             >
-              {t("取消", "Cancel", "キャンセル")}
+              {t('cancel')}
             </Button>
             <Button
               variant="default"
@@ -814,8 +790,8 @@ export default function YahooDetailPage() {
               disabled={bidLoading}
             >
               {bidLoading
-                ? t("提交中...", "Submitting...", "送信中...")
-                : t("确认出价", "Confirm Bid", "入札を確認")}
+                ? t('submitting')
+                : t('confirmBid')}
             </Button>
           </DialogFooter>
         </DialogContent>

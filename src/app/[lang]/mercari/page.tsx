@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
+import { useTranslations } from "next-intl";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,9 +42,9 @@ interface MercariResponse {
 }
 
 const SORT_OPTIONS = [
-  { value: "SORT_CREATED_TIME|ORDER_DESC", label: { zh: "最新上架", en: "Newest", ja: "新着順" } },
-  { value: "SORT_PRICE|ORDER_ASC", label: { zh: "价格升序", en: "Price: Low to High", ja: "価格安い順" } },
-  { value: "SORT_PRICE|ORDER_DESC", label: { zh: "价格降序", en: "Price: High to Low", ja: "価格高い順" } },
+  { value: "SORT_CREATED_TIME|ORDER_DESC", labelKey: "sortNewest" },
+  { value: "SORT_PRICE|ORDER_ASC", labelKey: "sortPriceAsc" },
+  { value: "SORT_PRICE|ORDER_DESC", labelKey: "sortPriceDesc" },
 ];
 
 const PAGE_SIZE = 20;
@@ -52,6 +53,7 @@ export default function MercariPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations('mercari');
 
   const [items, setItems] = useState<MercariItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,17 +65,15 @@ export default function MercariPage() {
   const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
   const [searchLng, setSearchLng] = useState<"japan" | "chinese">("japan");
   const [category, setCategory] = useState("");
-  const [cname, setCname] = useState(lang === "zh" ? "按分类检索" : lang === "en" ? "By Category" : "カテゴリ検索");
+  const [cname, setCname] = useState(t('allCategories'));
   const [sort, setSort] = useState("SORT_CREATED_TIME|ORDER_DESC");
   const [sortname, setSortname] = useState(
-    lang === "zh" ? "最新上架" : lang === "en" ? "Newest" : "新着順"
+    t('sortNewest')
   );
 
   // Categories
   const [catList, setCatList] = useState<any[]>([]);
   const [showCatSelect, setShowCatSelect] = useState(false);
-
-  const t = (obj: Record<string, string>) => obj[lang] || obj.zh;
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -175,12 +175,14 @@ export default function MercariPage() {
     if (status === "ITEM_STATUS_TRADING" || status === "sold_out") {
       return (
         <Badge variant="destructive" className="absolute top-2 right-2 text-xs">
-          {lang === "zh" ? "已售出" : lang === "en" ? "Sold" : "売り切れ"}
+          {t('sold')}
         </Badge>
       );
     }
     return null;
   };
+
+  const getSortLabel = (opt: { value: string; labelKey: string }) => t(opt.labelKey);
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -189,7 +191,7 @@ export default function MercariPage() {
       <div className="container mx-auto py-6 px-4">
         {/* Page Title */}
         <h1 className="text-2xl font-bold mb-4">
-          {lang === "zh" ? "Mercari 商品" : lang === "en" ? "Mercari Items" : "Mercari 商品"}
+          {t('title')}
         </h1>
 
         {/* Search Bar */}
@@ -198,13 +200,7 @@ export default function MercariPage() {
             <div className="relative flex-1">
               <Input
                 type="text"
-                placeholder={
-                  lang === "zh"
-                    ? "输入中文或日文关键词检索..."
-                    : lang === "en"
-                    ? "Search by keyword (Chinese/Japanese)..."
-                    : "キーワードを入力（中文/日本語）..."
-                }
+                placeholder={t('searchPlaceholder')}
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 className="pr-12"
@@ -213,7 +209,7 @@ export default function MercariPage() {
                 type="button"
                 onClick={toggleLang}
                 className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
-                title={lang === "zh" ? "切换搜索语言" : lang === "en" ? "Toggle search language" : "検索言語切替"}
+                title={t('toggleLang')}
               >
                 {searchLng === "japan" ? (
                   <span className="text-sm font-bold text-blue-600">日</span>
@@ -223,7 +219,7 @@ export default function MercariPage() {
               </button>
             </div>
             <Button type="submit">
-              {lang === "zh" ? "搜索" : lang === "en" ? "Search" : "検索"}
+              {t('searchBtn')}
             </Button>
           </div>
         </form>
@@ -248,11 +244,11 @@ export default function MercariPage() {
                 <div
                   className="px-4 py-2 hover:bg-muted cursor-pointer text-sm"
                   onClick={() => {
-                    confirmCategory("", lang === "zh" ? "按分类检索" : lang === "en" ? "By Category" : "カテゴリ検索");
+                    confirmCategory("", t('allCategories'));
                     setShowCatSelect(false);
                   }}
                 >
-                  {lang === "zh" ? "全部分类" : lang === "en" ? "All Categories" : "全カテゴリー"}
+                  {t('allCategories')}
                 </div>
                 {catList.map((cat: any, idx: number) => (
                   <div
@@ -275,7 +271,7 @@ export default function MercariPage() {
           <Select value={sort} onValueChange={(val) => {
             const opt = SORT_OPTIONS.find((o) => o.value === val);
             if (opt && val) {
-              confirmSort(val, t(opt.label));
+              confirmSort(val, getSortLabel(opt));
             }
           }}>
             <SelectTrigger className="w-[160px]">
@@ -284,7 +280,7 @@ export default function MercariPage() {
             <SelectContent>
               {SORT_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
-                  {t(opt.label)}
+                  {getSortLabel(opt)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -309,18 +305,10 @@ export default function MercariPage() {
           <div className="text-center py-16">
             <div className="text-6xl mb-4">📦</div>
             <p className="text-muted-foreground text-lg">
-              {lang === "zh"
-                ? "没有找到商品"
-                : lang === "en"
-                ? "No items found"
-                : "商品が見つかりません"}
+              {t('noItems')}
             </p>
             <p className="text-muted-foreground text-sm mt-2">
-              {lang === "zh"
-                ? "试试其他关键词或分类"
-                : lang === "en"
-                ? "Try different keywords or categories"
-                : "別のキーワードやカテゴリをお試しください"}
+              {t('tryAgain')}
             </p>
           </div>
         ) : (
@@ -345,7 +333,7 @@ export default function MercariPage() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                          {lang === "zh" ? "无图片" : lang === "en" ? "No Image" : "画像なし"}
+                          {t('noImage')}
                         </div>
                       )}
                       {getStatusBadge(item.status)}
@@ -361,7 +349,7 @@ export default function MercariPage() {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                         {item.bid_count !== undefined && item.bid_count > 0 && (
                           <span>
-                            {lang === "zh" ? "出价" : lang === "en" ? "Bids" : "入札"}: {item.bid_count}
+                            {t('bids')}: {item.bid_count}
                           </span>
                         )}
                         {item.remain_time && (
@@ -402,7 +390,7 @@ export default function MercariPage() {
                   disabled={page <= 1}
                   onClick={() => handlePageChange(page - 1)}
                 >
-                  {lang === "zh" ? "上一页" : lang === "en" ? "Prev" : "前へ"}
+                  {t('prev')}
                 </Button>
                 {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                   const startPage = Math.max(1, Math.min(page - 2, totalPages - 4));
@@ -425,7 +413,7 @@ export default function MercariPage() {
                   disabled={page >= totalPages}
                   onClick={() => handlePageChange(page + 1)}
                 >
-                  {lang === "zh" ? "下一页" : lang === "en" ? "Next" : "次へ"}
+                  {t('next')}
                 </Button>
               </div>
             )}

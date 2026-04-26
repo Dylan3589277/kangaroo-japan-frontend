@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
+import { useTranslations } from "next-intl";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,11 +42,11 @@ interface YahooResponse {
 }
 
 const SORT_OPTIONS = [
-  { value: "SORT_CREATED_TIME|ORDER_DESC", label: { zh: "最新上架", en: "Newest", ja: "新着順" } },
-  { value: "SORT_PRICE|ORDER_ASC", label: { zh: "价格升序", en: "Price: Low to High", ja: "価格安い順" } },
-  { value: "SORT_PRICE|ORDER_DESC", label: { zh: "价格降序", en: "Price: High to Low", ja: "価格高い順" } },
-  { value: "SORT_BID_COUNT|ORDER_DESC", label: { zh: "出价次数", en: "Bid Count", ja: "入札数" } },
-  { value: "SORT_REMAIN_TIME|ORDER_ASC", label: { zh: "剩余时间", en: "Time Left", ja: "残り時間" } },
+  { value: "SORT_CREATED_TIME|ORDER_DESC", labelKey: "sortNewest" },
+  { value: "SORT_PRICE|ORDER_ASC", labelKey: "sortPriceAsc" },
+  { value: "SORT_PRICE|ORDER_DESC", labelKey: "sortPriceDesc" },
+  { value: "SORT_BID_COUNT|ORDER_DESC", labelKey: "sortBidsDesc" },
+  { value: "SORT_REMAIN_TIME|ORDER_ASC", labelKey: "sortEndAsc" },
 ];
 
 const CATEGORIES = [
@@ -70,6 +71,7 @@ export default function YahooPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations('yahoo');
 
   const [items, setItems] = useState<YahooItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +85,7 @@ export default function YahooPage() {
   const [category, setCategory] = useState<string>(searchParams.get("cat") || "");
   const [sort, setSort] = useState("SORT_CREATED_TIME|ORDER_DESC");
 
-  const t = (obj: Record<string, string>) => obj[lang] || obj.zh;
+  const oldT = (obj: Record<string, string>) => obj[lang] || obj.zh;
 
   const fetchData = useCallback(async (p: number, kw: string, cat: string, s: string, lng: string) => {
     setLoading(true);
@@ -146,12 +148,14 @@ export default function YahooPage() {
     if (item.status === "sold_out" || item.status === "end") {
       return (
         <Badge variant="destructive" className="absolute top-2 right-2 text-xs">
-          {lang === "zh" ? "已结束" : lang === "en" ? "Ended" : "終了"}
+          {t('ended')}
         </Badge>
       );
     }
     return null;
   };
+
+  const getSortLabel = (opt: { value: string; labelKey: string }) => t(opt.labelKey);
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -160,7 +164,7 @@ export default function YahooPage() {
       <div className="container mx-auto py-6 px-4">
         {/* Page Title */}
         <h1 className="text-2xl font-bold mb-4">
-          {lang === "zh" ? "Yahoo 竞拍" : lang === "en" ? "Yahoo Auctions" : "ヤフオク"}
+          {t('title')}
         </h1>
 
         {/* Search Bar */}
@@ -169,13 +173,7 @@ export default function YahooPage() {
             <div className="relative flex-1">
               <Input
                 type="text"
-                placeholder={
-                  lang === "zh"
-                    ? "输入中文或日文关键词检索..."
-                    : lang === "en"
-                    ? "Search by keyword (Chinese/Japanese)..."
-                    : "キーワードを入力（中文/日本語）..."
-                }
+                placeholder={t('search')}
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 className="pr-12"
@@ -184,7 +182,7 @@ export default function YahooPage() {
                 type="button"
                 onClick={toggleLang}
                 className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
-                title={lang === "zh" ? "切换搜索语言" : lang === "en" ? "Toggle search language" : "検索言語切替"}
+                title={t('toggleLang')}
               >
                 {searchLng === "japan" ? (
                   <span className="text-sm font-bold text-blue-600">日</span>
@@ -194,7 +192,7 @@ export default function YahooPage() {
               </button>
             </div>
             <Button type="submit">
-              {lang === "zh" ? "搜索" : lang === "en" ? "Search" : "検索"}
+              {t('searchBtn')}
             </Button>
           </div>
         </form>
@@ -207,12 +205,12 @@ export default function YahooPage() {
             setPage(1);
           }}>
             <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder={t(CATEGORIES.find(c => c.value === category)?.label || CATEGORIES[0].label)} />
+              <SelectValue placeholder={oldT(CATEGORIES.find(c => c.value === category)?.label || CATEGORIES[0].label)} />
             </SelectTrigger>
             <SelectContent>
               {CATEGORIES.map((cat) => (
                 <SelectItem key={cat.value} value={cat.value}>
-                  {t(cat.label)}
+                  {oldT(cat.label)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -226,12 +224,12 @@ export default function YahooPage() {
             }
           }}>
             <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder={t(SORT_OPTIONS.find(o => o.value === sort)?.label || SORT_OPTIONS[0].label)} />
+              <SelectValue placeholder={getSortLabel(SORT_OPTIONS.find(o => o.value === sort) || SORT_OPTIONS[0])} />
             </SelectTrigger>
             <SelectContent>
               {SORT_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
-                  {t(opt.label)}
+                  {getSortLabel(opt)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -256,18 +254,10 @@ export default function YahooPage() {
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🔨</div>
             <p className="text-muted-foreground text-lg">
-              {lang === "zh"
-                ? "没有找到商品"
-                : lang === "en"
-                ? "No items found"
-                : "商品が見つかりません"}
+              {t('noItems')}
             </p>
             <p className="text-muted-foreground text-sm mt-2">
-              {lang === "zh"
-                ? "试试其他关键词或分类"
-                : lang === "en"
-                ? "Try different keywords or categories"
-                : "別のキーワードやカテゴリをお試しください"}
+              {t('tryAgain')}
             </p>
           </div>
         ) : (
@@ -292,7 +282,7 @@ export default function YahooPage() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                          {lang === "zh" ? "无图片" : lang === "en" ? "No Image" : "画像なし"}
+                          {t('noImage')}
                         </div>
                       )}
                       {getStatusBadge(item)}
@@ -308,7 +298,7 @@ export default function YahooPage() {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                         {item.bid_count !== undefined && item.bid_count > 0 && (
                           <span>
-                            {lang === "zh" ? "出价" : lang === "en" ? "Bids" : "入札"}: {item.bid_count}
+                            {t('bids')}: {item.bid_count}
                           </span>
                         )}
                         {item.remain_time && (
@@ -331,7 +321,7 @@ export default function YahooPage() {
                       {/* Buyout Price */}
                       {item.buyout_price && Number(item.buyout_price) > 0 && (
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          一口价: ¥{Number(item.buyout_price).toLocaleString()}
+                          {t('buyoutPrice')}: ¥{Number(item.buyout_price).toLocaleString()}
                         </div>
                       )}
 
@@ -356,7 +346,7 @@ export default function YahooPage() {
                   disabled={page <= 1}
                   onClick={() => handlePageChange(page - 1)}
                 >
-                  {lang === "zh" ? "上一页" : lang === "en" ? "Prev" : "前へ"}
+                  {t('prev')}
                 </Button>
                 {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                   const startPage = Math.max(1, Math.min(page - 2, totalPages - 4));
@@ -379,7 +369,7 @@ export default function YahooPage() {
                   disabled={page >= totalPages}
                   onClick={() => handlePageChange(page + 1)}
                 >
-                  {lang === "zh" ? "下一页" : lang === "en" ? "Next" : "次へ"}
+                  {t('next')}
                 </Button>
               </div>
             )}
