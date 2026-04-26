@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import { useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -11,6 +12,7 @@ import { ImagePlus, X, Loader2 } from "lucide-react";
 const MAX_IMAGES = 9;
 
 export default function CommunityCreatePage() {
+  const t = useTranslations('community');
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
@@ -27,11 +29,7 @@ export default function CommunityCreatePage() {
 
     if (selectedFiles.length > remaining) {
       alert(
-        lang === "zh"
-          ? `最多上传${MAX_IMAGES}张图片`
-          : lang === "ja"
-          ? `最大${MAX_IMAGES}枚までアップロードできます`
-          : `Maximum ${MAX_IMAGES} images`
+        t('maxImages', { max: MAX_IMAGES })
       );
     }
 
@@ -58,11 +56,7 @@ export default function CommunityCreatePage() {
   const handleSubmit = async () => {
     if (!content.trim()) {
       alert(
-        lang === "zh"
-          ? "请输入分享内容"
-          : lang === "ja"
-          ? "内容を入力してください"
-          : "Please enter content"
+        t('contentRequired')
       );
       return;
     }
@@ -91,11 +85,7 @@ export default function CommunityCreatePage() {
     } catch {
       // Mock success fallback
       alert(
-        lang === "zh"
-          ? "发布成功！"
-          : lang === "ja"
-          ? "投稿しました！"
-          : "Posted successfully!"
+        t('submitSuccess')
       );
       router.push(`/${lang}/community`);
     } finally {
@@ -112,18 +102,10 @@ export default function CommunityCreatePage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">
-              {lang === "zh"
-                ? "发布分享"
-                : lang === "ja"
-                ? "投稿する"
-                : "Create Post"}
+              {t('createTitle')}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {lang === "zh"
-                ? "分享你的购物心得"
-                : lang === "ja"
-                ? "買い物の感想をシェアしよう"
-                : "Share your shopping experience"}
+              {t('createSubtitle')}
             </p>
           </div>
           <div className="flex gap-2">
@@ -132,7 +114,7 @@ export default function CommunityCreatePage() {
               onClick={() => router.back()}
               disabled={submitting}
             >
-              {lang === "zh" ? "取消" : lang === "ja" ? "キャンセル" : "Cancel"}
+              {t('cancel')}
             </Button>
             <Button
               className="bg-rose-600 hover:bg-rose-700"
@@ -141,16 +123,8 @@ export default function CommunityCreatePage() {
             >
               {submitting && <Loader2 className="size-4 animate-spin" />}
               {submitting
-                ? lang === "zh"
-                  ? "发布中..."
-                  : lang === "ja"
-                  ? "投稿中..."
-                  : "Posting..."
-                : lang === "zh"
-                ? "发布"
-                : lang === "ja"
-                ? "投稿"
-                : "Post"}
+                ? t('posting')
+                : t('submit')}
             </Button>
           </div>
         </div>
@@ -160,13 +134,7 @@ export default function CommunityCreatePage() {
             {/* Content textarea */}
             <textarea
               className="w-full min-h-[160px] p-3 text-sm border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
-              placeholder={
-                lang === "zh"
-                  ? "分享你买到的宝贝、购物心得..."
-                  : lang === "ja"
-                  ? "買ったものや感想をシェアしよう..."
-                  : "Share what you bought and your thoughts..."
-              }
+              placeholder={t('contentPlaceholder')}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               maxLength={2000}
@@ -178,11 +146,7 @@ export default function CommunityCreatePage() {
             {/* Image upload */}
             <div>
               <p className="text-sm font-medium mb-2">
-                {lang === "zh"
-                  ? "上传图片"
-                  : lang === "ja"
-                  ? "画像をアップロード"
-                  : "Upload Images"}
+                {t('uploadImages')}
                 <span className="text-muted-foreground font-normal ml-1">
                   ({images.length}/{MAX_IMAGES})
                 </span>
@@ -214,7 +178,7 @@ export default function CommunityCreatePage() {
                   >
                     <ImagePlus className="size-6 text-zinc-400" />
                     <span className="text-xs text-zinc-400">
-                      {lang === "zh" ? "添加" : lang === "ja" ? "追加" : "Add"}
+                      {t('addImage')}
                     </span>
                   </button>
                 )}

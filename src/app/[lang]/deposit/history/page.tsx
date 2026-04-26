@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,6 +47,7 @@ export default function DepositHistoryPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations('deposit');
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [items, setItems] = useState<DepositItem[]>([]);
@@ -155,7 +157,7 @@ export default function DepositHistoryPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">押金明细</h1>
+      <h1 className="text-2xl font-bold mb-6">{t('historyTitle')}</h1>
 
       {loading ? (
         <div className="space-y-3">
@@ -166,9 +168,9 @@ export default function DepositHistoryPage() {
       ) : items.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-6xl mb-4">📋</div>
-          <h2 className="text-xl font-bold mb-2">暂无押金记录</h2>
+          <h2 className="text-xl font-bold mb-2">{t('noHistory')}</h2>
           <p className="text-muted-foreground">
-            充值押金后，这里将显示您的押金流水
+            {t('noHistoryDesc')}
           </p>
         </div>
       ) : (
@@ -214,7 +216,7 @@ export default function DepositHistoryPage() {
                       </p>
                       {item.order_no && (
                         <p className="text-xs text-muted-foreground">
-                          订单: {item.order_no}
+                          {t('orderLabel')}: {item.order_no}
                         </p>
                       )}
                     </div>
@@ -237,7 +239,7 @@ export default function DepositHistoryPage() {
             items.length > 0 &&
             items.length >= total && (
               <p className="text-center text-xs text-muted-foreground py-4">
-                已加载全部记录
+                {t('loadAll')}
               </p>
             )}
         </div>

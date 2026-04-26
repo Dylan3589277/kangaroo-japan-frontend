@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export default function DepositPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations('deposit');
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [deposit, setDeposit] = useState<DepositBalance | null>(null);
@@ -66,7 +68,7 @@ export default function DepositPage() {
   const handleRecharge = async () => {
     const amount = Number(rechargeAmount);
     if (!amount || amount <= 0) {
-      toast.error("请输入有效金额");
+      toast.error(t('inputAmount'));
       return;
     }
 
@@ -83,7 +85,7 @@ export default function DepositPage() {
           paymentNo: string;
           amount: number;
         };
-        toast.success(`充值订单已创建: ¥${amount}`);
+        toast.success(t('rechargeSuccess', { amount: `¥${amount}` }));
         setRechargeOpen(false);
         setRechargeAmount("");
         fetchDeposit();
@@ -92,27 +94,27 @@ export default function DepositPage() {
           router.push(`/${lang}/payment/${data.paymentNo}`);
         }
       } else {
-        toast.error(res.error?.message || "充值失败");
+        toast.error(res.error?.message || t('rechargeFailed'));
       }
     } catch (error) {
-      toast.error("充值失败，请稍后重试");
+      toast.error(t('rechargeFailed') + "，请稍后重试");
     } finally {
       setRecharging(false);
     }
   };
 
   const handleRefund = async () => {
-    if (!confirm("确定要申请退押金吗？退押金后相关功能将受限。")) return;
+    if (!confirm(t('refundConfirm'))) return;
     try {
       const res = await api.request("/deposit/refund", { method: "POST" });
       if (res.success) {
-        toast.success("退押金申请已提交");
+        toast.success(t('refundSubmitted'));
         fetchDeposit();
       } else {
-        toast.error(res.error?.message || "退押金失败");
+        toast.error(res.error?.message || t('refundFailed'));
       }
     } catch {
-      toast.error("退押金失败，请稍后重试");
+      toast.error(t('refundFailed') + "，请稍后重试");
     }
   };
 
@@ -123,7 +125,7 @@ export default function DepositPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">押金管理</h1>
+      <h1 className="text-2xl font-bold mb-6">{t('title')}</h1>
 
       {loading ? (
         <div className="space-y-6">
@@ -139,13 +141,13 @@ export default function DepositPage() {
           {/* Balance Card */}
           <Card className="bg-gradient-to-br from-blue-600 to-blue-700 text-white border-0 mb-6">
             <CardContent className="p-6">
-              <p className="text-sm text-blue-100 mb-2">押金余额</p>
+              <p className="text-sm text-blue-100 mb-2">{t('balance')}</p>
               <p className="text-4xl font-bold">
                 ¥{deposit?.balance?.toFixed(2) ?? "0.00"}
               </p>
               {deposit?.refundingCount && deposit.refundingCount > 0 ? (
                 <p className="text-xs text-blue-200 mt-2">
-                  有 {deposit.refundingCount} 笔押金正在退款中
+                  {t('refundingCount', { count: deposit.refundingCount })}
                 </p>
               ) : null}
             </CardContent>
@@ -159,7 +161,7 @@ export default function DepositPage() {
               onClick={() => setRechargeOpen(true)}
             >
               <span className="text-2xl">💰</span>
-              <span className="text-sm">充值押金</span>
+              <span className="text-sm">{t('recharge')}</span>
             </Button>
 
             <Button
@@ -168,7 +170,7 @@ export default function DepositPage() {
               onClick={handleRefund}
             >
               <span className="text-2xl">↩️</span>
-              <span className="text-sm">申请退押金</span>
+              <span className="text-sm">{t('refund')}</span>
             </Button>
 
             <Link href={`/${lang}/deposit/history`} className="block">
@@ -177,7 +179,7 @@ export default function DepositPage() {
                 className="flex flex-col items-center gap-1 h-auto py-6 w-full"
               >
                 <span className="text-2xl">📋</span>
-                <span className="text-sm">押金明细</span>
+                <span className="text-sm">{t('history')}</span>
               </Button>
             </Link>
           </div>
@@ -186,7 +188,7 @@ export default function DepositPage() {
           {deposit?.tipList && deposit.tipList.length > 0 && (
             <Card className="mb-6">
               <CardContent className="p-4">
-                <h3 className="text-sm font-medium mb-2">押金说明</h3>
+                <h3 className="text-sm font-medium mb-2">{t('tipListTitle')}</h3>
                 <ul className="space-y-1">
                   {deposit.tipList.map((tip, i) => (
                     <li
@@ -206,7 +208,7 @@ export default function DepositPage() {
           {(!deposit?.tipList || deposit.tipList.length === 0) && (
             <Card>
               <CardContent className="p-4">
-                <h3 className="text-sm font-medium mb-2">押金说明</h3>
+                <h3 className="text-sm font-medium mb-2">{t('tipListTitle')}</h3>
                 <ul className="space-y-1 text-xs text-muted-foreground">
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 shrink-0">•</span>
@@ -231,9 +233,9 @@ export default function DepositPage() {
       <Dialog open={rechargeOpen} onOpenChange={setRechargeOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>充值押金</DialogTitle>
+            <DialogTitle>{t('recharge')}</DialogTitle>
             <DialogDescription>
-              请输入充值金额，最低充值 100 元
+              {t('minRecharge')}
             </DialogDescription>
           </DialogHeader>
 
@@ -244,7 +246,7 @@ export default function DepositPage() {
               </span>
               <Input
                 type="number"
-                placeholder="请输入金额"
+                placeholder={t('inputAmount')}
                 className="pl-8 text-lg"
                 value={rechargeAmount}
                 onChange={(e) => setRechargeAmount(e.target.value)}
@@ -271,14 +273,14 @@ export default function DepositPage() {
               variant="outline"
               onClick={() => setRechargeOpen(false)}
             >
-              取消
+              {t('cancel')}
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700"
               onClick={handleRecharge}
               disabled={recharging}
             >
-              {recharging ? "处理中..." : "前去支付"}
+              {recharging ? t('processing') : t('goToPay')}
             </Button>
           </DialogFooter>
         </DialogContent>

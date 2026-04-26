@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,6 @@ interface SignData {
   coupons: SignCoupon[];
 }
 
-const DAY_LABELS = ["第1天", "第2天", "第3天", "第4天", "第5天", "第6天", "第7天"];
 const DAY_SCORES = [5, 10, 15, 15, 15, 15, 25];
 const DAY_ICONS = ["⭐", "⭐", "⭐", "⭐", "⭐", "⭐", "🏆"];
 
@@ -38,6 +38,7 @@ export default function SignPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations('sign');
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [signData, setSignData] = useState<SignData | null>(null);
@@ -81,13 +82,13 @@ export default function SignPage() {
         method: "POST",
       });
       if (res.success) {
-        toast.success(res.data?.errmsg || "签到成功！");
+        toast.success(res.data?.errmsg || t('signSuccess'));
         fetchSignData();
       } else {
-        toast.error(res.error?.message || "签到失败");
+        toast.error(res.error?.message || t('signFailed'));
       }
     } catch {
-      toast.error("签到失败，请稍后重试");
+      toast.error(t('signFailedRetry'));
     } finally {
       setSigning(false);
     }
@@ -103,58 +104,6 @@ export default function SignPage() {
 
   const allSigned = signData?.signDays?.every((d) => d.signed) ?? false;
 
-  const getTitle = () => {
-    const titles: Record<string, string> = {
-      zh: "签到中心",
-      en: "Check-in Center",
-      ja: "チェックインセンター",
-    };
-    return titles[lang] || titles.zh;
-  };
-
-  const getScoreLabel = () => {
-    const labels: Record<string, string> = {
-      zh: "我的积分",
-      en: "My Points",
-      ja: "マイポイント",
-    };
-    return labels[lang] || labels.zh;
-  };
-
-  const getSignBtnLabel = () => {
-    if (signing) {
-      const labels: Record<string, string> = {
-        zh: "签到中...",
-        en: "Signing in...",
-        ja: "チェックイン中...",
-      };
-      return labels[lang] || labels.zh;
-    }
-    if (allSigned) {
-      const labels: Record<string, string> = {
-        zh: "已全部签到",
-        en: "All Signed",
-        ja: "全て完了",
-      };
-      return labels[lang] || labels.zh;
-    }
-    const labels: Record<string, string> = {
-      zh: "立即签到",
-      en: "Check In Now",
-      ja: "チェックイン",
-    };
-    return labels[lang] || labels.zh;
-  };
-
-  const getCouponTitle = () => {
-    const labels: Record<string, string> = {
-      zh: "签到优惠券",
-      en: "Check-in Coupons",
-      ja: "チェックインクーポン",
-    };
-    return labels[lang] || labels.zh;
-  };
-
   if (authLoading) {
     return (
       <div className="container mx-auto py-8 px-4 max-w-lg">
@@ -168,13 +117,13 @@ export default function SignPage() {
     return (
       <div className="container mx-auto py-16 px-4 text-center">
         <div className="text-6xl mb-4">🔐</div>
-        <h1 className="text-2xl font-bold mb-2">请先登录</h1>
-        <p className="text-muted-foreground mb-6">登录后即可参与签到</p>
+          <h1 className="text-2xl font-bold mb-2">{t('needLogin')}</h1>
+        <p className="text-muted-foreground mb-6">{t('needLoginDesc')}</p>
         <Button
           className="bg-rose-600 hover:bg-rose-700"
           onClick={() => router.push(`/${lang}/login`)}
         >
-          去登录
+          {t('goLogin')}
         </Button>
       </div>
     );
@@ -185,18 +134,14 @@ export default function SignPage() {
       {/* Header Banner */}
       <div className="relative rounded-2xl overflow-hidden mb-8 bg-gradient-to-r from-orange-500 via-rose-500 to-pink-500 p-8 text-white">
         <div className="relative z-10">
-          <h1 className="text-2xl font-bold mb-2">{getTitle()}</h1>
+          <h1 className="text-2xl font-bold mb-2">{t('title')}</h1>
           <p className="text-white/80 text-sm mb-4">
-            {lang === "zh"
-              ? "每日签到领取积分，连续签到奖励更多！"
-              : lang === "ja"
-              ? "毎日チェックインしてポイントを獲得！"
-              : "Check in daily for points, more rewards for consecutive days!"}
+            {t('subtitle')}
           </p>
           <div className="flex items-center gap-2">
             <span className="text-3xl">💎</span>
             <div>
-              <p className="text-xs text-white/70">{getScoreLabel()}</p>
+              <p className="text-xs text-white/70">{t('myScore')}</p>
               <p className="text-3xl font-bold">
                 {signData?.myscore ?? 0}
               </p>
@@ -210,13 +155,7 @@ export default function SignPage() {
       {/* 7-day Check-in List */}
       <Card className="mb-8">
         <CardContent className="p-6">
-          <h2 className="text-lg font-bold mb-4">
-            {lang === "zh"
-              ? "本周签到"
-              : lang === "ja"
-              ? "今週のチェックイン"
-              : "This Week's Check-in"}
-          </h2>
+          <h2 className="text-lg font-bold mb-4">{t('weekTitle')}</h2>
 
           {loading ? (
             <div className="grid grid-cols-7 gap-2">
@@ -243,14 +182,14 @@ export default function SignPage() {
                       day.signed ? "text-orange-600" : "text-gray-400"
                     }`}
                   >
-                    {DAY_LABELS[day.index - 1]}
+                    {t('day', { days: day.index })}
                   </span>
                   <span
                     className={`text-xs ${
                       day.signed ? "text-orange-500" : "text-gray-400"
                     }`}
                   >
-                    +{DAY_SCORES[day.index - 1]}分
+                    {t('scorePrefix', { score: DAY_SCORES[day.index - 1] })}{t('scoreUnit')}
                   </span>
                 </div>
               ))}
@@ -263,17 +202,12 @@ export default function SignPage() {
             disabled={allSigned || signing || loading}
             onClick={handleSign}
           >
-            {getSignBtnLabel()}
+            {signing ? t('signing') : allSigned ? t('allSigned') : t('signIn')}
           </Button>
 
           {allSigned && (
             <p className="text-center text-sm text-green-600 mt-2">
-              ✅{" "}
-              {lang === "zh"
-                ? "本周已全部签到，明天继续！"
-                : lang === "ja"
-                ? "今週は全て完了、また明日！"
-                : "All checked in this week, come back tomorrow!"}
+              ✅ {t('allSignedMsg')}
             </p>
           )}
         </CardContent>
@@ -282,7 +216,7 @@ export default function SignPage() {
       {/* Coupons */}
       <Card>
         <CardContent className="p-6">
-          <h2 className="text-lg font-bold mb-4">{getCouponTitle()}</h2>
+          <h2 className="text-lg font-bold mb-4">{t('coupons')}</h2>
           {loading ? (
             <div className="space-y-3">
               <Skeleton className="h-20 w-full rounded-lg" />
@@ -291,13 +225,7 @@ export default function SignPage() {
           ) : !signData?.coupons || signData.coupons.length === 0 ? (
             <div className="text-center py-6">
               <div className="text-4xl mb-2">🎫</div>
-              <p className="text-muted-foreground text-sm">
-                {lang === "zh"
-                  ? "暂无可用优惠券"
-                  : lang === "ja"
-                  ? "利用可能なクーポンはありません"
-                  : "No coupons available"}
-              </p>
+              <p className="text-muted-foreground text-sm">{t('couponEmpty')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -311,19 +239,15 @@ export default function SignPage() {
                     <div>
                       <p className="font-bold text-sm">{coupon.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {lang === "zh"
-                          ? `满${coupon.min_amount}元减${coupon.amount}元`
-                          : lang === "ja"
-                          ? `${coupon.min_amount}円以上で${coupon.amount}円引き`
-                          : `¥${coupon.min_amount} min spend, save ¥${coupon.amount}`}
+                        {t('couponAmount', { min: coupon.min_amount, amount: coupon.amount })}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(coupon.expired_at)}
-                        {lang === "zh" ? " 过期" : lang === "ja" ? " 期限" : " expiry"}
+                        {t('expiryLabel')}
                       </p>
                     </div>
                   </div>
-                  <Badge className="bg-rose-500 text-white">领取</Badge>
+                  <Badge className="bg-rose-500 text-white">{t('receive')}</Badge>
                 </div>
               ))}
             </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import { useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -12,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 
 export default function DaipayPage() {
+  const t = useTranslations('orders');
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
@@ -190,7 +192,7 @@ export default function DaipayPage() {
       <div className="container mx-auto py-16 px-4 text-center">
         <div className="text-6xl mb-4">🔐</div>
         <h1 className="text-2xl font-bold mb-2">
-          {lang === "zh" ? "请先登录" : lang === "ja" ? "ログインしてください" : "Please log in"}
+          {t("REPLACE_ME")}
         </h1>
         <p className="text-muted-foreground mb-6">
           {lang === "zh"
@@ -203,7 +205,7 @@ export default function DaipayPage() {
           className="bg-rose-600 hover:bg-rose-700"
           onClick={() => router.push(`/${lang}/login`)}
         >
-          {lang === "zh" ? "去登录" : lang === "ja" ? "ログイン" : "Log In"}
+          {t("REPLACE_ME")}
         </Button>
       </div>
     );

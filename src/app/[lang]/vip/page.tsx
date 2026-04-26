@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,7 @@ export default function VipPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations('vip');
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [data, setData] = useState<LevelsData | null>(null);
@@ -122,8 +124,8 @@ export default function VipPage() {
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Page Header */}
       <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold mb-2">VIP 会员</h1>
-        <p className="text-muted-foreground">选择适合您的会员等级，享受更多专属权益</p>
+        <h1 className="text-3xl font-bold mb-2">{t('title')}</h1>
+        <p className="text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {loading ? (

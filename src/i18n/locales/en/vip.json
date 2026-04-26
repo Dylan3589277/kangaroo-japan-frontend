@@ -1,0 +1,20 @@
+{
+  "title": "VIP Membership",
+  "subtitle": "Choose the membership level that suits you best",
+  "currentLevel": "Current Level",
+  "expiresAt": "Valid until",
+  "activated": "Activated",
+  "buy": "Buy Now",
+  "owned": "Owned",
+  "save": "Save ¥{amount}",
+  "benefits": "Benefits",
+  "confirmBuy": "Confirm Purchase",
+  "confirmContent": "You are about to purchase {name} for ¥{price}",
+  "price": "Price",
+  "myLevel": "My Level",
+  "noLevel": "No membership level",
+  "purchased": "Purchase successful",
+  "purchaseFailed": "Purchase failed",
+  "purchaseFailedRetry": "Purchase failed, please try again later",
+  "fetchFailed": "Failed to fetch VIP levels"
+}

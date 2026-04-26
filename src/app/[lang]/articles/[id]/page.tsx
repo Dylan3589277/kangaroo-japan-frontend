@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -93,6 +94,7 @@ function formatDate(dateStr: string): string {
 }
 
 export default function ArticleDetailPage() {
+  const t = useTranslations('articles');
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
@@ -137,11 +139,7 @@ export default function ArticleDetailPage() {
           onClick={() => router.back()}
         >
           <ArrowLeft className="size-4 mr-1" />
-          {lang === "zh"
-            ? "返回"
-            : lang === "ja"
-            ? "戻る"
-            : "Back"}
+          {t('back')}
         </Button>
 
         {/* Loading */}
@@ -179,11 +177,7 @@ export default function ArticleDetailPage() {
               <span className="flex items-center gap-1">
                 <Eye className="size-3.5" />
                 {article.view_count}
-                {lang === "zh"
-                  ? "次阅读"
-                  : lang === "ja"
-                  ? "回閲覧"
-                  : " views"}
+                {t('views')}
               </span>
             </div>
 
@@ -201,13 +195,7 @@ export default function ArticleDetailPage() {
             {/* Summary */}
             {article.summary && (
               <div className="bg-zinc-100/70 rounded-lg p-4 mb-6 text-sm text-muted-foreground border-l-4 border-rose-500">
-                <strong>
-                  {lang === "zh"
-                    ? "摘要："
-                    : lang === "ja"
-                    ? "概要："
-                    : "Summary: "}
-                </strong>
+                <strong>{t('summary')}</strong>
                 {article.summary}
               </div>
             )}
@@ -225,28 +213,16 @@ export default function ArticleDetailPage() {
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🔍</div>
             <h2 className="text-xl font-bold mb-2">
-              {lang === "zh"
-                ? "文章未找到"
-                : lang === "ja"
-                ? "記事が見つかりません"
-                : "Article not found"}
+              {t('notFound')}
             </h2>
             <p className="text-muted-foreground mb-6">
-              {lang === "zh"
-                ? "该文章可能已被删除或不存在"
-                : lang === "ja"
-                ? "この記事は削除されたか存在しません"
-                : "This article may have been deleted or does not exist"}
+              {t('notFoundDesc')}
             </p>
             <Button
               className="bg-rose-600 hover:bg-rose-700"
               onClick={() => router.push(`/${lang}/articles`)}
             >
-              {lang === "zh"
-                ? "返回文章列表"
-                : lang === "ja"
-                ? "記事一覧に戻る"
-                : "Back to Articles"}
+              {t('backToList')}
             </Button>
           </div>
         )}

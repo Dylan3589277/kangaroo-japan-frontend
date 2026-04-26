@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -83,6 +84,7 @@ function formatDate(dateStr: string): string {
 }
 
 export default function ArticlesPage() {
+  const t = useTranslations('articles');
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
@@ -183,14 +185,10 @@ export default function ArticlesPage() {
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">
-            {lang === "zh" ? "文章资讯" : lang === "ja" ? "記事" : "Articles"}
+            {t('title')}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {lang === "zh"
-              ? "购物攻略、日本资讯、好物推荐"
-              : lang === "ja"
-              ? "買い物ガイド、日本情報、おすすめ"
-              : "Shopping guides, Japan info, recommendations"}
+            {t('subtitle')}
           </p>
         </div>
 
@@ -240,18 +238,10 @@ export default function ArticlesPage() {
           <div className="text-center py-16">
             <div className="text-6xl mb-4">📄</div>
             <h2 className="text-xl font-bold mb-2">
-              {lang === "zh"
-                ? "暂无文章"
-                : lang === "ja"
-                ? "記事がありません"
-                : "No articles"}
+              {t('noArticles')}
             </h2>
             <p className="text-muted-foreground">
-              {lang === "zh"
-                ? "该分类下暂无文章"
-                : lang === "ja"
-                ? "このカテゴリーには記事がありません"
-                : "No articles in this category"}
+              {t('noArticlesCategory')}
             </p>
           </div>
         )}
@@ -315,27 +305,15 @@ export default function ArticlesPage() {
               disabled={loadingMore}
             >
               {loadingMore
-                ? lang === "zh"
-                  ? "加载中..."
-                  : lang === "ja"
-                  ? "読み込み中..."
-                  : "Loading..."
-                : lang === "zh"
-                ? "加载更多"
-                : lang === "ja"
-                ? "もっと見る"
-                : "Load More"}
+                ? t('loading')
+                : t('loadMore')}
             </Button>
           </div>
         )}
 
         {!hasMore && articles.length > 0 && (
           <p className="text-center text-sm text-muted-foreground pt-4 pb-10">
-            {lang === "zh"
-              ? "— 已加载全部文章 —"
-              : lang === "ja"
-              ? "— 全ての記事を表示 —"
-              : "— All articles loaded —"}
+            {t('allLoaded')}
           </p>
         )}
       </main>

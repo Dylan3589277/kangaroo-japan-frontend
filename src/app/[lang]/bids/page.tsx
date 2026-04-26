@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -36,9 +37,9 @@ interface BidListData {
 }
 
 const TAB_CONFIG = [
-  { value: "0", label: "竞拍中" },
-  { value: "1", label: "成功" },
-  { value: "2", label: "其它" },
+  { value: "0", label: "bidding" },
+  { value: "1", label: "won" },
+  { value: "2", label: "others" },
 ];
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -59,6 +60,7 @@ export default function BidsPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations('bids');
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [bids, setBids] = useState<BidItem[]>([]);
@@ -164,7 +166,7 @@ export default function BidsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">我的竞拍记录</h1>
+      <h1 className="text-2xl font-bold mb-6">{t('title')}</h1>
 
       {/* Tabs */}
       <Tabs
@@ -175,7 +177,7 @@ export default function BidsPage() {
         <TabsList className="flex flex-wrap h-auto gap-1">
           {TAB_CONFIG.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.label}
+              {t(tab.label)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -202,12 +204,12 @@ export default function BidsPage() {
       ) : bids.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-6xl mb-4">🔨</div>
-          <h2 className="text-xl font-bold mb-2">还没有相关的订单</h2>
+          <h2 className="text-xl font-bold mb-2">{t('noOrders')}</h2>
           <p className="text-muted-foreground mb-8">
-            去逛逛商品，参与竞拍吧！
+            {t('browseSubtitle')}
           </p>
           <Link href={`/${lang}/yahoo`}>
-            <Button>去竞拍</Button>
+            <Button>{t('browseProducts')}</Button>
           </Link>
         </div>
       ) : (
@@ -231,7 +233,7 @@ export default function BidsPage() {
                       />
                     ) : (
                       <div className="w-20 h-20 bg-gray-100 rounded border flex items-center justify-center text-gray-400 text-xs shrink-0">
-                        暂无图片
+                        {t('noImage')}
                       </div>
                     )}
 
@@ -257,18 +259,18 @@ export default function BidsPage() {
                                 : "text-orange-500"
                             }`}
                           >
-                            {bid.is_winning ? "领先" : "已出局"}
+                            {bid.is_winning ? t('winning') : t('outbid')}
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>
-                          出价:{" "}
+                          {t('bidAmount')}:{" "}
                           {formatAmount(bid.bid_amount, bid.currency)}
                         </span>
                         {bid.current_price !== undefined && (
                           <span>
-                            当前价:{" "}
+                            {t('currentPrice')}:{" "}
                             {formatAmount(
                               bid.current_price,
                               bid.currency
@@ -278,7 +280,7 @@ export default function BidsPage() {
                       </div>
                       {bid.end_time && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          结束: {new Date(bid.end_time).toLocaleString()}
+                          {t('endTime')}: {new Date(bid.end_time).toLocaleString()}
                         </p>
                       )}
                     </div>
@@ -299,7 +301,7 @@ export default function BidsPage() {
 
           {!loadingMore && page >= totalPages && bids.length > 0 && (
             <p className="text-center text-xs text-muted-foreground py-4">
-              已加载全部记录
+              {t('noMore')}
             </p>
           )}
         </div>

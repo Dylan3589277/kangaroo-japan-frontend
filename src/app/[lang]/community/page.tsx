@@ -9,6 +9,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { Heart, MessageCircle, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface CommunityItem {
   id: number;
@@ -76,6 +77,7 @@ export default function CommunityPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations('community');
 
   const [list, setList] = useState<CommunityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,14 +191,10 @@ export default function CommunityPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">
-              {lang === "zh" ? "社区发现" : lang === "ja" ? "コミュニティ" : "Community"}
+              {t('title')}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {lang === "zh"
-                ? "看看大家都在买什么"
-                : lang === "ja"
-                ? "みんなの買い物を見てみよう"
-                : "See what others are buying"}
+              {t('subtitle')}
             </p>
           </div>
           <Button
@@ -204,7 +202,7 @@ export default function CommunityPage() {
             onClick={() => router.push(`/${lang}/community/create`)}
           >
             <Plus className="size-4" />
-            {lang === "zh" ? "发布" : lang === "ja" ? "投稿" : "Post"}
+            {t('create')}
           </Button>
         </div>
 
@@ -239,24 +237,16 @@ export default function CommunityPage() {
           <div className="text-center py-16">
             <div className="text-6xl mb-4">📝</div>
             <h2 className="text-xl font-bold mb-2">
-              {lang === "zh"
-                ? "暂无分享"
-                : lang === "ja"
-                ? "シェアがありません"
-                : "No posts yet"}
+              {t('noPosts')}
             </h2>
             <p className="text-muted-foreground mb-6">
-              {lang === "zh"
-                ? "成为第一个分享购物心得的人吧"
-                : lang === "ja"
-                ? "最初の投稿をしてみませんか？"
-                : "Be the first to share your shopping experience"}
+              {t('noPostsDesc')}
             </p>
             <Button
               className="bg-rose-600 hover:bg-rose-700"
               onClick={() => router.push(`/${lang}/community/create`)}
             >
-              {lang === "zh" ? "发布分享" : lang === "ja" ? "投稿する" : "Share Now"}
+              {t('goCreate')}
             </Button>
           </div>
         )}
@@ -348,27 +338,15 @@ export default function CommunityPage() {
               disabled={loadingMore}
             >
               {loadingMore
-                ? lang === "zh"
-                  ? "加载中..."
-                  : lang === "ja"
-                  ? "読み込み中..."
-                  : "Loading..."
-                : lang === "zh"
-                ? "加载更多"
-                : lang === "ja"
-                ? "もっと見る"
-                : "Load More"}
+                ? t('loading')
+                : t('loadMore')}
             </Button>
           </div>
         )}
 
         {!hasMore && list.length > 0 && (
           <p className="text-center text-sm text-muted-foreground pt-4 pb-10">
-            {lang === "zh"
-              ? "— 已加载全部内容 —"
-              : lang === "ja"
-              ? "— 全ての投稿を表示 —"
-              : "— All posts loaded —"}
+            {t('allLoaded')}
           </p>
         )}
       </main>

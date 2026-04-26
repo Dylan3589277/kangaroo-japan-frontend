@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -86,6 +87,7 @@ export default function MessagesPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations('messages');
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -95,15 +97,6 @@ export default function MessagesPage() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const PAGE_SIZE = 10;
-
-  const getTitle = () => {
-    const titles: Record<string, string> = {
-      zh: "消息中心",
-      en: "Messages",
-      ja: "メッセージ",
-    };
-    return titles[lang] || titles.zh;
-  };
 
   const fetchMessages = useCallback(
     async (pageNum: number, append = false) => {
@@ -194,13 +187,13 @@ export default function MessagesPage() {
     return (
       <div className="container mx-auto py-16 px-4 text-center">
         <div className="text-6xl mb-4">🔐</div>
-        <h1 className="text-2xl font-bold mb-2">请先登录</h1>
-        <p className="text-muted-foreground mb-6">登录后即可查看消息</p>
+        <h1 className="text-2xl font-bold mb-2">{t('needLogin')}</h1>
+        <p className="text-muted-foreground mb-6">{t('needLoginDesc')}</p>
         <Button
           className="bg-rose-600 hover:bg-rose-700"
           onClick={() => router.push(`/${lang}/login`)}
         >
-          去登录
+          {t('goLogin')}
         </Button>
       </div>
     );
@@ -209,13 +202,9 @@ export default function MessagesPage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">{getTitle()}</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {lang === "zh"
-            ? `共 ${totalCount} 条消息`
-            : lang === "ja"
-            ? `全${totalCount}件`
-            : `${totalCount} messages total`}
+          {t('total', { count: totalCount })}
         </p>
       </div>
 
@@ -228,20 +217,8 @@ export default function MessagesPage() {
       ) : messages.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-6xl mb-4">📭</div>
-          <h2 className="text-xl font-bold mb-2">
-            {lang === "zh"
-              ? "暂无消息"
-              : lang === "ja"
-              ? "メッセージがありません"
-              : "No messages"}
-          </h2>
-          <p className="text-muted-foreground">
-            {lang === "zh"
-              ? "当有新的订单或系统通知时，会显示在这里"
-              : lang === "ja"
-              ? "新しい注文やシステム通知があるとここに表示されます"
-              : "New orders and system notifications will appear here"}
-          </p>
+          <h2 className="text-xl font-bold mb-2">{t('noMessages')}</h2>
+          <p className="text-muted-foreground">{t('noMessagesDesc')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -297,23 +274,15 @@ export default function MessagesPage() {
                 disabled={loadingMore}
               >
                 {loadingMore
-                  ? lang === "zh"
-                    ? "加载中..."
-                    : "Loading..."
-                  : lang === "zh"
-                  ? "加载更多"
-                  : "Load More"}
+                  ? t('loading')
+                  : t('loadMore')}
               </Button>
             </div>
           )}
 
           {!hasMore && messages.length > 0 && (
             <p className="text-center text-sm text-muted-foreground pt-4">
-              {lang === "zh"
-                ? "— 已加载全部消息 —"
-                : lang === "ja"
-                ? "— 全てのメッセージを表示 —"
-                : "— All messages loaded —"}
+              {t('allLoaded')}
             </p>
           )}
         </div>

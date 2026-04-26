@@ -1,0 +1,23 @@
+{
+  "daipayTitle": "Friend Payment",
+  "orderNo": "Order No.",
+  "inputOrderNo": "Enter the order number to pay for",
+  "generateLink": "Generate Payment Link",
+  "generating": "Generating...",
+  "copyLink": "Copy Link",
+  "linkCopied": "Copied",
+  "qrcode": "QR Code Payment",
+  "qrcodeArea": "QR Code Area",
+  "instructions": "Instructions",
+  "step1": "Enter the order number to be paid",
+  "step2": "Click \"Generate Payment Link\"",
+  "step3": "Share the link with your friend",
+  "step4": "Friend opens the link and pays",
+  "paymentLink": "Payment Link",
+  "linkGenerated": "Payment link generated",
+  "linkGeneratedSim": "Payment link generated (simulated)",
+  "noOrderNo": "Please enter an order number",
+  "needLogin": "Please log in",
+  "needLoginDesc": "Log in to use the friend payment feature",
+  "goLogin": "Log In"
+}
