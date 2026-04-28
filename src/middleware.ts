@@ -22,7 +22,9 @@ const COUNTRY_LOCALE_MAP: Record<string, string> = {
   TH: "th",
   ID: "id",
   VN: "vi",
-  JP: "ja",
+  // Japan is intentionally not auto-routed to /ja because Japanese message
+  // files are not present yet and the business targets overseas buyers.
+  JP: "zh",
 };
 
 // Default locale for unknown countries
@@ -65,8 +67,16 @@ export default function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check if user has already selected a locale (cookie set)
-  const userLocale = request.cookies.get(LOCALE_COOKIE)?.value;
+  // Check if user has already selected a locale (cookie set). Treat stale `ja`
+  // cookies as unset until Japanese message files are added, otherwise
+  // next-intl may route root visitors to /ja.
+  const userLocaleCookie = request.cookies.get(LOCALE_COOKIE)?.value;
+  const userLocale =
+    userLocaleCookie &&
+    userLocaleCookie !== "ja" &&
+    routing.locales.includes(userLocaleCookie as (typeof routing.locales)[number])
+      ? userLocaleCookie
+      : undefined;
 
   if (!userLocale) {
     // No user preference yet → detect from IP

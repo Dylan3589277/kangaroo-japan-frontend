@@ -20,7 +20,14 @@ const namespaces = [
   "warehouse",
 ] as const;
 
-async function loadNamespace(locale: string, namespace: (typeof namespaces)[number]) {
+const MESSAGE_LOCALES = ["zh", "en", "ko", "th", "id", "vi"] as const;
+type MessageLocale = (typeof MESSAGE_LOCALES)[number];
+
+function getMessageLocale(locale: string): MessageLocale {
+  return MESSAGE_LOCALES.includes(locale as MessageLocale) ? (locale as MessageLocale) : "zh";
+}
+
+async function loadNamespace(locale: MessageLocale, namespace: (typeof namespaces)[number]) {
   const messages = (await import(`./locales/${locale}/${namespace}.json`)).default;
 
   // Some existing files are already namespaced, e.g. auth.json contains
@@ -40,9 +47,10 @@ export default getRequestConfig(async ({ requestLocale }) => {
     locale = routing.defaultLocale;
   }
 
-  const commonMessages = (await import(`./locales/${locale}/common.json`)).default;
+  const messageLocale = getMessageLocale(locale);
+  const commonMessages = (await import(`./locales/${messageLocale}/common.json`)).default;
   const namespacedMessages = await Promise.all(
-    namespaces.map((namespace) => loadNamespace(locale, namespace)),
+    namespaces.map((namespace) => loadNamespace(messageLocale, namespace)),
   );
 
   return {
