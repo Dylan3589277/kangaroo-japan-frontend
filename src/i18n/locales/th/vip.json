@@ -1,0 +1,20 @@
+{
+  "title": "สมาชิก VIP",
+  "subtitle": "เลือกระดับสมาชิกที่เหมาะกับคุณที่สุด",
+  "currentLevel": "ระดับปัจจุบัน",
+  "expiresAt": "มีอายุถึง",
+  "activated": "เปิดใช้งานแล้ว",
+  "buy": "ซื้อเลย",
+  "owned": "เป็นเจ้าของแล้ว",
+  "save": "ประหยัด ¥{amount}",
+  "benefits": "สิทธิพิเศษ",
+  "confirmBuy": "ยืนยันการซื้อ",
+  "confirmContent": "คุณกำลังจะซื้อ {name} ในราคา ¥{price}",
+  "price": "ราคา",
+  "myLevel": "ระดับของฉัน",
+  "noLevel": "ไม่มีระดับสมาชิก",
+  "purchased": "ซื้อสำเร็จ",
+  "purchaseFailed": "ซื้อไม่สำเร็จ",
+  "purchaseFailedRetry": "ซื้อไม่สำเร็จ กรุณาลองอีกครั้ง",
+  "fetchFailed": "ไม่สามารถโหลดระดับ VIP ได้"
+}

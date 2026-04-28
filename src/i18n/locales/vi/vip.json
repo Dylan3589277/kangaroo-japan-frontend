@@ -1,0 +1,20 @@
+{
+  "title": "VIP Thành viên",
+  "subtitle": "Chọn gói hội viên phù hợp nhất với bạn",
+  "currentLevel": "Cấp hiện tại",
+  "expiresAt": "Có hiệu lực đến",
+  "activated": "Đã kích hoạt",
+  "buy": "Mua ngay",
+  "owned": "Đã sở hữu",
+  "save": "Tiết kiệm ¥{amount}",
+  "benefits": "Quyền lợi",
+  "confirmBuy": "Xác nhận mua",
+  "confirmContent": "Bạn sắp mua {name} với giá ¥{price}",
+  "price": "Giá",
+  "myLevel": "Cấp của tôi",
+  "noLevel": "Chưa có hội viên",
+  "purchased": "Mua thành công",
+  "purchaseFailed": "Mua thất bại",
+  "purchaseFailedRetry": "Mua thất bại, vui lòng thử lại sau",
+  "fetchFailed": "Không thể tải danh sách VIP"
+}

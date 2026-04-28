@@ -1,0 +1,53 @@
+# Translate to Korean
+
+Style: Coupang/Gmarket style - formal friendly
+
+## English (source)
+
+```json
+{
+  "title": "VIP Membership",
+  "subtitle": "Choose the membership level that suits you best",
+  "currentLevel": "Current Level",
+  "expiresAt": "Valid until",
+  "activated": "Activated",
+  "buy": "Buy Now",
+  "owned": "Owned",
+  "save": "Save ¥{amount}",
+  "benefits": "Benefits",
+  "confirmBuy": "Confirm Purchase",
+  "confirmContent": "You are about to purchase {name} for ¥{price}",
+  "price": "Price",
+  "myLevel": "My Level",
+  "noLevel": "No membership level",
+  "purchased": "Purchase successful",
+  "purchaseFailed": "Purchase failed",
+  "purchaseFailedRetry": "Purchase failed, please try again later",
+  "fetchFailed": "Failed to fetch VIP levels"
+}
+```
+
+## Chinese (reference)
+
+```json
+{
+  "title": "VIP 会员",
+  "subtitle": "选择适合您的会员等级，享受更多专属权益",
+  "currentLevel": "当前会员",
+  "expiresAt": "有效期至",
+  "activated": "已激活",
+  "buy": "立即开通",
+  "owned": "已拥有",
+  "save": "省 ¥{amount}",
+  "benefits": "包含权益",
+  "confirmBuy": "确认开通",
+  "confirmContent": "您即将开通 {name}，费用为 ¥{price}",
+  "price": "价格",
+  "myLevel": "我的等级",
+  "noLevel": "暂无会员等级",
+  "purchased": "购买成功",
+  "purchaseFailed": "购买失败",
+  "purchaseFailedRetry": "购买失败，请稍后重试",
+  "fetchFailed": "获取VIP等级列表失败"
+}
+```

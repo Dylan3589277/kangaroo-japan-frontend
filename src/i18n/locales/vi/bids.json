@@ -1,0 +1,21 @@
+{
+  "title": "Đấu giá của tôi",
+  "bidding": "Đang đấu",
+  "won": "Đã thắng",
+  "others": "Khác",
+  "noOrders": "Chưa có đơn hàng",
+  "browseSubtitle": "Xem sản phẩm và bắt đầu đấu giá!",
+  "browseProducts": "Đi đấu giá",
+  "bidAmount": "Giá thầu",
+  "currentPrice": "Giá hiện tại",
+  "endTime": "Kết thúc",
+  "status": "Trạng thái",
+  "productId": "Mã sản phẩm",
+  "shop": "Yahoo Đấu giá",
+  "loadMore": "Xem thêm",
+  "noMore": "Đã tải hết dữ liệu",
+  "loading": "Đang tải...",
+  "noImage": "Không có ảnh",
+  "winning": "Đang dẫn đầu",
+  "outbid": "Đã vượt giá"
+}

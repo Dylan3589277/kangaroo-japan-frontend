@@ -40,6 +40,9 @@ yarn-error.log*
 /playwright-report/
 /test-results/
 
+# python cache
+__pycache__/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

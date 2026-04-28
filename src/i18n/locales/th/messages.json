@@ -1,0 +1,21 @@
+{
+  "title": "ข้อความ",
+  "noMessages": "ไม่มีข้อความ",
+  "noMessagesDesc": "คำสั่งซื้อใหม่และการแจ้งเตือนจากระบบจะแสดงที่นี่",
+  "loadMore": "โหลดเพิ่ม",
+  "loading": "กำลังโหลด...",
+  "allLoaded": "โหลดข้อความทั้งหมดแล้ว",
+  "orderUpdate": "คำสั่งซื้อ",
+  "systemNotice": "ระบบ",
+  "promotion": "โปรโมชั่น",
+  "paymentNotice": "การชำระเงิน",
+  "timeAgo": "{time} ที่แล้ว",
+  "justNow": "เมื่อกี้",
+  "minutesAgo": "{minutes} นาทีที่แล้ว",
+  "hoursAgo": "{hours} ชม.ที่แล้ว",
+  "daysAgo": "{days} วันที่แล้ว",
+  "total": "ข้อความทั้งหมด {count} ข้อความ",
+  "needLogin": "กรุณาเข้าสู่ระบบ",
+  "needLoginDesc": "เข้าสู่ระบบเพื่อดูข้อความของคุณ",
+  "goLogin": "เข้าสู่ระบบ"
+}

@@ -1,0 +1,21 @@
+{
+  "title": "การประมูลของฉัน",
+  "bidding": "กำลังประมูล",
+  "won": "ชนะ",
+  "others": "อื่นๆ",
+  "noOrders": "ยังไม่มีคำสั่งซื้อ",
+  "browseSubtitle": "เรียกดูสินค้าและเริ่มประมูลเลย!",
+  "browseProducts": "ไปประมูล",
+  "bidAmount": "จำนวนเงินประมูล",
+  "currentPrice": "ราคาปัจจุบัน",
+  "endTime": "สิ้นสุด",
+  "status": "สถานะ",
+  "productId": "รหัสสินค้า",
+  "shop": "Yahoo Auctions",
+  "loadMore": "โหลดเพิ่ม",
+  "noMore": "โหลดทั้งหมดแล้ว",
+  "loading": "กำลังโหลด...",
+  "noImage": "ไม่มีรูปภาพ",
+  "winning": "กำลังนำ",
+  "outbid": "ถูกแซง"
+}

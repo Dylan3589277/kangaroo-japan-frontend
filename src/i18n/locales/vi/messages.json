@@ -1,0 +1,21 @@
+{
+  "title": "Tin nhắn",
+  "noMessages": "Không có tin nhắn",
+  "noMessagesDesc": "Đơn hàng mới và thông báo hệ thống sẽ hiển thị tại đây",
+  "loadMore": "Xem thêm",
+  "loading": "Đang tải...",
+  "allLoaded": "Đã tải hết tin nhắn",
+  "orderUpdate": "Đơn hàng",
+  "systemNotice": "Hệ thống",
+  "promotion": "Khuyến mãi",
+  "paymentNotice": "Thanh toán",
+  "timeAgo": "{time} trước",
+  "justNow": "Vừa xong",
+  "minutesAgo": "{minutes} phút trước",
+  "hoursAgo": "{hours} giờ trước",
+  "daysAgo": "{days} ngày trước",
+  "total": "{count} tin nhắn",
+  "needLogin": "Vui lòng đăng nhập",
+  "needLoginDesc": "Đăng nhập để xem tin nhắn của bạn",
+  "goLogin": "Đăng nhập"
+}

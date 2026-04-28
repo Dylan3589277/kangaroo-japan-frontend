@@ -1,0 +1,23 @@
+{
+  "title": "Articles",
+  "subtitle": "Shopping guides, Japan info, recommendations",
+  "all": "All",
+  "shoppingGuide": "Shopping Guide",
+  "japanTravel": "Japan Travel",
+  "recommendations": "Recommendations",
+  "proxyNews": "Proxy News",
+  "japanCulture": "Japanese Culture",
+  "loadMore": "Load More",
+  "loading": "Loading...",
+  "allLoaded": "All articles loaded",
+  "noArticles": "No articles",
+  "noArticlesCategory": "No articles in this category",
+  "readMore": "Read Full Article",
+  "views": " views",
+  "detailTitle": "Article Detail",
+  "back": "Back",
+  "summary": "Summary: ",
+  "notFound": "Article not found",
+  "notFoundDesc": "This article may have been deleted or does not exist",
+  "backToList": "Back to Articles"
+}

@@ -1,0 +1,63 @@
+# Translate to Vietnamese
+
+Style: Tiki style - concise friendly
+
+## English (source)
+
+```json
+{
+  "title": "Point Mall",
+  "subtitle": "Redeem your points for items and coupons",
+  "myScore": "My Points",
+  "redeem": "Redeem",
+  "noPoints": "Insufficient Points",
+  "confirmRedeem": "Confirm Redeem",
+  "confirmContent": "You are about to redeem the following item",
+  "noGoods": "No items available",
+  "noGoodsDesc": "More items coming soon",
+  "score": "pts",
+  "pointsNeeded": "Points Needed",
+  "currentPoints": "Current Points",
+  "exchangeSuccess": "Redemption successful",
+  "exchangeFailed": "Redemption failed",
+  "exchangeFailedRetry": "Redemption failed, please try again later",
+  "fetchFailed": "Failed to load shop items",
+  "typeCoupon": "Coupon",
+  "typeProduct": "Product",
+  "typeReward": "Reward",
+  "remaining": "Only {stock} left",
+  "soldOut": "Sold Out",
+  "prevPage": "Prev",
+  "nextPage": "Next"
+}
+```
+
+## Chinese (reference)
+
+```json
+{
+  "title": "积分商城",
+  "subtitle": "使用积分兑换心仪的商品和优惠券",
+  "myScore": "我的积分",
+  "redeem": "兑换",
+  "noPoints": "积分不足",
+  "confirmRedeem": "确认兑换",
+  "confirmContent": "您即将兑换以下商品，请确认您的选择",
+  "noGoods": "暂无兑换商品",
+  "noGoodsDesc": "敬请期待更多积分商品上架",
+  "score": "分",
+  "pointsNeeded": "所需积分",
+  "currentPoints": "当前积分",
+  "exchangeSuccess": "兑换成功",
+  "exchangeFailed": "兑换失败",
+  "exchangeFailedRetry": "兑换失败，请稍后重试",
+  "fetchFailed": "获取积分商城列表失败",
+  "typeCoupon": "优惠券",
+  "typeProduct": "商品",
+  "typeReward": "奖励",
+  "remaining": "仅剩 {stock} 件",
+  "soldOut": "已售罄",
+  "prevPage": "上一页",
+  "nextPage": "下一页"
+}
+```

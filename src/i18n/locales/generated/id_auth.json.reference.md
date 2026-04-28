@@ -1,0 +1,119 @@
+# Translate to Indonesian
+
+Style: Tokopedia style - relaxed natural
+
+## English (source)
+
+```json
+{
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "phone": "Phone",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "loginSuccess": "Login successful",
+    "registerSuccess": "Registration successful",
+    "logoutSuccess": "Logout successful",
+    "loginFailed": "Login failed",
+    "registerFailed": "Registration failed",
+    "invalidCredentials": "Invalid email or password",
+    "emailRequired": "Email is required",
+    "passwordRequired": "Password is required",
+    "passwordMinLength": "Password must be at least 8 characters",
+    "nameRequired": "Name is required",
+    "passwordMismatch": "Passwords do not match",
+    "loggingIn": "Logging in..."
+  },
+  "address": {
+    "title": "Shipping Addresses",
+    "add": "Add Address",
+    "edit": "Edit Address",
+    "delete": "Delete Address",
+    "setDefault": "Set as Default",
+    "recipientName": "Recipient",
+    "phone": "Phone",
+    "country": "Country/Region",
+    "address": "Street Address",
+    "city": "City",
+    "state": "State/Province",
+    "postalCode": "Postal Code",
+    "label": "Address Label",
+    "labelHome": "Home",
+    "labelWork": "Work",
+    "labelOther": "Other",
+    "default": "Default",
+    "empty": "No shipping addresses",
+    "save": "Save",
+    "cancel": "Cancel",
+    "deleteConfirm": "Are you sure you want to delete this address?",
+    "savedSuccess": "Address saved successfully",
+    "deletedSuccess": "Address deleted successfully",
+    "setDefaultSuccess": "Set as default address"
+  }
+}
+```
+
+## Chinese (reference)
+
+```json
+{
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出登录",
+    "email": "邮箱",
+    "password": "密码",
+    "name": "姓名",
+    "phone": "手机号",
+    "confirmPassword": "确认密码",
+    "forgotPassword": "忘记密码？",
+    "noAccount": "还没有账号？",
+    "hasAccount": "已有账号？",
+    "loginSuccess": "登录成功",
+    "registerSuccess": "注册成功",
+    "logoutSuccess": "退出成功",
+    "loginFailed": "登录失败",
+    "registerFailed": "注册失败",
+    "invalidCredentials": "邮箱或密码错误",
+    "emailRequired": "请输入邮箱",
+    "passwordRequired": "请输入密码",
+    "passwordMinLength": "密码至少8位",
+    "nameRequired": "请输入姓名",
+    "passwordMismatch": "两次密码不一致",
+    "loggingIn": "登录中..."
+  },
+  "address": {
+    "title": "收货地址",
+    "add": "添加地址",
+    "edit": "编辑地址",
+    "delete": "删除地址",
+    "setDefault": "设为默认",
+    "recipientName": "收货人",
+    "phone": "手机号",
+    "country": "国家/地区",
+    "address": "详细地址",
+    "city": "城市",
+    "state": "省份",
+    "postalCode": "邮编",
+    "label": "地址标签",
+    "labelHome": "家",
+    "labelWork": "公司",
+    "labelOther": "其他",
+    "default": "默认地址",
+    "empty": "暂无收货地址",
+    "save": "保存",
+    "cancel": "取消",
+    "deleteConfirm": "确定要删除此地址吗？",
+    "savedSuccess": "地址保存成功",
+    "deletedSuccess": "地址删除成功",
+    "setDefaultSuccess": "已设为默认地址"
+  }
+}
+```

@@ -1,0 +1,23 @@
+{
+  "daipayTitle": "Thanh toán hộ",
+  "orderNo": "Mã đơn hàng",
+  "inputOrderNo": "Nhập mã đơn hàng cần thanh toán",
+  "generateLink": "Tạo link thanh toán",
+  "generating": "Đang tạo...",
+  "copyLink": "Sao chép link",
+  "linkCopied": "Đã sao chép",
+  "qrcode": "Thanh toán QR",
+  "qrcodeArea": "Khu vực QR Code",
+  "instructions": "Hướng dẫn",
+  "step1": "Nhập mã đơn hàng cần thanh toán",
+  "step2": "Nhấn \"Tạo link thanh toán\"",
+  "step3": "Gửi link cho bạn bè",
+  "step4": "Bạn mở link và thanh toán",
+  "paymentLink": "Link thanh toán",
+  "linkGenerated": "Đã tạo link thanh toán",
+  "linkGeneratedSim": "Đã tạo link thanh toán (mô phỏng)",
+  "noOrderNo": "Vui lòng nhập mã đơn hàng",
+  "needLogin": "Vui lòng đăng nhập",
+  "needLoginDesc": "Đăng nhập để sử dụng tính năng thanh toán hộ",
+  "goLogin": "Đăng nhập"
+}
