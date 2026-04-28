@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import Image from "next/image";
 import { Calendar, Eye } from "lucide-react";
 
 interface ArticleItem {
@@ -258,11 +259,13 @@ export default function ArticlesPage() {
                 <div className="flex gap-4">
                   {/* Cover image */}
                   {article.cover_image && (
-                    <div className="w-28 h-20 sm:w-36 sm:h-24 rounded-lg overflow-hidden bg-zinc-100 flex-shrink-0">
-                      <img
+                    <div className="w-28 h-20 sm:w-36 sm:h-24 rounded-lg overflow-hidden bg-zinc-100 flex-shrink-0 relative">
+                      <Image
                         src={article.cover_image}
                         alt={article.title}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="144px"
                         loading="lazy"
                       />
                     </div>

@@ -1,6 +1,8 @@
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/react";
+import { inter, notoSansSC, notoSansJP, notoSans } from "./fonts";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://jp-buy.com"),
@@ -50,7 +52,17 @@ export const metadata: Metadata = {
     canonical: "https://jp-buy.com",
     languages: {
       "zh-CN": "https://jp-buy.com/zh",
+      "zh-SG": "https://jp-buy.com/zh",
       "en-US": "https://jp-buy.com/en",
+      "en-GB": "https://jp-buy.com/en",
+      "en-AU": "https://jp-buy.com/en",
+      "en-PH": "https://jp-buy.com/en",
+      "en-SG": "https://jp-buy.com/en",
+      "en-MY": "https://jp-buy.com/en",
+      "ko-KR": "https://jp-buy.com/ko",
+      "th-TH": "https://jp-buy.com/th",
+      "id-ID": "https://jp-buy.com/id",
+      "vi-VN": "https://jp-buy.com/vi",
       "ja-JP": "https://jp-buy.com/ja",
     },
   },
@@ -75,11 +87,12 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
-      <body>
+    <html lang={locale} className={`${inter.variable} ${notoSansSC.variable} ${notoSansJP.variable} ${notoSans.variable}`}>
+      <body className="font-sans">
         <NextIntlClientProvider messages={messages}>
           {children}
         </NextIntlClientProvider>
+        <Analytics />
       </body>
     </html>
   );

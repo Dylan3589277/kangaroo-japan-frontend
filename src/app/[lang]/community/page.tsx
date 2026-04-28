@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import Image from "next/image";
 import { Heart, MessageCircle, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -291,10 +292,12 @@ export default function CommunityPage() {
                         key={idx}
                         className="aspect-square rounded-lg overflow-hidden bg-zinc-100"
                       >
-                        <img
+                        <Image
                           src={img}
                           alt={`image ${idx + 1}`}
-                          className="w-full h-full object-cover"
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 50vw, 33vw"
                           loading="lazy"
                         />
                       </div>

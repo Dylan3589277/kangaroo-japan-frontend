@@ -79,6 +79,56 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
+  // SEO: Dynamic meta title from product data
+  useEffect(() => {
+    if (product) {
+      document.title = `${product.title} | JP Buy`;
+      // Set meta description from product description
+      const desc = product.description || `${product.title} - JP Buy 日本跨境购物平台`;
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement("meta");
+        metaDesc.setAttribute("name", "description");
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.setAttribute("content", desc.slice(0, 160));
+    } else {
+      document.title = `${
+        lang === "zh" ? "商品详情" : lang === "en" ? "Product" : "商品詳細"
+      } | JP Buy`;
+    }
+  }, [product, lang]);
+
+  // BreadcrumbList JSON-LD (computed from product data when available)
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: lang === "zh" ? "首页" : lang === "en" ? "Home" : "ホーム",
+        item: `https://jp-buy.com/${lang}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: lang === "zh" ? "商品" : lang === "en" ? "Products" : "商品",
+        item: `https://jp-buy.com/${lang}/products`,
+      },
+      ...(product
+        ? [
+            {
+              "@type": "ListItem" as const,
+              position: 3,
+              name: product.title,
+              item: `https://jp-buy.com/${lang}/products/${product.id}`,
+            },
+          ]
+        : []),
+    ],
+  };
+
   useEffect(() => {
     fetchProduct();
     fetchPriceHistory();
@@ -230,6 +280,11 @@ export default function ProductDetailPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
+      {/* BreadcrumbList JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

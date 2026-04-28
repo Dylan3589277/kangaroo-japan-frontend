@@ -134,6 +134,14 @@
     "cny": "人民币",
     "usd": "美元"
   },
+  "notFound": {
+    "title": "页面未找到",
+    "subtitle": "抱歉，您访问的页面不存在或已被移动。",
+    "searchPlaceholder": "搜索商品...",
+    "goHome": "返回首页",
+    "browseProducts": "浏览商品",
+    "recommendedTitle": "推荐商品"
+  },
   "order": {
     "title": "我的订单",
     "empty": "暂无订单",

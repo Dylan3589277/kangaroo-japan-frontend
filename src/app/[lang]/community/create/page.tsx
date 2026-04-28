@@ -7,6 +7,7 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
+import Image from "next/image";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 
 const MAX_IMAGES = 9;
@@ -156,10 +157,12 @@ export default function CommunityCreatePage() {
                 {/* Preview images */}
                 {images.map((img, idx) => (
                   <div key={idx} className="relative aspect-square rounded-lg overflow-hidden bg-zinc-100 group">
-                    <img
+                    <Image
                       src={img}
                       alt={`preview ${idx + 1}`}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 33vw, 25vw"
                     />
                     <button
                       onClick={() => handleRemoveImage(idx)}

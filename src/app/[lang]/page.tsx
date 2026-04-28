@@ -103,6 +103,33 @@ export default function HomePage() {
 
   const router = useRouter();
 
+  // SEO: Dynamic title & BreadcrumbList structured data
+  useEffect(() => {
+    const pageTitle = `${t("home.title")} | JP Buy`;
+    document.title = pageTitle;
+    // Set meta description
+    let metaDesc = document.querySelector('meta[name="description"]');
+    if (!metaDesc) {
+      metaDesc = document.createElement("meta");
+      metaDesc.setAttribute("name", "description");
+      document.head.appendChild(metaDesc);
+    }
+    metaDesc.setAttribute("content", t("home.subtitle"));
+  }, [t]);
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: lang === "zh" ? "首页" : lang === "en" ? "Home" : "ホーム",
+        item: `https://jp-buy.com/${lang}`,
+      },
+    ],
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -127,6 +154,12 @@ export default function HomePage() {
     <div className="min-h-screen bg-zinc-50">
       {/* 全局 Header - 固定顶部 */}
       <Header showSearch />
+
+      {/* BreadcrumbList JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
 
       {/* Hero */}
       <section className="bg-gradient-to-br from-rose-50 to-orange-50 py-16 md:py-24">

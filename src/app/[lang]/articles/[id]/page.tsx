@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { Calendar, Eye, ArrowLeft } from "lucide-react";
-
+import Image from "next/image";
+import { Link } from "@/i18n/navigation";
 interface ArticleDetail {
   id: number;
   title: string;
@@ -183,11 +184,14 @@ export default function ArticleDetailPage() {
 
             {/* Cover image */}
             {article.cover_image && (
-              <div className="mb-8 rounded-xl overflow-hidden bg-zinc-100">
-                <img
+              <div className="mb-8 rounded-xl overflow-hidden bg-zinc-100 relative" style={{ aspectRatio: '16/9', maxHeight: '400px' }}>
+                <Image
                   src={article.cover_image}
                   alt={article.title}
-                  className="w-full h-auto object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 768px"
+                  priority
                 />
               </div>
             )}

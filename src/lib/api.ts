@@ -290,6 +290,10 @@ class ApiClient {
     return this.request(`/categories/${id}?lang=${lang}`);
   }
 
+  async getCategoryBySlug(slug: string, lang = "zh") {
+    return this.request(`/categories/slug/${slug}?lang=${lang}`);
+  }
+
   async getCategoryProducts(categoryId: string, params?: any) {
     const searchParams = new URLSearchParams();
     if (params?.lang) searchParams.set("lang", params.lang);
@@ -299,6 +303,17 @@ class ApiClient {
 
     const query = searchParams.toString();
     return this.request(`/categories/${categoryId}/products${query ? `?${query}` : ""}`);
+  }
+
+  async getCategoryProductsBySlug(slug: string, params?: any) {
+    const searchParams = new URLSearchParams();
+    if (params?.lang) searchParams.set("lang", params.lang);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.sort) searchParams.set("sort", params.sort);
+
+    const query = searchParams.toString();
+    return this.request(`/categories/slug/${slug}/products${query ? `?${query}` : ""}`);
   }
 
   // 统一搜索 - 并行搜索多个平台，返回统一格式

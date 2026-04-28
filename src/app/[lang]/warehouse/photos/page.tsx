@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -278,12 +279,14 @@ export default function PhotosPage() {
                         className="flex items-center justify-between p-2"
                       >
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">
+                          <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs relative overflow-hidden">
                             {item.image ? (
-                              <img
+                              <Image
                                 src={item.image}
                                 alt={item.title}
-                                className="w-full h-full object-cover rounded"
+                                fill
+                                className="object-cover rounded"
+                                sizes="32px"
                               />
                             ) : (
                               "📦"
@@ -389,11 +392,13 @@ export default function PhotosPage() {
                 {/* Preview Grid */}
                 <div className="grid grid-cols-3 gap-3">
                   {previewUrls.map((url, index) => (
-                    <div key={index} className="relative group">
-                      <img
+                    <div key={index} className="relative group h-24">
+                      <Image
                         src={url}
                         alt={`Preview ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg border"
+                        fill
+                        className="object-cover rounded-lg border"
+                        sizes="(max-width: 768px) 33vw, 25vw"
                       />
                       <button
                         onClick={() => removeFile(index)}

@@ -1,12 +1,12 @@
 import { MetadataRoute } from "next";
+import { routing } from "@/i18n/routing";
 
 const BASE_URL = "https://jp-buy.com";
 
+// Languages to include in sitemap (exclude Japanese - noindex)
+const SITEMAP_LANGUAGES = routing.locales.filter((l) => l !== "ja");
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  // NOTE: Japanese (ja) is NOT configured in src/i18n/routing.ts locales.
-  // If Japanese support is added to routing.ts, uncomment 'ja' below.
-  const languages = ["zh", "en"] as const;
-  
   // Static pages - public pages only (private pages excluded)
   const staticPages = [
     { path: "", priority: 1.0 },
@@ -19,7 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const sitemap: MetadataRoute.Sitemap = [];
 
   // Add static pages for each language
-  for (const lang of languages) {
+  for (const lang of SITEMAP_LANGUAGES) {
     for (const page of staticPages) {
       sitemap.push({
         url: `${BASE_URL}/${lang}${page.path}`,

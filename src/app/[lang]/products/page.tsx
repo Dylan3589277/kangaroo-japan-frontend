@@ -86,6 +86,49 @@ export default function ProductsPage() {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [imgErrorProducts, setImgErrorProducts] = useState<Set<string>>(new Set());
 
+  // SEO: Dynamic meta title based on search query
+  useEffect(() => {
+    const pageTitle = initialSearch
+      ? `${initialSearch} | JP Buy`
+      : `${
+          lang === "zh" ? "商品列表" : lang === "en" ? "Products" : "商品一覧"
+        } | JP Buy`;
+    document.title = pageTitle;
+    // Set meta description
+    const description =
+      lang === "zh"
+        ? "浏览我们的跨境电商比价商品"
+        : lang === "en"
+        ? "Browse our cross-border e-commerce products"
+        : "越境EC価格比較商品をご覧ください";
+    let metaDesc = document.querySelector('meta[name="description"]');
+    if (!metaDesc) {
+      metaDesc = document.createElement("meta");
+      metaDesc.setAttribute("name", "description");
+      document.head.appendChild(metaDesc);
+    }
+    metaDesc.setAttribute("content", description);
+  }, [initialSearch, lang]);
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: lang === "zh" ? "首页" : lang === "en" ? "Home" : "ホーム",
+        item: `https://jp-buy.com/${lang}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: lang === "zh" ? "商品" : lang === "en" ? "Products" : "商品",
+        item: `https://jp-buy.com/${lang}/products`,
+      },
+    ],
+  };
+
   const fetchCategories = useCallback(async () => {
     try {
       const res = await api.getCategories(lang);
@@ -275,6 +318,12 @@ export default function ProductsPage() {
             handleSearchDirectly(query);
           }
         }}
+      />
+
+      {/* BreadcrumbList JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
       {/* JSON-LD Structured Data */}
