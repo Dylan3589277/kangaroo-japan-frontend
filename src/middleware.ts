@@ -36,9 +36,34 @@ function getLocaleFromCountry(country: string | undefined): string {
 // Create the next-intl middleware for locale detection
 const intlMiddleware = createMiddleware(routing);
 
+const PUBLIC_METADATA_PATHS = new Set([
+  "/robots.txt",
+  "/sitemap.xml",
+  "/favicon.ico",
+  "/manifest.json",
+  "/site.webmanifest",
+  "/browserconfig.xml",
+]);
+
+function isPublicMetadataPath(pathname: string): boolean {
+  return (
+    PUBLIC_METADATA_PATHS.has(pathname) ||
+    pathname.startsWith("/opengraph-image") ||
+    pathname.startsWith("/twitter-image") ||
+    pathname.startsWith("/icon") ||
+    pathname.startsWith("/apple-icon")
+  );
+}
+
 export default function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const { pathname: cleanedPathname } = request.nextUrl;
+
+  // SEO metadata files must stay at the domain root. Do not redirect
+  // /robots.txt or /sitemap.xml into a locale path such as /ja/robots.txt.
+  if (isPublicMetadataPath(pathname)) {
+    return NextResponse.next();
+  }
 
   // Check if user has already selected a locale (cookie set)
   const userLocale = request.cookies.get(LOCALE_COOKIE)?.value;
@@ -86,6 +111,6 @@ export const config = {
     // Match all pathnames except for
     // - … if they start with `/api`, `/_next` or `/_vercel`
     // - … or end with `.svg`, `.png`, etc.
-    "/((?!api|_next|_vercel|.*\\\\..*).*)",
+    "/((?!api|_next|_vercel|.*\\..*).*)",
   ],
 };
