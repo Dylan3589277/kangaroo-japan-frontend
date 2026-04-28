@@ -3,6 +3,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { inter, notoSansSC, notoSansJP, notoSans } from "./fonts";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://jp-buy.com"),
@@ -92,6 +93,7 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages}>
           {children}
         </NextIntlClientProvider>
+        <Toaster />
         <Analytics />
       </body>
     </html>
