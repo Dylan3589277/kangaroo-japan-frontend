@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://kangaroo-japan-backend.vercel.app/api/v1";
 
 interface ApiOptions {
   method?: string;
@@ -15,6 +15,24 @@ interface ApiResponse<T = any> {
     code: string;
     message: string;
     details?: any;
+  };
+}
+
+interface SupportChatResponse {
+  conversationId?: string;
+  reply?: string;
+  answer?: string;
+  message?: string;
+}
+
+interface SupportTicketResponse {
+  ticketNumber?: string;
+  ticket_number?: string;
+  number?: string;
+  ticket?: {
+    ticketNumber?: string;
+    ticket_number?: string;
+    number?: string;
   };
 }
 
@@ -63,6 +81,10 @@ class ApiClient {
       // Wrapped format: { success: true, data: {...} }
       if ('success' in obj && obj.success === true) {
         return obj as unknown as ApiResponse<T>;
+      }
+      // NestJS backend format: { code: 0, data: {...} }
+      if ('code' in obj && obj.code === 0 && 'data' in obj) {
+        return { success: true, data: obj.data as T };
       }
       // Direct format: { data: [...], pagination: {...} } (Railway backend)
       if ('data' in obj || 'items' in obj) {
@@ -425,6 +447,39 @@ class ApiClient {
     });
   }
 
+  private async supportRequest<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: {
+            code: String(response.status),
+            message: typeof data?.message === "string" ? data.message : "Support request failed",
+          },
+        };
+      }
+
+      return this.parseResponse<T>(data);
+    } catch (error) {
+      console.error("Support API request failed:", error);
+      return {
+        success: false,
+        error: {
+          code: "NETWORK_ERROR",
+          message: "Network request failed",
+        },
+      };
+    }
+  }
+
   async cancelOrder(id: string) {
     return this.request(`/orders/${id}/cancel`, {
       method: 'PUT',
@@ -433,6 +488,35 @@ class ApiClient {
 
   async trackOrder(id: string) {
     return this.request(`/orders/${id}/track`);
+  }
+
+  // Support endpoints
+  async sendSupportChat(data: { message: string; conversationId?: string; language?: string }) {
+    return this.supportRequest<SupportChatResponse>("/api/support/chat", {
+      message: data.message,
+      conversationId: data.conversationId,
+      site: "kangaroo-japan",
+      language: data.language || "zh",
+    });
+  }
+
+  async createSupportTicket(data: {
+    name?: string;
+    email: string;
+    subject: string;
+    category: string;
+    description: string;
+    language?: string;
+  }) {
+    return this.supportRequest<SupportTicketResponse>("/api/support/tickets", {
+      visitorName: data.name || data.email,
+      visitorEmail: data.email,
+      site: "kangaroo-japan",
+      language: data.language || "zh",
+      category: data.category || "general",
+      subject: data.subject,
+      description: data.description,
+    });
   }
 
   // Payment endpoints

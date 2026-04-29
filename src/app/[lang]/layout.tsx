@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { hasLocale } from "next-intl";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
+import { SupportWidget } from "@/components/support/SupportWidget";
 import type { Metadata } from "next";
 import "@/app/globals.css";
 
@@ -47,6 +48,7 @@ export default async function LocaleLayout({
   return (
     <div className="min-h-screen flex flex-col">
       {children}
+      <SupportWidget lang={lang} />
     </div>
   );
 }
