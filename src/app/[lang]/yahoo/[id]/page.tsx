@@ -622,10 +622,9 @@ export default function YahooDetailPage() {
               <h3 className="text-lg font-semibold mb-2">
                 {t('details')}
               </h3>
-              <div
-                className="whitespace-pre-wrap text-sm leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: detail.content || detail.description || "" }}
-              />
+              <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                {detail.content || detail.description || ""}
+              </div>
               {!detail.content && !detail.description && (
                 <p className="text-muted-foreground">
                   {t('noDescription')}
