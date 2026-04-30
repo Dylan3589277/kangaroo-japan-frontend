@@ -51,7 +51,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "代拍失败（竞拍未中/商品售罄）会怎样？",
-            a: "代拍失败时，款项将全额退回您的账户余额，不收取任何手续费。",
+            a: "代拍失败时，款项通常会退回您的账户余额；具体退款金额、时间和手续费处理以人工客服最终确认为准。",
           },
           {
             q: "可以代拍多件商品合并发货吗？",
@@ -69,7 +69,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "如何充值账户余额？",
-            a: "支持支付宝、微信支付、银行转账等方式充值，充值后余额即时到账，可直接用于下单。",
+            a: "请以充值页面实际显示的支付方式为准。充值到账时间、可用范围等以平台提示和人工客服确认为准。",
           },
           {
             q: "余额可以退款吗？",
@@ -143,7 +143,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "可以取消已下单的代拍吗？",
-            a: "订单提交后如尚未在日本购买，可申请取消并全额退回余额；已购买的商品是否可退货需视日本卖家政策而定，结果由客服确认。",
+            a: "订单提交后如尚未在日本购买，可申请取消；是否退款、退款金额和到账时间需由客服根据订单状态最终确认。已购买的商品是否可退货需视日本卖家政策而定。",
           },
         ],
       },
@@ -193,7 +193,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "What happens if a proxy purchase fails (auction lost/item sold out)?",
-            a: "If the purchase fails, the full amount is returned to your wallet balance immediately with no handling fee.",
+            a: "If a purchase fails, the amount is usually returned to your wallet balance. The final refundable amount, timing, and any fee handling must be confirmed by a human support agent.",
           },
           {
             q: "Can multiple items be consolidated for one shipment?",
@@ -211,7 +211,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "How do I top up my wallet?",
-            a: "We accept Alipay, WeChat Pay, bank transfer, and other methods. Funds are credited instantly and can be used for orders right away.",
+            a: "Please refer to the payment methods shown on the top-up page. Credit timing and wallet availability are subject to platform notices and human support confirmation.",
           },
           {
             q: "Can I get a refund of my wallet balance?",
@@ -285,7 +285,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "Can I cancel a proxy order after submitting?",
-            a: "If the item hasn't been purchased in Japan yet, you can cancel for a full wallet refund. If already purchased, cancellation depends on the Japanese seller's return policy — the result is confirmed by support.",
+            a: "If the item has not been purchased in Japan yet, you may request cancellation. Whether a refund is possible, the amount, and timing must be confirmed by support based on the order status. If already purchased, cancellation depends on the Japanese seller's return policy.",
           },
         ],
       },
@@ -335,7 +335,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "落札できなかった場合や売り切れの場合はどうなりますか？",
-            a: "代理購入に失敗した場合は、全額をアカウント残高へ返金いたします。手数料は一切かかりません。",
+            a: "代理購入に失敗した場合は、通常アカウント残高へ返金されます。返金額・時期・手数料の扱いは担当スタッフが最終確認いたします。",
           },
           {
             q: "複数の商品をまとめて発送できますか？",
@@ -353,7 +353,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "残高のチャージ方法は？",
-            a: "Alipay・WeChat Pay・銀行振込など各種方法に対応しています。チャージ後すぐにご利用いただけます。",
+            a: "チャージページに表示される支払い方法をご確認ください。反映時間や利用範囲は、プラットフォーム表示および担当スタッフの確認内容に準じます。",
           },
           {
             q: "残高は返金してもらえますか？",
@@ -427,7 +427,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "注文後にキャンセルできますか？",
-            a: "日本で購入手続きが始まる前であればキャンセル・全額返金が可能です。購入済みの場合は出品者の返品ポリシーに依存するため、可否はスタッフが確認いたします。",
+            a: "日本で購入手続きが始まる前であればキャンセル申請は可能です。返金可否・金額・時期は注文状況に基づき担当スタッフが最終確認いたします。購入済みの場合は出品者の返品ポリシーに依存します。",
           },
         ],
       },
