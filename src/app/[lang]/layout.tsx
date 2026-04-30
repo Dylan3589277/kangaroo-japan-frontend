@@ -3,6 +3,7 @@ import { hasLocale } from "next-intl";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { SupportWidget } from "@/components/support/SupportWidget";
+import { TawkToWidget } from "@/components/support/TawkToWidget";
 import type { Metadata } from "next";
 import "@/app/globals.css";
 
@@ -49,6 +50,7 @@ export default async function LocaleLayout({
     <div className="min-h-screen flex flex-col">
       {children}
       <SupportWidget lang={lang} />
+      <TawkToWidget />
     </div>
   );
 }
