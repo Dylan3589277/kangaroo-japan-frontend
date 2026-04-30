@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { ContactButtons, WechatQRModal } from "@/components/contact/ContactButtons";
@@ -95,12 +96,12 @@ export default function ContactPage() {
               <span className="text-2xl">❓</span>
               <h3 className="font-semibold">{text.faq}</h3>
             </div>
-            <a
+            <Link
               href={`/${lang}/help`}
               className="text-rose-600 hover:text-rose-700 font-medium"
             >
               {text.faqLink} →
-            </a>
+            </Link>
           </div>
         </div>
 
