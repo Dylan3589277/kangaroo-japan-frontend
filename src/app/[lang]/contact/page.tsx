@@ -96,7 +96,7 @@ export default function ContactPage() {
               <h3 className="font-semibold">{text.faq}</h3>
             </div>
             <a
-              href="/faq"
+              href={`/${lang}/help`}
               className="text-rose-600 hover:text-rose-700 font-medium"
             >
               {text.faqLink} →
