@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { ReactNode } from "react";
 import { buildAlternates, isIndexable } from "@/lib/seo";
-import { HomePageClient } from "./HomePageClient";
 
 export async function generateMetadata({
   params,
@@ -23,10 +23,10 @@ export async function generateMetadata({
   }
 
   return {
-    alternates: buildAlternates(lang, ""),
+    alternates: buildAlternates(lang, "compare"),
   };
 }
 
-export default function HomePage() {
-  return <HomePageClient />;
+export default function CompareLayout({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }

@@ -1,43 +1,34 @@
 import { MetadataRoute } from "next";
-import { routing } from "@/i18n/routing";
-
-const BASE_URL = "https://jp-buy.com";
+import { BASE_URL } from "@/lib/seo";
 
 export default function robots(): MetadataRoute.Robots {
-  // Languages to include in sitemap (exclude Japanese - noindex)
-  const sitemapLanguages = routing.locales.filter((l) => l !== "ja");
-
   return {
     rules: [
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/_next/"],
-      },
-      {
-        userAgent: "Googlebot",
-        allow: "/",
-      },
-      {
-        userAgent: "Baiduspider",
-        allow: "/",
-      },
-      {
-        userAgent: "NaverBot",
-        allow: "/",
-      },
-      {
-        userAgent: "Yeti",
-        allow: "/",
-      },
-      {
-        userAgent: "Bingbot",
-        allow: "/",
+        disallow: [
+          "/api/",
+          "/_next/",
+          "/*/admin/",
+          "/*/warehouse/",
+          "/*/orders/",
+          "/*/profile/",
+          "/*/addresses/",
+          "/*/deposit/",
+          "/*/cart/",
+          "/*/bids/",
+          "/*/sign/",
+          "/*/messages/",
+          "/*/vip/",
+          "/*/coupons/",
+          "/*/shop/",
+          "/*/mnp/",
+        ],
       },
     ],
-    sitemap: [
-      `${BASE_URL}/sitemap.xml`,
-      ...sitemapLanguages.map((lang) => `${BASE_URL}/${lang}/sitemap.xml`),
-    ],
+    // Only declare sitemaps that actually exist on the server.
+    // Per-language sitemaps (/zh/sitemap.xml etc.) do NOT exist and must not be listed.
+    sitemap: `${BASE_URL}/sitemap.xml`,
   };
 }

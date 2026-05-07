@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "zh_CN",
-    alternateLocale: ["en_US", "ja_JP"],
+    alternateLocale: ["en_US", "ko_KR", "th_TH", "id_ID", "vi_VN"],
     siteName: "JP-Buy",
     title: "JP-Buy | 日本商品跨境购物平台",
     description: "专业的日本商品跨境购物平台，聚合乐天、Yahoo、Amazon、Mercari 等日本电商资源",
@@ -48,24 +48,6 @@ export const metadata: Metadata = {
     title: "JP-Buy | 日本商品跨境购物平台",
     description: "专业的日本商品跨境购物平台，聚合乐天、Yahoo、Amazon、Mercari 等日本电商资源",
     images: ["/og-image.png"],
-  },
-  alternates: {
-    canonical: "https://jp-buy.com",
-    languages: {
-      "zh-CN": "https://jp-buy.com/zh",
-      "zh-SG": "https://jp-buy.com/zh",
-      "en-US": "https://jp-buy.com/en",
-      "en-GB": "https://jp-buy.com/en",
-      "en-AU": "https://jp-buy.com/en",
-      "en-PH": "https://jp-buy.com/en",
-      "en-SG": "https://jp-buy.com/en",
-      "en-MY": "https://jp-buy.com/en",
-      "ko-KR": "https://jp-buy.com/ko",
-      "th-TH": "https://jp-buy.com/th",
-      "id-ID": "https://jp-buy.com/id",
-      "vi-VN": "https://jp-buy.com/vi",
-      "ja-JP": "https://jp-buy.com/ja",
-    },
   },
 };
 

@@ -1,10 +1,11 @@
 import { ReactNode } from "react";
 import { hasLocale } from "next-intl";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { routing } from "@/i18n/routing";
 import { SupportWidget } from "@/components/support/SupportWidget";
 import { TawkToWidget } from "@/components/support/TawkToWidget";
-import type { Metadata } from "next";
+import { isIndexable } from "@/lib/seo";
 import "@/app/globals.css";
 
 export async function generateMetadata({
@@ -14,21 +15,23 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang } = await params;
 
-  // Japanese pages: noindex, nofollow (retained for existing Japanese users, not promoted via SEO)
-  if (lang === "ja") {
+  if (isIndexable(lang)) {
     return {
       robots: {
-        index: false,
-        follow: false,
+        index: true,
+        follow: true,
       },
     };
   }
 
-  // Non-Japanese pages: default index, follow
   return {
     robots: {
-      index: true,
-      follow: true,
+      index: false,
+      follow: false,
+    },
+    alternates: {
+      canonical: null,
+      languages: {},
     },
   };
 }
