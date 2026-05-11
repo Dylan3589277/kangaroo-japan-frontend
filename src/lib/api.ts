@@ -36,6 +36,58 @@ interface SupportTicketResponse {
   };
 }
 
+export interface SupportOrderLookupItem {
+  id: string;
+  orderNo: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  paidAt?: string | null;
+  total: { amount: number; currency?: string | null };
+  customer: { name?: string | null; email?: string | null; phone?: string | null };
+  shipping: {
+    carrier?: string | null;
+    trackingNumber?: string | null;
+    status?: string | null;
+    shippedAt?: string | null;
+    deliveredAt?: string | null;
+    estimatedDelivery?: string | null;
+    address?: Record<string, string | null> | null;
+  };
+  items: Array<{
+    id: string;
+    platform?: string | null;
+    title: string;
+    quantity: number;
+    status?: string | null;
+    trackingNumber?: string | null;
+  }>;
+  shipmentOrders: Array<{
+    id: string;
+    status?: string | null;
+    shipWay?: string | null;
+    weight: number;
+    amountRmb: number;
+    isPay: boolean;
+    receiver: Record<string, string | boolean | null>;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+}
+
+export interface SupportOrderLookupResponse {
+  items: SupportOrderLookupItem[];
+  total: number;
+  page: number;
+  limit: number;
+  safety: {
+    readonly: boolean;
+    masked: boolean;
+    externalCarrierLookup: boolean;
+    paymentSensitiveFieldsHidden: boolean;
+  };
+}
+
 class ApiClient {
   private baseUrl: string;
   private isRefreshing = false;
@@ -170,10 +222,28 @@ class ApiClient {
         const retryConfig = this.buildConfig(method, body, headers, credentials, newToken);
         const retryResponse = await fetch(`${this.baseUrl}${endpoint}`, retryConfig);
         const retryData = await retryResponse.json();
+        if (!retryResponse.ok) {
+          return {
+            success: false,
+            error: {
+              code: String(retryResponse.status),
+              message: typeof retryData?.message === "string" ? retryData.message : retryResponse.statusText,
+            },
+          };
+        }
         return this.parseResponse<T>(retryData);
       }
 
       const data = await response.json();
+      if (!response.ok) {
+        return {
+          success: false,
+          error: {
+            code: String(response.status),
+            message: typeof data?.message === "string" ? data.message : response.statusText,
+          },
+        };
+      }
       return this.parseResponse<T>(data);
     } catch (error) {
       console.error("API request failed:", error);
@@ -517,6 +587,25 @@ class ApiClient {
       subject: data.subject,
       description: data.description,
     });
+  }
+
+  async lookupSupportOrders(params: {
+    orderNo?: string;
+    email?: string;
+    phone?: string;
+    trackingNumber?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params.orderNo) searchParams.set("orderNo", params.orderNo);
+    if (params.email) searchParams.set("email", params.email);
+    if (params.phone) searchParams.set("phone", params.phone);
+    if (params.trackingNumber) searchParams.set("trackingNumber", params.trackingNumber);
+    if (params.page) searchParams.set("page", String(params.page));
+    if (params.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<SupportOrderLookupResponse>(`/support/orders/lookup${query ? `?${query}` : ""}`);
   }
 
   // Payment endpoints

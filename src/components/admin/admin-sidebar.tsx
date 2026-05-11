@@ -12,8 +12,6 @@ import {
   StarOutlined,
   BellOutlined,
 } from '@ant-design/icons';
-import type { ModuleType } from '@/types/admin';
-
 const menuItems = [
   { key: '/admin', icon: <DashboardOutlined />, label: '全局总览', href: '/admin' },
   { key: '/admin/module/hr', icon: <UserOutlined />, label: '人事模块', href: '/admin/module/hr' },
@@ -21,6 +19,7 @@ const menuItems = [
   { key: '/admin/module/supply_chain', icon: <InboxOutlined />, label: '供应链模块', href: '/admin/module/supply_chain' },
   { key: '/admin/module/operation', icon: <SettingOutlined />, label: '运营模块', href: '/admin/module/operation' },
   { key: '/admin/module/influencer', icon: <StarOutlined />, label: '红人模块', href: '/admin/module/influencer' },
+  { key: '/admin/support', icon: <InboxOutlined />, label: '客服台账', href: '/admin/support' },
   { key: '/admin/alerts', icon: <BellOutlined />, label: '告警中心', href: '/admin/alerts' },
 ];
 
