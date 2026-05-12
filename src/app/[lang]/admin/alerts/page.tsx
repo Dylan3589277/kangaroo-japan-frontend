@@ -17,11 +17,29 @@ export default function AlertCenterPage() {
   const [moduleFilter, setModuleFilter] = useState<string>('all');
 
   useEffect(() => {
-    setLoading(true);
-    adminApi.getAlerts({ status: statusFilter, module: moduleFilter })
-      .then(setAlerts)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    let active = true;
+
+    const loadAlerts = async () => {
+      setLoading(true);
+      try {
+        const nextAlerts = await adminApi.getAlerts({ status: statusFilter, module: moduleFilter });
+        if (active) {
+          setAlerts(nextAlerts);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadAlerts();
+
+    return () => {
+      active = false;
+    };
   }, [statusFilter, moduleFilter]);
 
   const handleResolve = async (alertId: string, result: string, handler: string) => {

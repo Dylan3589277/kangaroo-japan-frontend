@@ -54,14 +54,6 @@ export function ContactButtons({
   whatsappNumber = "",
 }: ContactButtonsProps) {
   const [showWechatQR, setShowWechatQR] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
-
-  const handleCopy = (text: string, type: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(type);
-      setTimeout(() => setCopied(null), 2000);
-    });
-  };
 
   const handleWhatsApp = () => {
     if (whatsappNumber) {
@@ -70,7 +62,7 @@ export function ContactButtons({
   };
 
   const handleEmail = () => {
-    window.location.href = `mailto:${email}`;
+    window.location.assign(`mailto:${email}`);
   };
 
   // Icon only variant
@@ -122,22 +114,29 @@ export function ContactButtons({
 
   // Default button variant
   return (
-    <div className={`flex flex-wrap gap-3 ${className}`}>
-      {CONTACTS.map((contact) => (
-        <button
-          key={contact.platform}
-          onClick={() => {
-            if (contact.platform === "wechat") setShowWechatQR(true);
-            else if (contact.platform === "whatsapp") handleWhatsApp();
-            else if (contact.platform === "email") handleEmail();
-          }}
-          className={`px-4 py-2 rounded-lg ${contact.color} text-white flex items-center gap-2 transition-colors text-sm font-medium`}
-        >
-          <span>{contact.icon}</span>
-          <span>{contact.name}</span>
-        </button>
-      ))}
-    </div>
+    <>
+      <div className={`flex flex-wrap gap-3 ${className}`}>
+        {CONTACTS.map((contact) => (
+          <button
+            key={contact.platform}
+            onClick={() => {
+              if (contact.platform === "wechat") setShowWechatQR(true);
+              else if (contact.platform === "whatsapp") handleWhatsApp();
+              else if (contact.platform === "email") handleEmail();
+            }}
+            className={`px-4 py-2 rounded-lg ${contact.color} text-white flex items-center gap-2 transition-colors text-sm font-medium`}
+          >
+            <span>{contact.icon}</span>
+            <span>{contact.name}</span>
+          </button>
+        ))}
+      </div>
+      <WechatQRModal
+        isOpen={showWechatQR}
+        onClose={() => setShowWechatQR(false)}
+        wechatId={wechatId}
+      />
+    </>
   );
 }
 
@@ -145,7 +144,7 @@ export function ContactButtons({
 export function WechatQRModal({
   isOpen,
   onClose,
-  qrCodeUrl = "/wechat-qr.png",
+  qrCodeUrl: _qrCodeUrl = "/wechat-qr.png",
   wechatId = "JPBuy666",
 }: {
   isOpen: boolean;
@@ -153,6 +152,8 @@ export function WechatQRModal({
   qrCodeUrl?: string;
   wechatId?: string;
 }) {
+  void _qrCodeUrl;
+
   if (!isOpen) return null;
 
   return (

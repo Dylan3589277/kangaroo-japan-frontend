@@ -32,25 +32,43 @@ const CHART_COLORS = ['#1890ff', '#722ed1', '#13c2c2', '#52c41a'];
 
 export default function ModuleDetailPage() {
   const params = useParams();
-  const module = params.module as string;
+  const moduleParam = params.module as string;
   const [data, setData] = useState<ModuleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [trendRange, setTrendRange] = useState<'30' | '90'>('30');
 
   useEffect(() => {
-    if (!module) return;
-    setLoading(true);
-    adminApi.getModuleData(module)
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [module]);
+    if (!moduleParam) return;
+    let active = true;
 
-  if (!module || !(module in MODULE_CONFIG)) {
+    const loadModuleData = async () => {
+      setLoading(true);
+      try {
+        const nextData = await adminApi.getModuleData(moduleParam);
+        if (active) {
+          setData(nextData);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadModuleData();
+
+    return () => {
+      active = false;
+    };
+  }, [moduleParam]);
+
+  if (!moduleParam || !(moduleParam in MODULE_CONFIG)) {
     return <div className="text-center py-20 text-muted-foreground">模块不存在</div>;
   }
 
-  const moduleType = module as ModuleType;
+  const moduleType = moduleParam as ModuleType;
   const config = MODULE_CONFIG[moduleType];
 
   if (loading) {

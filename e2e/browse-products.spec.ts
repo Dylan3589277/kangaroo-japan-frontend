@@ -18,30 +18,45 @@ import {
 
 const BASE = '/en';
 
-async function setupProductList(page: Page) {
-  await page.route('**/api/v1/products**', (route) => {
-    const url = route.request().url();
-    if (url.includes('/search')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: { data: [], pagination: null } }),
-      });
-    }
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ success: true, data: MOCK_PRODUCTS_PAGE_RESPONSE }),
-    });
-  });
+const PRODUCT_API_PATTERNS = ['**/api/v1/products**', '**/__e2e-api/products**'];
+const CATEGORY_API_PATTERNS = ['**/api/v1/categories*', '**/__e2e-api/categories*'];
 
-  await page.route('**/api/v1/categories*', (route) => {
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ success: true, data: MOCK_CATEGORIES }),
-    });
-  });
+async function mockJson(page: Page, patterns: string[], body: unknown) {
+  await Promise.all(
+    patterns.map((pattern) =>
+      page.route(pattern, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(body),
+        })
+      )
+    )
+  );
+}
+
+async function setupProductList(page: Page) {
+  await Promise.all(
+    PRODUCT_API_PATTERNS.map((pattern) =>
+      page.route(pattern, (route) => {
+        const url = route.request().url();
+        if (url.includes('/search')) {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ success: true, data: { data: [], pagination: null } }),
+          });
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, data: MOCK_PRODUCTS_PAGE_RESPONSE }),
+        });
+      })
+    )
+  );
+
+  await mockJson(page, CATEGORY_API_PATTERNS, { success: true, data: MOCK_CATEGORIES });
 }
 
 /**
@@ -100,30 +115,18 @@ test.describe('Browse Products Flow', () => {
     await setupProductList(page);
 
     // Mock product detail API
-    await page.route('**/api/v1/products/prod-1**', (route) => {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: MOCK_PRODUCT_DETAIL }),
-      });
+    await mockJson(page, ['**/api/v1/products/prod-1**', '**/__e2e-api/products/prod-1**'], {
+      success: true, data: MOCK_PRODUCT_DETAIL,
     });
 
     // Mock price history
-    await page.route('**/api/v1/products/prod-1/price-history**', (route) => {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: MOCK_PRICE_HISTORY }),
-      });
+    await mockJson(page, ['**/api/v1/products/prod-1/price-history**', '**/__e2e-api/products/prod-1/price-history**'], {
+      success: true, data: MOCK_PRICE_HISTORY,
     });
 
     // Mock category products (for related products)
-    await page.route('**/api/v1/categories/cat-1/products**', (route) => {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: { data: [MOCK_PRODUCT_DETAIL], pagination: null } }),
-      });
+    await mockJson(page, ['**/api/v1/categories/cat-1/products**', '**/__e2e-api/categories/cat-1/products**'], {
+      success: true, data: { data: [MOCK_PRODUCT_DETAIL], pagination: null },
     });
 
     await page.goto(`${BASE}/products/prod-1`);
@@ -149,12 +152,8 @@ test.describe('Browse Products Flow', () => {
     await setupProductList(page);
 
     // Mock 404 for non-existent product
-    await page.route('**/api/v1/products/non-existent**', (route) => {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: null }),
-      });
+    await mockJson(page, ['**/api/v1/products/non-existent**', '**/__e2e-api/products/non-existent**'], {
+      success: true, data: null,
     });
 
     await page.goto(`${BASE}/products/non-existent`);
@@ -185,28 +184,16 @@ test.describe('Browse Products Flow', () => {
   test('Product detail shows tabs for details, specs, and price history', async ({ page }) => {
     await setupProductList(page);
 
-    await page.route('**/api/v1/products/prod-1**', (route) => {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: MOCK_PRODUCT_DETAIL }),
-      });
+    await mockJson(page, ['**/api/v1/products/prod-1**', '**/__e2e-api/products/prod-1**'], {
+      success: true, data: MOCK_PRODUCT_DETAIL,
     });
 
-    await page.route('**/api/v1/products/prod-1/price-history**', (route) => {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: MOCK_PRICE_HISTORY }),
-      });
+    await mockJson(page, ['**/api/v1/products/prod-1/price-history**', '**/__e2e-api/products/prod-1/price-history**'], {
+      success: true, data: MOCK_PRICE_HISTORY,
     });
 
-    await page.route('**/api/v1/categories/cat-1/products**', (route) => {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, data: { data: [MOCK_PRODUCT_DETAIL], pagination: null } }),
-      });
+    await mockJson(page, ['**/api/v1/categories/cat-1/products**', '**/__e2e-api/categories/cat-1/products**'], {
+      success: true, data: { data: [MOCK_PRODUCT_DETAIL], pagination: null },
     });
 
     await page.goto(`${BASE}/products/prod-1`);

@@ -78,41 +78,49 @@ export default function middleware(request: NextRequest) {
       ? userLocaleCookie
       : undefined;
 
-  if (!userLocale) {
-    // No user preference yet → detect from IP
-    const geo = geolocation(request);
-    const country = geo?.country;
-    const detectedLocale = getLocaleFromCountry(country);
+  const pathLocale = routing.locales.find(
+    (locale) =>
+      cleanedPathname === `/${locale}` ||
+      cleanedPathname.startsWith(`/${locale}/`)
+  );
 
-    // Only redirect if the path doesn't already have a locale prefix
-    const pathLocale = routing.locales.find(
-      (locale) =>
-        cleanedPathname === `/${locale}` ||
-        cleanedPathname.startsWith(`/${locale}/`)
-    );
-
-    if (!pathLocale && detectedLocale !== routing.defaultLocale) {
-      // No locale in path and detected locale differs from default
-      const newUrl = new URL(`/${detectedLocale}${cleanedPathname}`, request.url);
-      const response = NextResponse.redirect(newUrl);
-      response.cookies.set(LOCALE_COOKIE, detectedLocale, {
-        maxAge: 60 * 60 * 24 * 365, // 1 year
-        path: "/",
-      });
-      return response;
-    }
-
-    // Set cookie for future visits
-    const detectedForCookie = pathLocale || detectedLocale;
+  // Explicit locale paths should win over a stale cookie so deep links like
+  // /zh/products don't bounce between middleware decisions.
+  if (pathLocale) {
     const response = NextResponse.next();
-    response.cookies.set(LOCALE_COOKIE, detectedForCookie, {
+    response.cookies.set(LOCALE_COOKIE, pathLocale, {
       maxAge: 60 * 60 * 24 * 365,
       path: "/",
     });
     return response;
   }
 
-  // User has a locale preference → use next-intl middleware as normal
+  if (!userLocale) {
+    // No user preference yet -> detect from IP
+    const geo = geolocation(request);
+    const country = geo?.country;
+    const detectedLocale = getLocaleFromCountry(country);
+
+    if (detectedLocale !== routing.defaultLocale) {
+      const newUrl = new URL(`/${detectedLocale}${cleanedPathname}`, request.url);
+      const response = NextResponse.redirect(newUrl);
+      response.cookies.set(LOCALE_COOKIE, detectedLocale, {
+        maxAge: 60 * 60 * 24 * 365,
+        path: "/",
+      });
+      return response;
+    }
+
+    const response = NextResponse.next();
+    response.cookies.set(LOCALE_COOKIE, detectedLocale, {
+      maxAge: 60 * 60 * 24 * 365,
+      path: "/",
+    });
+    return response;
+  }
+
+  // User has a locale preference and no locale in the path -> use next-intl
+  // middleware for cookie-based locale resolution.
   return intlMiddleware(request);
 }
 

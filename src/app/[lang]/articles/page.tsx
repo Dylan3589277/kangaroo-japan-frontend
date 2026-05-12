@@ -154,17 +154,32 @@ export default function ArticlesPage() {
   const categoryRef = useRef(activeCategory);
 
   useEffect(() => {
-    setLoading(true);
+    let active = true;
+
     const initialFetch = async () => {
-      if (categoryRef.current !== activeCategory) {
-        categoryRef.current = activeCategory;
-        await fetchArticles(1, activeCategory);
-        setPage(1);
-      } else {
-        await fetchArticles(1, activeCategory);
+      setLoading(true);
+      try {
+        if (categoryRef.current !== activeCategory) {
+          categoryRef.current = activeCategory;
+          await fetchArticles(1, activeCategory);
+          if (active) {
+            setPage(1);
+          }
+        } else {
+          await fetchArticles(1, activeCategory);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     };
-    initialFetch().finally(() => setLoading(false));
+
+    void initialFetch();
+
+    return () => {
+      active = false;
+    };
   }, [activeCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadMore = () => {
