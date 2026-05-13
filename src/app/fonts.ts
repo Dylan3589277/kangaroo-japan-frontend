@@ -1,33 +1,13 @@
-import { Noto_Sans_SC, Noto_Sans_JP, Noto_Sans, Inter } from "next/font/google";
+const FONT_STACKS = {
+  latin: "Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',sans-serif",
+  sc: "'Noto_Sans_SC','PingFang_SC','Microsoft_YaHei',system-ui,sans-serif",
+  jp: "'Noto_Sans_JP','Hiragino_Kaku_Gothic_ProN','Yu_Gothic',Meiryo,system-ui,sans-serif",
+  global: "'Noto_Sans',Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',sans-serif",
+} as const;
 
-// Latin/English — Inter as primary
-export const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-  preload: true,
-});
+const fontVariable = (name: string, stack: string) => ({ variable: `[${name}:${stack}]` });
 
-// Chinese (Simplified) — Noto Sans SC
-export const notoSansSC = Noto_Sans_SC({
-  subsets: ["latin"],
-  variable: "--font-noto-sans-sc",
-  display: "swap",
-  preload: false, // preload only for the most common locale
-});
-
-// Japanese — Noto Sans JP
-export const notoSansJP = Noto_Sans_JP({
-  subsets: ["latin"],
-  variable: "--font-noto-sans-jp",
-  display: "swap",
-  preload: false,
-});
-
-// Fallback — Noto Sans (covers additional characters)
-export const notoSans = Noto_Sans({
-  subsets: ["latin"],
-  variable: "--font-noto-sans",
-  display: "swap",
-  preload: false,
-});
+export const inter = fontVariable("--font-inter", FONT_STACKS.latin);
+export const notoSansSC = fontVariable("--font-noto-sans-sc", FONT_STACKS.sc);
+export const notoSansJP = fontVariable("--font-noto-sans-jp", FONT_STACKS.jp);
+export const notoSans = fontVariable("--font-noto-sans", FONT_STACKS.global);
