@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
+import { extractPagination, extractProducts, getProductImage, type NormalizedProduct, type ProductLike } from "@/lib/product-utils";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,28 +20,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface Product {
-  id: string;
-  platform: string;
-  platformName: string;
-  title: string;
-  priceJpy: number;
-  priceCny: number;
-  priceUsd: number;
-  currency: string;
-  images: string[];
-  imagesCount: number;
-  rating: number | null;
-  reviewCount: number;
-  salesCount: number;
-  inStock: boolean;
-  status: string;
+type Product = NormalizedProduct<ProductLike> & {
+  currency?: string | null;
+  imagesCount?: number | string | null;
   // UnifiedSearch 额外字段
   url?: string;
   brand?: string;
   itemCondition?: string;
   shipping?: string;
-}
+};
 
 interface Category {
   id: string;
@@ -84,7 +72,6 @@ export default function ProductsPage() {
   const [priceMin, setPriceMin] = useState<string>("");
   const [priceMax, setPriceMax] = useState<string>("");
   const [isSearchMode, setIsSearchMode] = useState(false);
-  const [imgErrorProducts, setImgErrorProducts] = useState<Set<string>>(new Set());
 
   // SEO: Dynamic meta title based on search query
   useEffect(() => {
@@ -169,10 +156,9 @@ export default function ProductsPage() {
       }
 
       const res = await api.getProducts(params);
-      if (res.success && res.data && typeof res.data === 'object') {
-        const data = res.data as any;
-        setProducts(Array.isArray(data.data) ? data.data : []);
-        setPagination((prev) => data.pagination || prev);
+      if (res.success && res.data) {
+        setProducts(extractProducts<ProductLike>(res.data));
+        setPagination((prev) => extractPagination(res.data, prev));
       }
     } catch (error) {
       console.error("Failed to fetch products:", error);
@@ -196,10 +182,9 @@ export default function ProductsPage() {
         try {
           // 使用内部搜索 API（不需要认证）
           const res = await api.searchProducts(initialSearch, lang, 1, 20);
-          if (res.success && res.data && typeof res.data === 'object') {
-            const data = res.data as any;
-            setProducts(Array.isArray(data.data) ? data.data : []);
-            setPagination((prev) => data.pagination || prev);
+          if (res.success && res.data) {
+            setProducts(extractProducts<ProductLike>(res.data));
+            setPagination((prev) => extractPagination(res.data, prev));
           }
         } catch (error) {
           console.error("Failed to initial search:", error);
@@ -226,10 +211,9 @@ export default function ProductsPage() {
     try {
       // 使用内部搜索 API（不需要认证）
       const res = await api.searchProducts(query, lang, 1, 20);
-      if (res.success && res.data && typeof res.data === 'object') {
-        const data = res.data as any;
-        setProducts(Array.isArray(data.data) ? data.data : []);
-        setPagination((prev) => data.pagination || prev);
+      if (res.success && res.data) {
+        setProducts(extractProducts<ProductLike>(res.data));
+        setPagination((prev) => extractPagination(res.data, prev));
       }
     } catch (error) {
       console.error("Failed to search products:", error);
@@ -251,10 +235,9 @@ export default function ProductsPage() {
     try {
       // 使用内部搜索 API（不需要认证）
       const res = await api.searchProducts(searchQuery, lang, pagination.page, 20);
-      if (res.success && res.data && typeof res.data === 'object') {
-        const data = res.data as any;
-        setProducts(Array.isArray(data.data) ? data.data : []);
-        setPagination(data.pagination || pagination);
+      if (res.success && res.data) {
+        setProducts(extractProducts<ProductLike>(res.data));
+        setPagination(extractPagination(res.data, pagination));
       }
     } catch (error) {
       console.error("Failed to search products:", error);
@@ -269,10 +252,9 @@ export default function ProductsPage() {
       setPagination((prev) => ({ ...prev, page: newPage }));
       setLoading(true);
       api.searchProducts(searchQuery, lang, newPage, 20).then((res) => {
-        if (res.success && res.data && typeof res.data === 'object') {
-          const data = res.data as any;
-          setProducts(Array.isArray(data.data) ? data.data : []);
-          setPagination((prev) => data.pagination || prev);
+        if (res.success && res.data) {
+          setProducts(extractProducts<ProductLike>(res.data));
+          setPagination((prev) => extractPagination(res.data, prev));
         }
         setLoading(false);
       }).catch(() => setLoading(false));
@@ -301,7 +283,7 @@ export default function ProductsPage() {
       position: index + 1,
       url: `https://jp-buy.com/products/${product.id}`,
       name: product.title,
-      image: product.images?.[0] || undefined,
+      image: getProductImage(product) || undefined,
     })),
   };
 
@@ -499,16 +481,13 @@ export default function ProductsPage() {
               <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                 {/* Image */}
                 <div className="relative h-48 bg-muted">
-                  {product.images && product.images[0] && !imgErrorProducts.has(product.id) ? (
+                  {getProductImage(product) ? (
                     <Image
-                      src={product.images[0]}
+                      src={getProductImage(product)}
                       alt={product.title}
                       fill
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                      onError={() => {
-                        setImgErrorProducts((prev) => new Set(prev).add(product.id));
-                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground">

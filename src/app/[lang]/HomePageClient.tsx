@@ -8,6 +8,7 @@ import Image from "next/image";
 import { routing } from "@/i18n/routing";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { extractProducts, getProductImage } from "@/lib/product-utils";
 import { useAuthStore } from "@/lib/auth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -86,14 +87,14 @@ export function HomePageClient() {
       const featuredRes = await api.getProducts({ lang, limit: 4, sort: "rating_desc" });
       if (featuredRes.success && featuredRes.data && typeof featuredRes.data === "object") {
         const data = featuredRes.data as any;
-        setFeaturedProducts(Array.isArray(data.data) ? data.data.slice(0, 4) : []);
+        setFeaturedProducts(extractProducts(data).slice(0, 4));
       }
 
       // Latest products
       const latestRes = await api.getProducts({ lang, limit: 8, sort: "createdAt_desc" });
       if (latestRes.success && latestRes.data && typeof latestRes.data === "object") {
         const data = latestRes.data as any;
-        setLatestProducts(Array.isArray(data.data) ? data.data.slice(0, 8) : []);
+        setLatestProducts(extractProducts(data).slice(0, 8));
       }
     } catch (error) {
       console.error("Failed to fetch products:", error);
@@ -154,7 +155,7 @@ export function HomePageClient() {
   return (
     <div className="min-h-screen bg-zinc-50">
       {/* 全局 Header - 固定顶部 */}
-      <Header showSearch />
+      <Header showSearch={false} />
 
       {/* BreadcrumbList JSON-LD Structured Data */}
       <script
@@ -279,9 +280,9 @@ export function HomePageClient() {
                 <Link key={product.id} href={`/products/${product.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                     <div className="relative h-40 bg-muted">
-                      {product.images && product.images[0] ? (
+                      {getProductImage(product) ? (
                         <Image
-                          src={product.images[0]}
+                          src={getProductImage(product)}
                           alt={product.title}
                           fill
                           className="object-cover"
@@ -362,9 +363,9 @@ export function HomePageClient() {
                 <Link key={product.id} href={`/products/${product.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                     <div className="relative h-40 bg-muted">
-                      {product.images && product.images[0] ? (
+                      {getProductImage(product) ? (
                         <Image
-                          src={product.images[0]}
+                          src={getProductImage(product)}
                           alt={product.title}
                           fill
                           className="object-cover"

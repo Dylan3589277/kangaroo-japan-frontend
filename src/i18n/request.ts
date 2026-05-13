@@ -20,7 +20,7 @@ const namespaces = [
   "warehouse",
 ] as const;
 
-const MESSAGE_LOCALES = ["zh", "en", "ko", "th", "id", "vi"] as const;
+const MESSAGE_LOCALES = ["zh", "en", "ko", "th", "id", "vi", "ja"] as const;
 type MessageLocale = (typeof MESSAGE_LOCALES)[number];
 
 function getMessageLocale(locale: string): MessageLocale {

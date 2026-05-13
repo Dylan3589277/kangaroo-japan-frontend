@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { extractProducts, getProductImage, getProductImages, normalizeProduct, type NormalizedProduct, type ProductLike } from "@/lib/product-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -12,40 +13,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 
-interface Product {
-  id: string;
-  platform: string;
-  platformName: string;
-  platformProductId: string;
-  platformUrl: string;
-  title: string;
-  titleZh: string;
-  titleEn: string;
-  titleJa: string;
-  description: string;
-  descriptionZh: string;
-  descriptionEn: string;
-  descriptionJa: string;
-  priceJpy: number;
-  priceCny: number;
-  priceUsd: number;
-  currency: string;
-  exchangeRateUsed: number;
-  images: string[];
-  imagesCount: number;
-  categoryId: string;
-  category: any;
-  status: string;
-  rating: number | null;
-  reviewCount: number;
-  salesCount: number;
-  specifications: Record<string, any>;
-  sellerId: string;
-  sellerName: string;
-  slug: string;
-  inStock: boolean;
-  lastSyncedAt: string;
-}
+type Product = NormalizedProduct<ProductLike> & {
+  platformProductId?: string | number | null;
+  platformUrl?: string | null;
+  titleZh?: string | null;
+  titleEn?: string | null;
+  titleJa?: string | null;
+  description?: string | null;
+  descriptionZh?: string | null;
+  descriptionEn?: string | null;
+  descriptionJa?: string | null;
+  currency?: string | null;
+  exchangeRateUsed?: number | string | null;
+  imagesCount?: number | string | null;
+  categoryId?: string | null;
+  category?: { name?: string | null } | null;
+  specifications?: Record<string, unknown> | null;
+  sellerId?: string | null;
+  sellerName?: string | null;
+  slug?: string | null;
+  lastSyncedAt?: string | null;
+};
 
 interface PriceHistory {
   productId: string;
@@ -138,13 +126,19 @@ export default function ProductDetailPage() {
     setLoading(true);
     try {
       const res = await api.getProduct(productId, lang);
+      let data: Product | null = null;
       if (res.success && res.data) {
-        const data = res.data as Product;
-        setProduct(data);
-        if (data.images && data.images.length > 0) {
-          setSelectedImage(0);
+        data = normalizeProduct(res.data as ProductLike);
+      } else {
+        const listRes = await api.getProducts({ lang, limit: 100 });
+        if (listRes.success && listRes.data) {
+          data = extractProducts<ProductLike>(listRes.data).find((item) => item.id === productId) || null;
         }
-        // Fetch related products from same category
+      }
+
+      if (data) {
+        setProduct(data);
+        setSelectedImage(0);
         if (data.categoryId) {
           fetchRelatedProducts(data.categoryId);
         }
@@ -172,7 +166,7 @@ export default function ProductDetailPage() {
       const res = await api.getCategoryProducts(categoryId, { lang, limit: 5 });
       if (res.success && res.data && typeof res.data === 'object') {
         const data = res.data as any;
-        setRelatedProducts((Array.isArray(data.data) ? data.data : []).filter((p: Product) => p.id !== productId).slice(0, 4));
+        setRelatedProducts(extractProducts<ProductLike>(data).filter((p) => p.id !== productId).slice(0, 4));
       }
     } catch (error) {
       console.error("Failed to fetch related products:", error);
@@ -240,6 +234,7 @@ export default function ProductDetailPage() {
     );
   }
 
+  const productImages = getProductImages(product);
   const priceDisplay = getPriceByCurrency(product.priceJpy, product.priceCny, product.priceUsd);
 
   // JSON-LD Structured Data for SEO
@@ -248,7 +243,7 @@ export default function ProductDetailPage() {
     "@type": "Product",
     name: product.title,
     description: product.description || product.title,
-    image: product.images || [],
+    image: productImages,
     offers: {
       "@type": "Offer",
       price: product.priceCny.toFixed(2),
@@ -320,9 +315,9 @@ export default function ProductDetailPage() {
         {/* Image Gallery */}
         <div>
           <div className="relative aspect-square bg-muted rounded-lg overflow-hidden mb-4">
-            {product.images && product.images.length > 0 ? (
+            {productImages.length > 0 ? (
               <Image
-                src={product.images[selectedImage]}
+                src={productImages[selectedImage] || productImages[0]}
                 alt={product.title}
                 fill
                 className="object-cover"
@@ -343,9 +338,9 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Thumbnails */}
-          {product.images && product.images.length > 1 && (
+          {productImages.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {product.images.map((img, idx) => (
+              {productImages.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setSelectedImage(idx)}
@@ -393,7 +388,7 @@ export default function ProductDetailPage() {
                 <span className="text-lg text-muted-foreground">{priceDisplay.secondary} JPY</span>
               )}
             </div>
-            {product.exchangeRateUsed > 0 && (
+            {product.exchangeRateUsed != null && Number(product.exchangeRateUsed) > 0 && (
               <p className="text-sm text-muted-foreground">
                 {lang === "zh" ? "汇率" : lang === "en" ? "Exchange Rate" : "為替レート"}: 1 JPY = ¥{Number(product.exchangeRateUsed).toFixed(4)}
               </p>
@@ -584,8 +579,8 @@ export default function ProductDetailPage() {
                 <Link key={p.id} href={`/products/${p.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                     <div className="relative h-40 bg-muted">
-                      {p.images && p.images[0] ? (
-                        <Image src={p.images[0]} alt={p.title} fill className="object-cover" sizes="(max-width: 768px) 50vw, 25vw" />
+                      {getProductImage(p) ? (
+                        <Image src={getProductImage(p)} alt={p.title} fill className="object-cover" sizes="(max-width: 768px) 50vw, 25vw" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
                           {lang === "zh" ? "无图片" : lang === "en" ? "No Image" : "画像なし"}

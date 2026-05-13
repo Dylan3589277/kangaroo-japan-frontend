@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://kangaroo-japan-backend.vercel.app/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/backend";
 
 interface ApiOptions {
   method?: string;
@@ -227,7 +227,11 @@ class ApiClient {
             success: false,
             error: {
               code: String(retryResponse.status),
-              message: typeof retryData?.message === "string" ? retryData.message : retryResponse.statusText,
+              message: typeof retryData?.message === "string"
+                ? retryData.message
+                : typeof retryData?.error?.message === "string"
+                  ? retryData.error.message
+                  : retryResponse.statusText,
             },
           };
         }
@@ -240,7 +244,11 @@ class ApiClient {
           success: false,
           error: {
             code: String(response.status),
-            message: typeof data?.message === "string" ? data.message : response.statusText,
+            message: typeof data?.message === "string"
+              ? data.message
+              : typeof data?.error?.message === "string"
+                ? data.error.message
+                : response.statusText,
           },
         };
       }
@@ -289,6 +297,13 @@ class ApiClient {
     return this.request("/auth/refresh", {
       method: "POST",
       body: refreshToken ? { refreshToken } : undefined,
+    });
+  }
+
+  async forgotPassword(email: string) {
+    return this.request("/auth/forgot-password", {
+      method: "POST",
+      body: { email },
     });
   }
 
@@ -342,6 +357,7 @@ class ApiClient {
     priceMax?: number;
     sort?: string;
     status?: string;
+    search?: string;
   }) {
     const searchParams = new URLSearchParams();
     if (params?.lang) searchParams.set("lang", params.lang);
@@ -353,6 +369,7 @@ class ApiClient {
     if (params?.priceMax) searchParams.set("priceMax", String(params.priceMax));
     if (params?.sort) searchParams.set("sort", params.sort);
     if (params?.status) searchParams.set("status", params.status);
+    if (params?.search) searchParams.set("search", params.search);
 
     const query = searchParams.toString();
     return this.request(`/products${query ? `?${query}` : ""}`);

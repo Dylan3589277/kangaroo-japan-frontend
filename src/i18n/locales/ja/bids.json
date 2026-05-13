@@ -1,0 +1,21 @@
+{
+  "title": "My Bids",
+  "bidding": "Bidding",
+  "won": "Won",
+  "others": "Others",
+  "noOrders": "No orders yet",
+  "browseSubtitle": "Browse products and start bidding!",
+  "browseProducts": "Go Bidding",
+  "bidAmount": "Bid Amount",
+  "currentPrice": "Current Price",
+  "endTime": "Ends",
+  "status": "Status",
+  "productId": "Product ID",
+  "shop": "Yahoo Auctions",
+  "loadMore": "Load More",
+  "noMore": "All records loaded",
+  "loading": "Loading...",
+  "noImage": "No Image",
+  "winning": "Winning",
+  "outbid": "Outbid"
+}
