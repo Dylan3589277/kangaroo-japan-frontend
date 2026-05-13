@@ -18,8 +18,8 @@ import {
 
 const BASE = '/en';
 
-const PRODUCT_API_PATTERNS = ['**/api/v1/products**', '**/__e2e-api/products**'];
-const CATEGORY_API_PATTERNS = ['**/api/v1/categories*', '**/__e2e-api/categories*'];
+const PRODUCT_API_PATTERNS = ['**/api/v1/products**', '**/__e2e-api/products**', '**/api/backend/products**'];
+const CATEGORY_API_PATTERNS = ['**/api/v1/categories*', '**/__e2e-api/categories*', '**/api/backend/categories*'];
 
 async function mockJson(page: Page, patterns: string[], body: unknown) {
   await Promise.all(
@@ -115,17 +115,17 @@ test.describe('Browse Products Flow', () => {
     await setupProductList(page);
 
     // Mock product detail API
-    await mockJson(page, ['**/api/v1/products/prod-1**', '**/__e2e-api/products/prod-1**'], {
+    await mockJson(page, ['**/api/v1/products/prod-1**', '**/__e2e-api/products/prod-1**', '**/api/backend/products/prod-1**'], {
       success: true, data: MOCK_PRODUCT_DETAIL,
     });
 
     // Mock price history
-    await mockJson(page, ['**/api/v1/products/prod-1/price-history**', '**/__e2e-api/products/prod-1/price-history**'], {
+    await mockJson(page, ['**/api/v1/products/prod-1/price-history**', '**/__e2e-api/products/prod-1/price-history**', '**/api/backend/products/prod-1/price-history**'], {
       success: true, data: MOCK_PRICE_HISTORY,
     });
 
     // Mock category products (for related products)
-    await mockJson(page, ['**/api/v1/categories/cat-1/products**', '**/__e2e-api/categories/cat-1/products**'], {
+    await mockJson(page, ['**/api/v1/categories/cat-1/products**', '**/__e2e-api/categories/cat-1/products**', '**/api/backend/categories/cat-1/products**'], {
       success: true, data: { data: [MOCK_PRODUCT_DETAIL], pagination: null },
     });
 
@@ -152,7 +152,7 @@ test.describe('Browse Products Flow', () => {
     await setupProductList(page);
 
     // Mock 404 for non-existent product
-    await mockJson(page, ['**/api/v1/products/non-existent**', '**/__e2e-api/products/non-existent**'], {
+    await mockJson(page, ['**/api/v1/products/non-existent**', '**/__e2e-api/products/non-existent**', '**/api/backend/products/non-existent**'], {
       success: true, data: null,
     });
 
@@ -170,8 +170,8 @@ test.describe('Browse Products Flow', () => {
     await page.goto(`${BASE}/products`);
     await expect(page.locator('h1')).toContainText(/Products/i);
 
-    // Visit Chinese products page
-    await page.goto('/zh/products');
+    await page.getByRole('link', { name: 'ZH' }).click();
+    await expect(page).toHaveURL(/\/products$/);
     await expect(page.locator('h1')).toContainText(/商品/i);
 
     // Visit Japanese products page — note: /ja/products currently returns a 404
@@ -184,15 +184,15 @@ test.describe('Browse Products Flow', () => {
   test('Product detail shows tabs for details, specs, and price history', async ({ page }) => {
     await setupProductList(page);
 
-    await mockJson(page, ['**/api/v1/products/prod-1**', '**/__e2e-api/products/prod-1**'], {
+    await mockJson(page, ['**/api/v1/products/prod-1**', '**/__e2e-api/products/prod-1**', '**/api/backend/products/prod-1**'], {
       success: true, data: MOCK_PRODUCT_DETAIL,
     });
 
-    await mockJson(page, ['**/api/v1/products/prod-1/price-history**', '**/__e2e-api/products/prod-1/price-history**'], {
+    await mockJson(page, ['**/api/v1/products/prod-1/price-history**', '**/__e2e-api/products/prod-1/price-history**', '**/api/backend/products/prod-1/price-history**'], {
       success: true, data: MOCK_PRICE_HISTORY,
     });
 
-    await mockJson(page, ['**/api/v1/categories/cat-1/products**', '**/__e2e-api/categories/cat-1/products**'], {
+    await mockJson(page, ['**/api/v1/categories/cat-1/products**', '**/__e2e-api/categories/cat-1/products**', '**/api/backend/categories/cat-1/products**'], {
       success: true, data: { data: [MOCK_PRODUCT_DETAIL], pagination: null },
     });
 

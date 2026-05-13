@@ -11,6 +11,7 @@
  * - Logged-in state is persisted (access token stored)
  */
 import { test, expect, Page } from '@playwright/test';
+import { mockApi } from './mocks';
 import {
   MOCK_AUTH_REGISTER_RESPONSE,
   MOCK_AUTH_LOGIN_RESPONSE,
@@ -27,7 +28,7 @@ const BASE = '/en';
  * so the page renders properly without a real backend.
  */
 async function mockPublicApis(page: Page) {
-  await page.route('**/api/v1/products**', (route) => {
+  await mockApi(page, '/products**', (route) => {
     const url = route.request().url();
     // Search endpoint
     if (url.includes('/search')) {
@@ -45,7 +46,7 @@ async function mockPublicApis(page: Page) {
     });
   });
 
-  await page.route('**/api/v1/categories**', (route) => {
+  await mockApi(page, '/categories**', (route) => {
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -53,7 +54,7 @@ async function mockPublicApis(page: Page) {
     });
   });
 
-  await page.route('**/api/v1/cart**', (route) => {
+  await mockApi(page, '/cart**', (route) => {
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -90,7 +91,7 @@ test.describe('Auth Flow — Registration & Login', () => {
 
   test('User can register successfully and is redirected to home', async ({ page }) => {
     // Mock the register API
-    await page.route('**/api/v1/auth/register', (route) => {
+    await mockApi(page, '/auth/register', (route) => {
       return route.fulfill({
         status: 201,
         contentType: 'application/json',
@@ -162,7 +163,7 @@ test.describe('Auth Flow — Registration & Login', () => {
 
   test('User can login successfully with valid credentials', async ({ page }) => {
     // Mock the login API
-    await page.route('**/api/v1/auth/login', (route) => {
+    await mockApi(page, '/auth/login', (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -196,7 +197,7 @@ test.describe('Auth Flow — Registration & Login', () => {
 
   test('Login with invalid credentials shows error message', async ({ page }) => {
     // Mock login failure
-    await page.route('**/api/v1/auth/login', (route) => {
+    await mockApi(page, '/auth/login', (route) => {
       return route.fulfill({
         status: 401,
         contentType: 'application/json',
@@ -214,11 +215,7 @@ test.describe('Auth Flow — Registration & Login', () => {
 
     await page.click('button[type="submit"]');
 
-    // Should show error text on the page
-    // The mock API returns { success: false, error: { message: 'Invalid email or password' } }
-    // But the API client's parseResponse treats it as success=true with the whole object as data
-    // This causes the login to fail, and the catch block shows t("loginFailed") = "Login failed"
-    await expect(page.locator('text=Login failed').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Invalid email or password').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('Login page redirects to home when already authenticated', async ({ page }) => {

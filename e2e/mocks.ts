@@ -103,6 +103,24 @@ const addresses = [
   },
 ];
 
+/**
+ * Register a route handler for both old /api/v1/ and new /api/backend/ path patterns.
+ * This ensures mocks work regardless of which backend URL the app rewrites to.
+ *
+ * Usage example: mockApi(page, '/cart', (route) => json(route, { data: ... }))
+ */
+export async function mockApi(
+  page: Page,
+  pathSuffix: string,
+  handler: RouteHandlerCallback,
+) {
+  await page.route(`**/api/v1${pathSuffix}`, handler);
+  await page.route(`**/api/backend${pathSuffix}`, handler);
+  await page.route(`**/__e2e-api${pathSuffix}`, handler);
+}
+
+type RouteHandlerCallback = (route: Route) => void | Promise<void>;
+
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({
     status,
@@ -117,6 +135,7 @@ export async function mockBackend(page: Page, options: { cart?: typeof emptyCart
   await page.route("https://embed.tawk.to/**", (route) => route.abort());
   await page.route("**/api/support/**", (route) => handleApiRoute(route, cart));
   await page.route("**/__e2e-api/**", (route) => handleApiRoute(route, cart));
+  await page.route("**/api/backend/**", (route) => handleApiRoute(route, cart));
   await page.route("**/kangaroo-japan-backend.vercel.app/api/v1/**", (route) =>
     handleApiRoute(route, cart),
   );
@@ -151,6 +170,7 @@ function handleApiRoute(route: Route, cart: typeof emptyCart | typeof cartWithIt
   const path = url.pathname
     .replace(/^\/__e2e-api/, "")
     .replace(/^\/api\/v1/, "")
+    .replace(/^\/api\/backend/, "")
     .replace(/^\/api/, "");
 
   if (path === "/categories") {

@@ -13,6 +13,7 @@
  * These tests set up auth state + mock APIs.
  */
 import { test, expect, Page } from '@playwright/test';
+import { mockApi } from './mocks';
 import {
   MOCK_USER,
   MOCK_ACCESS_TOKEN,
@@ -50,7 +51,7 @@ async function setAuthenticated(page: Page) {
  * Mock public APIs so pages render without backend.
  */
 async function mockPublicApis(page: Page) {
-  await page.route('**/api/v1/products**', (route) => {
+  await mockApi(page, '/products**', (route) => {
     const url = route.request().url();
     if (url.includes('/search')) {
       return route.fulfill({
@@ -66,7 +67,7 @@ async function mockPublicApis(page: Page) {
     });
   });
 
-  await page.route('**/api/v1/categories*', (route) => {
+  await mockApi(page, '/categories*', (route) => {
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -90,7 +91,7 @@ test.describe('Cart Flow', () => {
     await setAuthenticated(page);
 
     // Mock empty cart API
-    await page.route('**/api/v1/cart', (route) => {
+    await mockApi(page, '/cart', (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -114,7 +115,7 @@ test.describe('Cart Flow', () => {
     await setAuthenticated(page);
 
     // Mock cart API with items
-    await page.route('**/api/v1/cart', (route) => {
+    await mockApi(page, '/cart', (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -145,7 +146,7 @@ test.describe('Cart Flow', () => {
     await setAuthenticated(page);
 
     // Mock initial cart fetch
-    await page.route('**/api/v1/cart', (route) => {
+    await mockApi(page, '/cart', (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -154,7 +155,7 @@ test.describe('Cart Flow', () => {
     });
 
     // Mock update cart item API
-    await page.route('**/api/v1/cart/items/cart-item-1', (route) => {
+    await mockApi(page, '/cart/items/cart-item-1', (route) => {
       if (route.request().method() === 'PUT') {
         return route.fulfill({
           status: 200,
@@ -190,7 +191,7 @@ test.describe('Cart Flow', () => {
     await setAuthenticated(page);
 
     // Mock initial cart
-    await page.route('**/api/v1/cart', (route) => {
+    await mockApi(page, '/cart', (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -213,7 +214,7 @@ test.describe('Cart Flow', () => {
       },
     };
 
-    await page.route('**/api/v1/cart/items/cart-item-1', (route) => {
+    await mockApi(page, '/cart/items/cart-item-1', (route) => {
       if (route.request().method() === 'DELETE') {
         return route.fulfill({
           status: 200,
@@ -245,7 +246,7 @@ test.describe('Cart Flow', () => {
   test('Proceed to Checkout button navigates to checkout page', async ({ page }) => {
     await setAuthenticated(page);
 
-    await page.route('**/api/v1/cart', (route) => {
+    await mockApi(page, '/cart', (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -253,7 +254,7 @@ test.describe('Cart Flow', () => {
       });
     });
 
-    await page.route('**/api/v1/addresses**', (route) => {
+    await mockApi(page, '/addresses**', (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
