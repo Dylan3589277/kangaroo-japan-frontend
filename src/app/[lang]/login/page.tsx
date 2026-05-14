@@ -83,7 +83,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md border-zinc-200/80 shadow-xl">
         <CardHeader className="space-y-4 text-center">
           <div className="mx-auto flex h-20 w-24 items-center justify-center">
-            <Image src="/brand/kangaroo-logo.svg" alt="kangaroo" width={96} height={72} priority className="h-20 w-auto" />
+            <Image src="/brand/kangaroo-logo.png" alt="kangaroo" width={80} height={80} priority className="h-20 w-20 object-contain" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">{t("login")}</CardTitle>

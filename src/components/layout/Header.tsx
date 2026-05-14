@@ -7,10 +7,12 @@ import { routing } from "@/i18n/routing";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/lib/auth";
 import { useState } from "react";
-import { Menu, Search, X } from "lucide-react";
+import { ChevronDown, Menu, Search, X } from "lucide-react";
 
 const LOCALE_PREFIX_RE = new RegExp(`^/(${routing.locales.join("|")})(?=/|$)`);
-const LANGUAGE_LABELS: Record<(typeof routing.locales)[number], string> = {
+type Locale = (typeof routing.locales)[number];
+
+const LANGUAGE_LABELS: Record<Locale, string> = {
   zh: "Chinese",
   en: "English",
   ko: "Korean",
@@ -26,11 +28,16 @@ interface HeaderProps {
   onSearch?: (query: string) => void;
 }
 
+function isLocale(value: string): value is Locale {
+  return routing.locales.includes(value as Locale);
+}
+
 export function Header({ showSearch = false, initialSearchQuery = "", onSearch }: HeaderProps) {
   const t = useTranslations();
   const pathname = usePathname();
   const params = useParams();
   const lang = (params.lang as string) || "zh";
+  const currentLocale = isLocale(lang) ? lang : "zh";
   const { isAuthenticated, user } = useAuthStore();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
@@ -54,13 +61,20 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
     ];
   };
 
-  const getLocalePath = (locale: string) => {
+  const getLocalePath = (locale: Locale) => {
     const currentPath = pathname.replace(LOCALE_PREFIX_RE, "") || "/";
     return `/${locale}${currentPath === "/" ? "" : currentPath}`;
   };
 
-  const getLocaleHref = (locale: string) =>
+  const getLocaleHref = (locale: Locale) =>
     `/api/locale?locale=${locale}&next=${encodeURIComponent(getLocalePath(locale))}`;
+
+  const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const nextLocale = e.target.value;
+    if (isLocale(nextLocale) && nextLocale !== currentLocale) {
+      window.location.href = getLocaleHref(nextLocale);
+    }
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,12 +94,12 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
         <div className="flex min-w-0 flex-1 items-center gap-6">
           <Link href="/" className="flex shrink-0 items-center" aria-label="kangaroo home">
             <Image
-              src="/brand/kangaroo-logo.svg"
+              src="/brand/kangaroo-logo.png"
               alt="kangaroo"
-              width={72}
-              height={54}
+              width={48}
+              height={48}
               priority
-              className="h-11 w-auto sm:h-12"
+              className="h-11 w-11 object-contain sm:h-12 sm:w-12"
             />
           </Link>
           <nav className="hidden items-center gap-5 lg:flex">
@@ -114,22 +128,21 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
             ))}
           </nav>
 
-          <div className="hidden items-center gap-1 rounded-full bg-zinc-100 p-1 shadow-inner sm:flex" aria-label="Language selector">
-            {routing.locales.map((locale) => (
-              <a
-                key={locale}
-                href={getLocaleHref(locale)}
-                title={LANGUAGE_LABELS[locale]}
-                aria-current={lang === locale ? "page" : undefined}
-                className={`min-w-8 rounded-full px-2.5 py-1 text-center text-[11px] font-semibold leading-5 transition-colors ${
-                  lang === locale
-                    ? "bg-rose-600 text-white shadow-sm"
-                    : "text-zinc-600 hover:bg-white hover:text-zinc-900"
-                }`}
-              >
-                {locale.toUpperCase()}
-              </a>
-            ))}
+          <div className="relative shrink-0">
+            <select
+              aria-label="Language selector"
+              value={currentLocale}
+              title={LANGUAGE_LABELS[currentLocale]}
+              onChange={handleLocaleChange}
+              className="h-9 w-[78px] appearance-none rounded-full border border-zinc-200 bg-white py-1 pl-3 pr-8 text-xs font-semibold uppercase leading-none text-zinc-700 shadow-sm transition-colors hover:border-rose-300 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            >
+              {routing.locales.map((locale) => (
+                <option key={locale} value={locale}>
+                  {locale.toUpperCase()}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
           </div>
 
           <details className="group relative lg:hidden">
@@ -158,23 +171,6 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
                     {item.label}
                   </Link>
                 ))}
-                <div className="my-2 border-t pt-3" />
-                <div className="grid grid-cols-4 gap-2">
-                  {routing.locales.map((locale) => (
-                    <a
-                      key={locale}
-                      href={getLocaleHref(locale)}
-                      title={LANGUAGE_LABELS[locale]}
-                      className={`rounded-full px-3 py-2 text-center text-xs font-semibold transition-colors ${
-                        lang === locale
-                          ? "bg-rose-600 text-white"
-                          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                      }`}
-                    >
-                      {locale.toUpperCase()}
-                    </a>
-                  ))}
-                </div>
               </nav>
             </div>
           </details>

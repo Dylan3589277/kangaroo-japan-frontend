@@ -11,6 +11,15 @@ export interface ProductLike {
   priceUsd?: number | string | null;
   currency?: string | null;
   images?: unknown;
+  imgurls?: unknown;
+  imgUrls?: unknown;
+  imageUrls?: unknown;
+  imagesUrl?: unknown;
+  cover?: unknown;
+  cover_image?: unknown;
+  coverImage?: unknown;
+  mainImage?: unknown;
+  main_image?: unknown;
   imageUrl?: string | null;
   image_url?: string | null;
   thumbnail?: string | null;
@@ -86,25 +95,60 @@ function asString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function isUsableImageUrl(value: unknown): value is string {
-  if (typeof value !== "string") return false;
+function normalizeImageUrl(value: unknown) {
+  if (typeof value !== "string") return "";
   const url = value.trim();
-  return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/");
+  if (!url) return "";
+  return url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/") ? url : "";
+}
+
+function parseImageUrlSource(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => parseImageUrlSource(item));
+  }
+
+  if (typeof value !== "string") return [];
+
+  const source = value.trim();
+  if (!source) return [];
+
+  if (source.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(source);
+      if (Array.isArray(parsed)) return parseImageUrlSource(parsed);
+    } catch {
+      // Fall through to comma-delimited parsing.
+    }
+  }
+
+  return source
+    .split(",")
+    .map((item) => normalizeImageUrl(item))
+    .filter((url) => url.length > 0);
 }
 
 export function getProductImages(product: ProductLike | null | undefined) {
   if (!product) return [];
-  const images = Array.isArray(product.images) ? product.images.filter(isUsableImageUrl) : [];
-  const fallbacks = [
+  const imageSources = [
+    product.images,
     product.imageUrl,
     product.image_url,
     product.thumbnail,
     product.thumbnailUrl,
     product.picture,
     product.image,
-  ].filter(isUsableImageUrl);
+    product.imgurls,
+    product.imgUrls,
+    product.imageUrls,
+    product.imagesUrl,
+    product.cover,
+    product.cover_image,
+    product.coverImage,
+    product.mainImage,
+    product.main_image,
+  ];
 
-  return Array.from(new Set([...images, ...fallbacks]));
+  return Array.from(new Set(imageSources.flatMap((source) => parseImageUrlSource(source))));
 }
 
 export function getProductImage(product: ProductLike | null | undefined) {

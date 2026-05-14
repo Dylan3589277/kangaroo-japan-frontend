@@ -170,7 +170,7 @@ test.describe('Browse Products Flow', () => {
     await page.goto(`${BASE}/products`);
     await expect(page.locator('h1')).toContainText(/Products/i);
 
-    await page.getByRole('link', { name: 'ZH' }).click();
+    await page.getByRole('combobox', { name: 'Language selector' }).selectOption('zh');
     await expect(page).toHaveURL(/\/products$/);
     await expect(page.locator('h1')).toContainText(/商品/i);
 
