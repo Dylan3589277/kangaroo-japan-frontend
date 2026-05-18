@@ -19,13 +19,28 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
+function badgeVariant(
+  status: AdminPlatformHealthItem["sampleSmoke"]["status"],
+) {
+  if (status === "passed") return "secondary";
+  if (status === "failed") return "destructive";
+  return "outline";
+}
+
 export default function AdminPlatformsPage() {
   const [items, setItems] = useState<AdminPlatformHealthItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [syncKeyword, setSyncKeyword] = useState("iphone");
+  const [syncingPlatform, setSyncingPlatform] = useState("");
+  const [syncMessage, setSyncMessage] = useState("");
 
   const blockedCount = useMemo(
     () => items.filter((item) => item.status === "blocked").length,
+    [items],
+  );
+  const passedCount = useMemo(
+    () => items.filter((item) => item.sampleSmoke.status === "passed").length,
     [items],
   );
 
@@ -40,6 +55,27 @@ export default function AdminPlatformsPage() {
       return;
     }
     setItems(response.data.data || []);
+  }
+
+  async function retrySync(platform: AdminPlatformHealthItem["platform"]) {
+    const keyword = syncKeyword.trim();
+    if (!keyword) {
+      setSyncMessage("请先填写同步关键词");
+      return;
+    }
+    setSyncingPlatform(platform);
+    setSyncMessage("");
+    const response = await api.retryPlatformSync({ platform, keyword });
+    setSyncingPlatform("");
+    if (!response.success || !response.data) {
+      setSyncMessage(response.error?.message || "同步重试失败");
+      return;
+    }
+    const result = response.data.result;
+    setSyncMessage(
+      `${platform}: ${result.success ? "成功" : "失败"}，同步 ${result.synced} 个`,
+    );
+    await load();
   }
 
   useEffect(() => {
@@ -70,13 +106,29 @@ export default function AdminPlatformsPage() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
+        <input
+          value={syncKeyword}
+          onChange={(event) => setSyncKeyword(event.target.value)}
+          className="h-9 min-w-56 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="同步关键词"
+          placeholder="同步关键词"
+        />
+        <span className="text-sm text-muted-foreground">
+          平台同步重试会写入商品缓存；对平台侧只做读取。
+        </span>
+        {syncMessage ? (
+          <span className="text-sm text-muted-foreground">{syncMessage}</span>
+        ) : null}
+      </div>
+
       {error ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {error}
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>平台数</CardTitle>
@@ -91,7 +143,7 @@ export default function AdminPlatformsPage() {
         <Card>
           <CardHeader>
             <CardTitle>已配置</CardTitle>
-            <CardDescription>可进入真实样本烟测</CardDescription>
+            <CardDescription>凭证可用于真实详情探测</CardDescription>
           </CardHeader>
           <CardContent className="text-3xl font-semibold">
             {items.filter((item) => item.configured).length}
@@ -100,10 +152,19 @@ export default function AdminPlatformsPage() {
         <Card>
           <CardHeader>
             <CardTitle>阻塞项</CardTitle>
-            <CardDescription>凭证或详情样本待补</CardDescription>
+            <CardDescription>凭证或样本缺失</CardDescription>
           </CardHeader>
           <CardContent className="text-3xl font-semibold text-amber-600">
             {blockedCount}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Live smoke</CardTitle>
+            <CardDescription>详情和图片均通过</CardDescription>
+          </CardHeader>
+          <CardContent className="text-3xl font-semibold text-emerald-600">
+            {passedCount}
           </CardContent>
         </Card>
       </div>
@@ -132,7 +193,8 @@ export default function AdminPlatformsPage() {
               <div className="rounded-lg bg-muted p-3">
                 <div className="font-medium">固定样本</div>
                 <div className="mt-1 text-muted-foreground">
-                  {item.sample.sampleId} / {item.sample.sampleKind}
+                  {item.sample.sampleId || "缺少样本"} /{" "}
+                  {item.sample.sampleKind} / {item.sample.sampleSource}
                 </div>
                 {item.sample.detailPath ? (
                   <div className="mt-1 font-mono text-xs text-muted-foreground">
@@ -141,11 +203,25 @@ export default function AdminPlatformsPage() {
                 ) : null}
               </div>
               <div className="rounded-lg border p-3">
-                <div className="font-medium">Smoke 状态</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium">Smoke 状态</div>
+                  <Badge variant={badgeVariant(item.sampleSmoke.status)}>
+                    {item.sampleSmoke.status}
+                  </Badge>
+                </div>
                 <div className="mt-2 grid gap-1 text-muted-foreground">
-                  <div>整体：{item.sampleSmoke.status}</div>
                   <div>详情：{item.sampleSmoke.detailStatus}</div>
                   <div>图片：{item.sampleSmoke.imageStatus}</div>
+                  {item.sampleSmoke.imageUrl ? (
+                    <div className="break-all">
+                      图片地址：{item.sampleSmoke.imageUrl}
+                    </div>
+                  ) : null}
+                  {item.sampleSmoke.error ? (
+                    <div className="break-all text-red-600">
+                      错误：{item.sampleSmoke.error}
+                    </div>
+                  ) : null}
                   <div>检查：{formatDate(item.sampleSmoke.checkedAt)}</div>
                 </div>
               </div>
@@ -162,6 +238,19 @@ export default function AdminPlatformsPage() {
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
                 {item.sample.notice}
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => retrySync(item.platform)}
+                disabled={syncingPlatform === item.platform}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${
+                    syncingPlatform === item.platform ? "animate-spin" : ""
+                  }`}
+                />
+                重试同步
+              </Button>
             </CardContent>
           </Card>
         ))}

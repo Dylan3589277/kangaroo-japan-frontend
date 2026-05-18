@@ -189,20 +189,40 @@ export interface AdminPlatformHealthItem {
   credentialStatus: "configured" | "missing";
   totalProducts: number;
   lastSync: string | null;
-  status: "ready_for_smoke" | "blocked";
+  status: "healthy" | "attention" | "blocked";
   sample: {
-    sampleId: string;
+    sampleId: string | null;
     sampleKind: string;
     detailPath: string | null;
     imageHosts: string[];
     credentialStatus: "configured" | "missing";
+    sampleStatus: "configured" | "missing";
+    sampleSource: "env" | "default" | "missing";
     notice: string;
   };
   sampleSmoke: {
     endpoint: string | null;
-    status: "ready_for_live_check" | "blocked_missing_credentials";
-    detailStatus: "not_checked_in_this_request" | "blocked";
-    imageStatus: "not_checked_in_this_request" | "blocked";
+    status:
+      | "passed"
+      | "failed"
+      | "ready_for_live_check"
+      | "blocked_missing_credentials"
+      | "blocked_missing_sample";
+    detailStatus:
+      | "passed"
+      | "failed"
+      | "blocked"
+      | "not_checked"
+      | "not_checked_legacy_bridge";
+    imageStatus:
+      | "passed"
+      | "failed"
+      | "missing"
+      | "blocked"
+      | "not_checked"
+      | "not_checked_legacy_bridge";
+    imageUrl?: string | null;
+    error?: string;
     checkedAt: string;
   };
 }
@@ -288,6 +308,16 @@ export interface AdminListResponse<T> {
     has_next: boolean;
     has_prev: boolean;
   };
+  safety?: Record<string, unknown>;
+}
+
+export interface AdminPaymentReconciliation {
+  total: number;
+  byStatus: Record<string, { count: number; amount: number }>;
+  byProvider: Record<string, { count: number; amount: number }>;
+  stalePending: number;
+  refundCandidates: number;
+  generatedAt: string;
   safety?: Record<string, unknown>;
 }
 
@@ -983,6 +1013,19 @@ class ApiClient {
     );
   }
 
+  async updateSupportTicketLifecycle(
+    ticketId: string,
+    data: { status?: SupportTicketStatus; adminNote?: string | null },
+  ) {
+    return this.request<SupportTicket>(
+      `/support/admin/tickets/${ticketId}/lifecycle`,
+      {
+        method: "POST",
+        body: data,
+      },
+    );
+  }
+
   async getSupportTicketContext(ticketId: string) {
     return this.request<SupportTicketContextResponse>(
       `/support/admin/tickets/${ticketId}/context`,
@@ -1000,6 +1043,26 @@ class ApiClient {
       data: AdminPlatformHealthItem[];
       safety: Record<string, unknown>;
     }>("/integrations/admin/health");
+  }
+
+  async retryPlatformSync(data: {
+    platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+    keyword: string;
+  }) {
+    return this.request<{
+      result: {
+        platform: string;
+        keyword: string;
+        found: number;
+        synced: number;
+        success: boolean;
+        error?: string;
+      };
+      safety: Record<string, unknown>;
+    }>("/integrations/admin/sync/retry", {
+      method: "POST",
+      body: data,
+    });
   }
 
   async listAdminOrders(params?: {
@@ -1035,6 +1098,12 @@ class ApiClient {
     const query = searchParams.toString();
     return this.request<AdminListResponse<AdminPaymentItem>>(
       `/payments/admin${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async getAdminPaymentReconciliation() {
+    return this.request<AdminPaymentReconciliation>(
+      "/payments/admin/reconciliation",
     );
   }
 

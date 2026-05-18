@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api, type AdminPaymentItem } from "@/lib/api";
+import type { AdminPaymentReconciliation } from "@/lib/api";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -29,6 +30,8 @@ export default function AdminPaymentsPage() {
   const [provider, setProvider] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [reconciliation, setReconciliation] =
+    useState<AdminPaymentReconciliation | null>(null);
 
   async function load(params?: {
     q?: string;
@@ -52,6 +55,10 @@ export default function AdminPaymentsPage() {
     }
     setPayments(response.data.data || []);
     setTotal(response.data.pagination?.total || 0);
+    const reconciliationResponse = await api.getAdminPaymentReconciliation();
+    if (reconciliationResponse.success && reconciliationResponse.data) {
+      setReconciliation(reconciliationResponse.data);
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -131,6 +138,36 @@ export default function AdminPaymentsPage() {
           {error}
         </div>
       ) : null}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>对账样本</CardTitle>
+            <CardDescription>最近 500 笔支付记录</CardDescription>
+          </CardHeader>
+          <CardContent className="text-3xl font-semibold">
+            {reconciliation?.total ?? "-"}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>超时待支付</CardTitle>
+            <CardDescription>创建超过 1 小时仍 pending</CardDescription>
+          </CardHeader>
+          <CardContent className="text-3xl font-semibold text-amber-600">
+            {reconciliation?.stalePending ?? "-"}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>退款候选</CardTitle>
+            <CardDescription>已支付但订单取消/退款</CardDescription>
+          </CardHeader>
+          <CardContent className="text-3xl font-semibold text-red-600">
+            {reconciliation?.refundCandidates ?? "-"}
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
