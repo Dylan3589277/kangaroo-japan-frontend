@@ -44,7 +44,11 @@ export interface SupportOrderLookupItem {
   updatedAt: string;
   paidAt?: string | null;
   total: { amount: number; currency?: string | null };
-  customer: { name?: string | null; email?: string | null; phone?: string | null };
+  customer: {
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  };
   shipping: {
     carrier?: string | null;
     trackingNumber?: string | null;
@@ -88,7 +92,11 @@ export interface SupportOrderLookupResponse {
   };
 }
 
-export type SupportTicketStatus = "open" | "in_progress" | "resolved" | "closed";
+export type SupportTicketStatus =
+  | "open"
+  | "in_progress"
+  | "resolved"
+  | "closed";
 export type SupportTicketCategory =
   | "order"
   | "shipping"
@@ -140,6 +148,21 @@ export interface HermesDraft {
   updatedAt: string;
 }
 
+export type ExchangeCurrency = "JPY" | "CNY" | "USD";
+
+export interface ExchangeRatesResponse {
+  base: "JPY";
+  rates: Record<ExchangeCurrency, number>;
+  pairs: {
+    jpyToCny: number;
+    jpyToUsd: number;
+    cnyToUsd: number;
+  };
+  source: "env" | "admin_override";
+  lastUpdated: string;
+  updatedBy?: string;
+}
+
 class ApiClient {
   private baseUrl: string;
   private isRefreshing = false;
@@ -151,9 +174,9 @@ class ApiClient {
 
   // Request interceptor: read access token from persisted Zustand store
   private getAccessToken(): string | null {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
     try {
-      const stored = localStorage.getItem('auth-storage');
+      const stored = localStorage.getItem("auth-storage");
       if (stored) {
         const parsed = JSON.parse(stored);
         return parsed?.state?.accessToken ?? null;
@@ -164,12 +187,20 @@ class ApiClient {
     return null;
   }
 
-  private buildConfig(method: string, body: any, headers: Record<string, string>, credentials: RequestCredentials, token: string | null): RequestInit {
-    const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  private buildConfig(
+    method: string,
+    body: any,
+    headers: Record<string, string>,
+    credentials: RequestCredentials,
+    token: string | null,
+  ): RequestInit {
+    const authHeaders: Record<string, string> = token
+      ? { Authorization: `Bearer ${token}` }
+      : {};
     const config: RequestInit = {
       method,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...authHeaders,
         ...headers,
       },
@@ -180,18 +211,18 @@ class ApiClient {
   }
 
   private parseResponse<T>(data: unknown): ApiResponse<T> {
-    if (typeof data === 'object' && data !== null) {
+    if (typeof data === "object" && data !== null) {
       const obj = data as Record<string, unknown>;
       // Wrapped format: { success: true, data: {...} }
-      if ('success' in obj && obj.success === true) {
+      if ("success" in obj && obj.success === true) {
         return obj as unknown as ApiResponse<T>;
       }
       // NestJS backend format: { code: 0, data: {...} }
-      if ('code' in obj && obj.code === 0 && 'data' in obj) {
+      if ("code" in obj && obj.code === 0 && "data" in obj) {
         return { success: true, data: obj.data as T };
       }
       // Direct format: { data: [...], pagination: {...} } (Railway backend)
-      if ('data' in obj || 'items' in obj) {
+      if ("data" in obj || "items" in obj) {
         return { success: true, data: obj as T };
       }
     }
@@ -211,9 +242,9 @@ class ApiClient {
 
     try {
       const response = await fetch(`${this.baseUrl}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
       });
 
       if (response.ok) {
@@ -225,7 +256,7 @@ class ApiClient {
           null;
 
         if (newToken) {
-          const { useAuthStore } = await import('@/lib/auth');
+          const { useAuthStore } = await import("@/lib/auth");
           useAuthStore.getState().setAccessToken(newToken);
         }
       }
@@ -237,11 +268,13 @@ class ApiClient {
     this.refreshQueue.forEach((resolve) => resolve(newToken));
     this.refreshQueue = [];
 
-    if (!newToken && typeof window !== 'undefined') {
-      const { useAuthStore } = await import('@/lib/auth');
+    if (!newToken && typeof window !== "undefined") {
+      const { useAuthStore } = await import("@/lib/auth");
       useAuthStore.getState().logout();
-      const pathParts = window.location.pathname.split('/');
-      const lang = ['zh', 'en', 'ja'].includes(pathParts[1]) ? pathParts[1] : 'zh';
+      const pathParts = window.location.pathname.split("/");
+      const lang = ["zh", "en", "ja"].includes(pathParts[1])
+        ? pathParts[1]
+        : "zh";
       window.location.href = `/${lang}/login`;
     }
 
@@ -250,9 +283,14 @@ class ApiClient {
 
   async request<T>(
     endpoint: string,
-    options: ApiOptions = {}
+    options: ApiOptions = {},
   ): Promise<ApiResponse<T>> {
-    const { method = "GET", body, headers = {}, credentials = "include" } = options;
+    const {
+      method = "GET",
+      body,
+      headers = {},
+      credentials = "include",
+    } = options;
 
     // Request interceptor: attach Authorization header
     const token = this.getAccessToken();
@@ -262,28 +300,38 @@ class ApiClient {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
 
       // Response interceptor: handle 401 Unauthorized
-      if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+      if (response.status === 401 && !endpoint.startsWith("/auth/")) {
         const newToken = await this.handleUnauthorized();
         if (!newToken) {
           return {
             success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Session expired' },
+            error: { code: "UNAUTHORIZED", message: "Session expired" },
           };
         }
         // Retry original request with refreshed token
-        const retryConfig = this.buildConfig(method, body, headers, credentials, newToken);
-        const retryResponse = await fetch(`${this.baseUrl}${endpoint}`, retryConfig);
+        const retryConfig = this.buildConfig(
+          method,
+          body,
+          headers,
+          credentials,
+          newToken,
+        );
+        const retryResponse = await fetch(
+          `${this.baseUrl}${endpoint}`,
+          retryConfig,
+        );
         const retryData = await retryResponse.json();
         if (!retryResponse.ok) {
           return {
             success: false,
             error: {
               code: String(retryResponse.status),
-              message: typeof retryData?.message === "string"
-                ? retryData.message
-                : typeof retryData?.error?.message === "string"
-                  ? retryData.error.message
-                  : retryResponse.statusText,
+              message:
+                typeof retryData?.message === "string"
+                  ? retryData.message
+                  : typeof retryData?.error?.message === "string"
+                    ? retryData.error.message
+                    : retryResponse.statusText,
             },
           };
         }
@@ -296,11 +344,12 @@ class ApiClient {
           success: false,
           error: {
             code: String(response.status),
-            message: typeof data?.message === "string"
-              ? data.message
-              : typeof data?.error?.message === "string"
-                ? data.error.message
-                : response.statusText,
+            message:
+              typeof data?.message === "string"
+                ? data.message
+                : typeof data?.error?.message === "string"
+                  ? data.error.message
+                  : response.statusText,
           },
         };
       }
@@ -432,7 +481,9 @@ class ApiClient {
   }
 
   async searchProducts(q: string, lang = "zh", page = 1, limit = 20) {
-    return this.request(`/products/search?q=${encodeURIComponent(q)}&lang=${lang}&page=${page}&limit=${limit}`);
+    return this.request(
+      `/products/search?q=${encodeURIComponent(q)}&lang=${lang}&page=${page}&limit=${limit}`,
+    );
   }
 
   async compareProducts(ids: string[], lang = "zh") {
@@ -440,7 +491,9 @@ class ApiClient {
   }
 
   async getPriceHistory(productId: string, days = 30, currency = "CNY") {
-    return this.request(`/products/${productId}/price-history?days=${days}&currency=${currency}`);
+    return this.request(
+      `/products/${productId}/price-history?days=${days}&currency=${currency}`,
+    );
   }
 
   async getCategories(lang = "zh") {
@@ -463,7 +516,9 @@ class ApiClient {
     if (params?.sort) searchParams.set("sort", params.sort);
 
     const query = searchParams.toString();
-    return this.request(`/categories/${categoryId}/products${query ? `?${query}` : ""}`);
+    return this.request(
+      `/categories/${categoryId}/products${query ? `?${query}` : ""}`,
+    );
   }
 
   async getCategoryProductsBySlug(slug: string, params?: any) {
@@ -474,7 +529,9 @@ class ApiClient {
     if (params?.sort) searchParams.set("sort", params.sort);
 
     const query = searchParams.toString();
-    return this.request(`/categories/slug/${slug}/products${query ? `?${query}` : ""}`);
+    return this.request(
+      `/categories/slug/${slug}/products${query ? `?${query}` : ""}`,
+    );
   }
 
   // 统一搜索 - 并行搜索多个平台，返回统一格式
@@ -490,29 +547,29 @@ class ApiClient {
     if (params?.limit) searchParams.set("limit", String(params.limit));
     if (params?.platforms) searchParams.set("platforms", params.platforms);
 
-    return this.request(`/integrations/search/unified?${searchParams.toString()}`);
+    return this.request(
+      `/integrations/search/unified?${searchParams.toString()}`,
+    );
   }
 
   // Cart endpoints
   async getCart() {
-    return this.request<
-      {
-        id: string;
-        items: any[];
-        summary: {
-          totalItems: number;
-          subtotalJpy: number;
-          subtotalCny: number;
-          subtotalUsd: number;
-          estimatedShippingJpy: number;
-          estimatedShippingCny: number;
-          totalJpy: number;
-          totalCny: number;
-          currency: string;
-        };
-        groupedBySeller: any[];
-      }
-    >("/cart");
+    return this.request<{
+      id: string;
+      items: any[];
+      summary: {
+        totalItems: number;
+        subtotalJpy: number;
+        subtotalCny: number;
+        subtotalUsd: number;
+        estimatedShippingJpy: number;
+        estimatedShippingCny: number;
+        totalJpy: number;
+        totalCny: number;
+        currency: string;
+      };
+      groupedBySeller: any[];
+    }>("/cart");
   }
 
   async addCartItem(data: {
@@ -529,7 +586,11 @@ class ApiClient {
 
   async updateCartItem(
     itemId: string,
-    data: { quantity?: number; options?: Record<string, any>; buyerMessage?: string },
+    data: {
+      quantity?: number;
+      options?: Record<string, any>;
+      buyerMessage?: string;
+    },
   ) {
     return this.request(`/cart/items/${itemId}`, {
       method: "PUT",
@@ -550,21 +611,20 @@ class ApiClient {
   }
 
   async calculateCart(addressId?: string) {
-    return this.request(`/cart/calculate${addressId ? `?addressId=${addressId}` : ""}`, {
-      method: "POST",
-    });
+    return this.request(
+      `/cart/calculate${addressId ? `?addressId=${addressId}` : ""}`,
+      {
+        method: "POST",
+      },
+    );
   }
 
   // Order endpoints
-  async getOrders(params?: {
-    status?: string;
-    page?: number;
-    limit?: number;
-  }) {
+  async getOrders(params?: { status?: string; page?: number; limit?: number }) {
     const searchParams = new URLSearchParams();
-    if (params?.status) searchParams.set('status', params.status);
-    if (params?.page) searchParams.set('page', String(params.page));
-    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
     return this.request(`/orders${query ? `?${query}` : ""}`);
   }
@@ -580,13 +640,16 @@ class ApiClient {
     buyerMessage?: string;
     couponCode?: string;
   }) {
-    return this.request('/orders', {
-      method: 'POST',
+    return this.request("/orders", {
+      method: "POST",
       body: data,
     });
   }
 
-  private async supportRequest<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+  private async supportRequest<T>(
+    endpoint: string,
+    body: unknown,
+  ): Promise<ApiResponse<T>> {
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -601,7 +664,10 @@ class ApiClient {
           success: false,
           error: {
             code: String(response.status),
-            message: typeof data?.message === "string" ? data.message : "Support request failed",
+            message:
+              typeof data?.message === "string"
+                ? data.message
+                : "Support request failed",
           },
         };
       }
@@ -621,7 +687,7 @@ class ApiClient {
 
   async cancelOrder(id: string) {
     return this.request(`/orders/${id}/cancel`, {
-      method: 'PUT',
+      method: "PUT",
     });
   }
 
@@ -630,7 +696,11 @@ class ApiClient {
   }
 
   // Support endpoints
-  async sendSupportChat(data: { message: string; conversationId?: string; language?: string }) {
+  async sendSupportChat(data: {
+    message: string;
+    conversationId?: string;
+    language?: string;
+  }) {
     return this.supportRequest<SupportChatResponse>("/api/support/chat", {
       message: data.message,
       conversationId: data.conversationId,
@@ -670,11 +740,14 @@ class ApiClient {
     if (params.orderNo) searchParams.set("orderNo", params.orderNo);
     if (params.email) searchParams.set("email", params.email);
     if (params.phone) searchParams.set("phone", params.phone);
-    if (params.trackingNumber) searchParams.set("trackingNumber", params.trackingNumber);
+    if (params.trackingNumber)
+      searchParams.set("trackingNumber", params.trackingNumber);
     if (params.page) searchParams.set("page", String(params.page));
     if (params.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
-    return this.request<SupportOrderLookupResponse>(`/support/orders/lookup${query ? `?${query}` : ""}`);
+    return this.request<SupportOrderLookupResponse>(
+      `/support/orders/lookup${query ? `?${query}` : ""}`,
+    );
   }
 
   async listSupportTickets(params?: {
@@ -691,15 +764,21 @@ class ApiClient {
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
-    return this.request<SupportTicketListResponse>(`/support/tickets${query ? `?${query}` : ""}`);
+    return this.request<SupportTicketListResponse>(
+      `/support/tickets${query ? `?${query}` : ""}`,
+    );
   }
 
   async getSupportTicketContext(ticketId: string) {
-    return this.request<SupportTicketContextResponse>(`/support/admin/tickets/${ticketId}/context`);
+    return this.request<SupportTicketContextResponse>(
+      `/support/admin/tickets/${ticketId}/context`,
+    );
   }
 
   async listHermesDraftsForTicket(ticketId: string) {
-    return this.request<HermesDraft[]>(`/support/admin/tickets/${ticketId}/hermes/drafts`);
+    return this.request<HermesDraft[]>(
+      `/support/admin/tickets/${ticketId}/hermes/drafts`,
+    );
   }
 
   async triggerHermesDraft(data: { ticketId: string; promptContext?: string }) {
@@ -714,35 +793,54 @@ class ApiClient {
   }
 
   async dismissHermesDraft(jobId: string, reason?: string) {
-    return this.request<HermesDraft>(`/support/admin/hermes/drafts/${jobId}/dismiss`, {
-      method: "POST",
-      body: { reason },
+    return this.request<HermesDraft>(
+      `/support/admin/hermes/drafts/${jobId}/dismiss`,
+      {
+        method: "POST",
+        body: { reason },
+      },
+    );
+  }
+
+  // Exchange rate admin endpoints
+  async getExchangeRates() {
+    return this.request<ExchangeRatesResponse>("/exchange-rates");
+  }
+
+  async updateExchangeRates(data: {
+    jpyToCny?: number;
+    jpyToUsd?: number;
+    cnyToUsd?: number;
+  }) {
+    return this.request<ExchangeRatesResponse>("/exchange-rates/admin", {
+      method: "PATCH",
+      body: data,
     });
   }
 
   // Payment endpoints
   async createPaymentIntent(data: {
     orderId: string;
-    method?: 'stripe' | 'alipay' | 'wechat_pay';
+    method?: "stripe" | "alipay" | "wechat_pay";
     paymentMethodTypes?: string[];
-    currency?: 'CNY' | 'USD' | 'JPY';
+    currency?: "CNY" | "USD" | "JPY";
   }) {
-    return this.request('/payments/create-intent', {
-      method: 'POST',
+    return this.request("/payments/create-intent", {
+      method: "POST",
       body: data,
     });
   }
 
   async confirmPayment(paymentId: string, paymentMethodId?: string) {
     return this.request(`/payments/${paymentId}/confirm`, {
-      method: 'POST',
+      method: "POST",
       body: { payment_method_id: paymentMethodId },
     });
   }
 
   async cancelPayment(paymentId: string) {
     return this.request(`/payments/${paymentId}/cancel`, {
-      method: 'POST',
+      method: "POST",
     });
   }
 
@@ -752,7 +850,7 @@ class ApiClient {
 
   async refundPayment(paymentId: string, amount?: number, reason?: string) {
     return this.request(`/payments/${paymentId}/refund`, {
-      method: 'POST',
+      method: "POST",
       body: { amount, reason },
     });
   }
