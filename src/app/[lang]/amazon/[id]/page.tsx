@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
@@ -39,26 +39,21 @@ export default function AmazonDetailPage() {
   const lang = (params.lang as string) || "zh";
   const id = params.id as string;
   const { isAuthenticated } = useAuthStore();
-  const t = useTranslations('amazon');
+  const t = useTranslations("amazon");
 
   const [detail, setDetail] = useState<AmazonDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [copied, setCopied] = useState(false);
   const [isCollected, setIsCollected] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [cartNum, setCartNum] = useState(0);
   const [translating, setTranslating] = useState(false);
   const [translatedText, setTranslatedText] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchDetail();
-  }, [id]);
-
-  const fetchDetail = async () => {
+  const fetchDetail = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.request("/amazon/detail", {
+      const res = await api.request("/integrations/amazon/detail", {
         method: "POST",
         body: { id },
       });
@@ -74,12 +69,16 @@ export default function AmazonDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchDetail();
+  }, [fetchDetail]);
 
   const copyName = () => {
     if (detail?.goods_name) {
       navigator.clipboard.writeText(detail.goods_name).then(() => {
-        alert(t('copiedName'));
+        alert(t("copiedName"));
       });
     }
   };
@@ -115,7 +114,7 @@ export default function AmazonDetailPage() {
       if (res.success) {
         setIsInCart(true);
         setCartNum((prev) => prev + 1);
-        alert(t('addedToCart'));
+        alert(t("addedToCart"));
       }
     } catch {
       // ignore
@@ -132,7 +131,9 @@ export default function AmazonDetailPage() {
       });
       if (res.success && res.data) {
         const data = res.data as any;
-        setTranslatedText(data.translated_text || data.result || data.text || "");
+        setTranslatedText(
+          data.translated_text || data.result || data.text || "",
+        );
       }
     } catch {
       // ignore
@@ -169,12 +170,8 @@ export default function AmazonDetailPage() {
     return (
       <div className="container mx-auto py-8 px-4 text-center">
         <div className="text-6xl mb-4">🔍</div>
-        <h1 className="text-2xl font-bold mb-4">
-          {t('emptyTitle')}
-        </h1>
-        <Button onClick={() => router.back()}>
-          {t('emptyBack')}
-        </Button>
+        <h1 className="text-2xl font-bold mb-4">{t("emptyTitle")}</h1>
+        <Button onClick={() => router.back()}>{t("emptyBack")}</Button>
       </div>
     );
   }
@@ -188,7 +185,7 @@ export default function AmazonDetailPage() {
         <ol className="flex items-center gap-2 text-muted-foreground">
           <li>
             <Link href={`/${lang}`} className="hover:text-primary">
-              {t('home')}
+              {t("home")}
             </Link>
           </li>
           <li>/</li>
@@ -198,7 +195,9 @@ export default function AmazonDetailPage() {
             </Link>
           </li>
           <li>/</li>
-          <li className="text-foreground truncate max-w-[200px]">{detail.goods_name}</li>
+          <li className="text-foreground truncate max-w-[200px]">
+            {detail.goods_name}
+          </li>
         </ol>
       </nav>
 
@@ -217,12 +216,16 @@ export default function AmazonDetailPage() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                {t('noImage')}
+                {t("noImage")}
               </div>
             )}
-            {(detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING") && (
-              <Badge variant="destructive" className="absolute top-4 left-4 text-sm px-3 py-1">
-                {t('sold')}
+            {(detail.status === "sold_out" ||
+              detail.status === "ITEM_STATUS_TRADING") && (
+              <Badge
+                variant="destructive"
+                className="absolute top-4 left-4 text-sm px-3 py-1"
+              >
+                {t("sold")}
               </Badge>
             )}
           </div>
@@ -235,7 +238,9 @@ export default function AmazonDetailPage() {
                   key={idx}
                   onClick={() => setSelectedImage(idx)}
                   className={`relative w-20 h-20 flex-shrink-0 rounded-md overflow-hidden border-2 ${
-                    selectedImage === idx ? "border-primary" : "border-transparent"
+                    selectedImage === idx
+                      ? "border-primary"
+                      : "border-transparent"
                   }`}
                 >
                   <Image
@@ -257,7 +262,7 @@ export default function AmazonDetailPage() {
           <h1
             className="text-2xl font-bold mb-4 cursor-pointer hover:text-primary transition-colors"
             onClick={copyName}
-            title={t('clickToCopy')}
+            title={t("clickToCopy")}
           >
             {detail.goods_name}
           </h1>
@@ -268,16 +273,14 @@ export default function AmazonDetailPage() {
               <span className="text-3xl font-bold text-orange-500">
                 ¥{Number(detail.price).toLocaleString()}
               </span>
-              <span className="text-sm text-muted-foreground">
-                {t('yen')}
-              </span>
+              <span className="text-sm text-muted-foreground">{t("yen")}</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              {t('approx')}¥{Number(detail.price_rmb).toFixed(2)}
-              {t('cny')}
+              {t("approx")}¥{Number(detail.price_rmb).toFixed(2)}
+              {t("cny")}
               {detail.rate && (
                 <span className="ml-2">
-                  ({t('rate')}: {detail.rate})
+                  ({t("rate")}: {detail.rate})
                 </span>
               )}
             </div>
@@ -288,7 +291,9 @@ export default function AmazonDetailPage() {
             <div className="grid grid-cols-2 gap-3 mb-6">
               {detail.extras.map((row, idx) => (
                 <div key={idx} className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground min-w-[60px]">{row.name}:</span>
+                  <span className="text-muted-foreground min-w-[60px]">
+                    {row.name}:
+                  </span>
                   <span className="font-medium truncate">{row.value}</span>
                 </div>
               ))}
@@ -296,59 +301,70 @@ export default function AmazonDetailPage() {
           )}
 
           {/* Direct attribute fields fallback */}
-          {(!detail.extras || detail.extras.length === 0) && (detail.brand || detail.asin || detail.size || detail.color) && (
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              {detail.brand && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground min-w-[60px]">{t('brand')}:</span>
-                  <span className="font-medium truncate">{detail.brand}</span>
-                </div>
-              )}
-              {detail.asin && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground min-w-[60px]">ASIN:</span>
-                  <span className="font-medium truncate">{detail.asin}</span>
-                </div>
-              )}
-              {detail.size && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground min-w-[60px]">{t('size')}:</span>
-                  <span className="font-medium truncate">{detail.size}</span>
-                </div>
-              )}
-              {detail.color && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground min-w-[60px]">{t('color')}:</span>
-                  <span className="font-medium truncate">{detail.color}</span>
-                </div>
-              )}
-            </div>
-          )}
+          {(!detail.extras || detail.extras.length === 0) &&
+            (detail.brand || detail.asin || detail.size || detail.color) && (
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {detail.brand && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground min-w-[60px]">
+                      {t("brand")}:
+                    </span>
+                    <span className="font-medium truncate">{detail.brand}</span>
+                  </div>
+                )}
+                {detail.asin && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground min-w-[60px]">
+                      ASIN:
+                    </span>
+                    <span className="font-medium truncate">{detail.asin}</span>
+                  </div>
+                )}
+                {detail.size && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground min-w-[60px]">
+                      {t("size")}:
+                    </span>
+                    <span className="font-medium truncate">{detail.size}</span>
+                  </div>
+                )}
+                {detail.color && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground min-w-[60px]">
+                      {t("color")}:
+                    </span>
+                    <span className="font-medium truncate">{detail.color}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
           {/* Fee Details */}
           <Card className="p-4 mb-6">
-            <h3 className="text-sm font-semibold mb-3">
-              {t('feeDetails')}
-            </h3>
+            <h3 className="text-sm font-semibold mb-3">{t("feeDetails")}</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('source')}</span>
+                <span className="text-muted-foreground">{t("source")}</span>
                 <span className="font-medium">Amazon</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('domesticShipping')}</span>
-                <span className="font-medium">{t('zeroYen')}</span>
+                <span className="text-muted-foreground">
+                  {t("domesticShipping")}
+                </span>
+                <span className="font-medium">{t("zeroYen")}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('serviceFee')}</span>
+                <span className="text-muted-foreground">{t("serviceFee")}</span>
                 <span className="font-medium text-orange-500">
-                  {t('serviceFeeValue')}
+                  {t("serviceFeeValue")}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t('internationalShipping')}</span>
+                <span className="text-muted-foreground">
+                  {t("internationalShipping")}
+                </span>
                 <span className="font-medium">
-                  {t('internationalShippingDesc')}
+                  {t("internationalShippingDesc")}
                 </span>
               </div>
             </div>
@@ -362,12 +378,20 @@ export default function AmazonDetailPage() {
               onClick={toggleCollect}
               className={`gap-2 ${isCollected ? "text-red-500 border-red-200" : ""}`}
             >
-              <svg className="w-4 h-4" fill={isCollected ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              <svg
+                className="w-4 h-4"
+                fill={isCollected ? "currentColor" : "none"}
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                />
               </svg>
-              {isCollected
-                ? t('favorited')
-                : t('favorite')}
+              {isCollected ? t("favorited") : t("favorite")}
             </Button>
           </div>
         </div>
@@ -376,30 +400,22 @@ export default function AmazonDetailPage() {
       {/* Tabs: Description + Shopping Info */}
       <Tabs defaultValue="description" className="mb-12">
         <TabsList>
-          <TabsTrigger value="description">
-            {t('details')}
-          </TabsTrigger>
-          <TabsTrigger value="shopping-info">
-            {t('shoppingInfo')}
-          </TabsTrigger>
+          <TabsTrigger value="description">{t("details")}</TabsTrigger>
+          <TabsTrigger value="shopping-info">{t("shoppingInfo")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="description" className="mt-4">
           <Card className="p-6">
             <div className="text-xs text-muted-foreground mb-4">
-              {t('translationNote')}
+              {t("translationNote")}
             </div>
             <div className="prose prose-sm max-w-none">
-              <h3 className="text-lg font-semibold mb-2">
-                {t('details')}
-              </h3>
+              <h3 className="text-lg font-semibold mb-2">{t("details")}</h3>
               <div className="whitespace-pre-wrap text-sm leading-relaxed">
                 {detail.content || detail.description || ""}
               </div>
               {!detail.content && !detail.description && (
-                <p className="text-muted-foreground">
-                  {t('noDescription')}
-                </p>
+                <p className="text-muted-foreground">{t("noDescription")}</p>
               )}
             </div>
           </Card>
@@ -408,15 +424,11 @@ export default function AmazonDetailPage() {
         <TabsContent value="shopping-info" className="mt-4">
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">
-              {t('shoppingInfoTitle')}
+              {t("shoppingInfoTitle")}
             </h3>
             <div className="prose prose-sm max-w-none space-y-3">
-              <p className="text-sm">
-                {t('shoppingNote1')}
-              </p>
-              <p className="text-sm">
-                {t('shoppingNote2')}
-              </p>
+              <p className="text-sm">{t("shoppingNote1")}</p>
+              <p className="text-sm">{t("shoppingNote2")}</p>
             </div>
           </Card>
         </TabsContent>
@@ -434,10 +446,20 @@ export default function AmazonDetailPage() {
                 onClick={openKefu}
                 className="flex-col gap-1 h-auto py-1 px-3"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 11-12.728 0 9 9 0 0112.728 0zM12 8v4m0 4h.01" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M18.364 5.636a9 9 0 11-12.728 0 9 9 0 0112.728 0zM12 8v4m0 4h.01"
+                  />
                 </svg>
-                <span className="text-xs">{t('customerService')}</span>
+                <span className="text-xs">{t("customerService")}</span>
               </Button>
 
               {/* Translate */}
@@ -448,13 +470,21 @@ export default function AmazonDetailPage() {
                 disabled={translating}
                 className="flex-col gap-1 h-auto py-1 px-3"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m0 0a3.5 3.5 0 01-7 0M9 5a3.5 3.5 0 017 0m-7 0v2m7-2v2M5 10h14M5 14h14M5 18h14" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 5h12M9 3v2m0 0a3.5 3.5 0 01-7 0M9 5a3.5 3.5 0 017 0m-7 0v2m7-2v2M5 10h14M5 14h14M5 18h14"
+                  />
                 </svg>
                 <span className="text-xs">
-                  {translating
-                    ? t('translating')
-                    : t('translateBtn')}
+                  {translating ? t("translating") : t("translateBtn")}
                 </span>
               </Button>
 
@@ -466,8 +496,18 @@ export default function AmazonDetailPage() {
                 onClick={() => router.push(`/${lang}/cart`)}
               >
                 <div className="relative">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"
+                    />
                   </svg>
                   {cartNum > 0 && (
                     <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
@@ -475,7 +515,7 @@ export default function AmazonDetailPage() {
                     </span>
                   )}
                 </div>
-                <span className="text-xs">{t('cart')}</span>
+                <span className="text-xs">{t("cart")}</span>
               </Button>
 
               {/* Translation Result */}
@@ -491,22 +531,29 @@ export default function AmazonDetailPage() {
               <Button
                 variant={isInCart ? "secondary" : "outline"}
                 onClick={addToCart}
-                disabled={detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"}
+                disabled={
+                  detail.status === "sold_out" ||
+                  detail.status === "ITEM_STATUS_TRADING"
+                }
               >
-                {isInCart
-                  ? t('added')
-                  : t('addToCart')}
+                {isInCart ? t("added") : t("addToCart")}
               </Button>
               {/* Buy Now */}
               <Button
                 variant="default"
                 className="bg-orange-500 hover:bg-orange-600"
-                disabled={detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"}
-                onClick={() => router.push(`/${lang}/checkout?type=amazon&id=${id}`)}
+                disabled={
+                  detail.status === "sold_out" ||
+                  detail.status === "ITEM_STATUS_TRADING"
+                }
+                onClick={() =>
+                  router.push(`/${lang}/checkout?type=amazon&id=${id}`)
+                }
               >
-                {detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"
-                  ? t('sold')
-                  : t('buyNow')}
+                {detail.status === "sold_out" ||
+                detail.status === "ITEM_STATUS_TRADING"
+                  ? t("sold")
+                  : t("buyNow")}
               </Button>
             </div>
           </div>

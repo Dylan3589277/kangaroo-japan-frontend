@@ -183,6 +183,114 @@ export interface ExchangeRatesResponse {
   updatedBy?: string;
 }
 
+export interface AdminPlatformHealthItem {
+  platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+  configured: boolean;
+  credentialStatus: "configured" | "missing";
+  totalProducts: number;
+  lastSync: string | null;
+  status: "ready_for_smoke" | "blocked";
+  sample: {
+    sampleId: string;
+    sampleKind: string;
+    detailPath: string | null;
+    imageHosts: string[];
+    credentialStatus: "configured" | "missing";
+    notice: string;
+  };
+  sampleSmoke: {
+    endpoint: string | null;
+    status: "ready_for_live_check" | "blocked_missing_credentials";
+    detailStatus: "not_checked_in_this_request" | "blocked";
+    imageStatus: "not_checked_in_this_request" | "blocked";
+    checkedAt: string;
+  };
+}
+
+export interface AdminOrderItem {
+  id: string;
+  order_no: string;
+  status: string;
+  total_amount: number;
+  total_currency: string;
+  items_count: number;
+  subtotal_jpy: number;
+  subtotal_cny: number;
+  shipping_fee_jpy: number;
+  shipping_fee_cny: number;
+  service_fee_jpy: number;
+  service_fee_cny: number;
+  exchange_rate_used?: number | null;
+  exchange_rate_snapshot?: Record<string, unknown> | null;
+  payment_method?: string | null;
+  paid_at?: string | null;
+  tracking_number?: string | null;
+  shipping_carrier?: string | null;
+  created_at: string;
+  updated_at: string;
+  items: Array<{
+    id: string;
+    product_id: string;
+    title: string;
+    platform: string;
+    quantity: number;
+    subtotal_jpy: number;
+    subtotal_cny: number;
+    status: string;
+  }>;
+  timeline?: Array<{
+    key: string;
+    label: string;
+    at: string | null;
+    done: boolean;
+  }>;
+  payment_link?: {
+    payment_id: string;
+    payment_method?: string | null;
+    paid_at?: string | null;
+  } | null;
+}
+
+export interface AdminPaymentItem {
+  id: string;
+  paymentNo: string;
+  orderId: string;
+  orderNo?: string | null;
+  orderLink?: {
+    orderId: string;
+    orderNo?: string | null;
+    adminPath: string;
+  };
+  userId: string;
+  amount: number;
+  currency: string;
+  method: string;
+  provider: string;
+  status: string;
+  providerPaymentId?: string | null;
+  paidAt?: string | null;
+  expiredAt?: string | null;
+  refundedAt?: string | null;
+  refundAmount: number;
+  refundReason?: string | null;
+  failureMessage?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminListResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
+  safety?: Record<string, unknown>;
+}
+
 class ApiClient {
   private baseUrl: string;
   private isRefreshing = false;
@@ -567,18 +675,12 @@ class ApiClient {
   ) {
     const normalizedPlatform = String(platform || "").toLowerCase();
     const preferredPath =
-      LEGACY_PRODUCT_DETAIL_PATHS[
-        normalizedPlatform as LegacyProductPlatform
-      ];
+      LEGACY_PRODUCT_DETAIL_PATHS[normalizedPlatform as LegacyProductPlatform];
     const paths = [preferredPath || LEGACY_PRODUCT_DETAIL_PATHS.yahoo];
 
     let lastError: ApiResponse["error"];
     for (const path of paths) {
-      const result = await this.legacyProductDetailRequest(
-        path,
-        id,
-        lang,
-      );
+      const result = await this.legacyProductDetailRequest(path, id, lang);
       if (result.success) return result;
       lastError = result.error;
     }
@@ -890,6 +992,49 @@ class ApiClient {
   async listHermesDraftsForTicket(ticketId: string) {
     return this.request<HermesDraft[]>(
       `/support/admin/tickets/${ticketId}/hermes/drafts`,
+    );
+  }
+
+  async getAdminPlatformHealth() {
+    return this.request<{
+      data: AdminPlatformHealthItem[];
+      safety: Record<string, unknown>;
+    }>("/integrations/admin/health");
+  }
+
+  async listAdminOrders(params?: {
+    status?: string;
+    q?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.q) searchParams.set("q", params.q);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminListResponse<AdminOrderItem>>(
+      `/orders/admin${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async listAdminPayments(params?: {
+    status?: string;
+    provider?: string;
+    q?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.provider) searchParams.set("provider", params.provider);
+    if (params?.q) searchParams.set("q", params.q);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminListResponse<AdminPaymentItem>>(
+      `/payments/admin${query ? `?${query}` : ""}`,
     );
   }
 

@@ -12,6 +12,8 @@ import {
   StarOutlined,
   BellOutlined,
   DollarOutlined,
+  ShoppingCartOutlined,
+  CloudServerOutlined,
 } from "@ant-design/icons";
 const menuItems = [
   {
@@ -55,6 +57,24 @@ const menuItems = [
     icon: <DollarOutlined />,
     label: "汇率管理",
     href: "/admin/exchange",
+  },
+  {
+    key: "/admin/platforms",
+    icon: <CloudServerOutlined />,
+    label: "平台健康",
+    href: "/admin/platforms",
+  },
+  {
+    key: "/admin/orders",
+    icon: <ShoppingCartOutlined />,
+    label: "订单只读",
+    href: "/admin/orders",
+  },
+  {
+    key: "/admin/payments",
+    icon: <DollarOutlined />,
+    label: "支付流水",
+    href: "/admin/payments",
   },
   {
     key: "/admin/support",
