@@ -45,6 +45,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   rakuten: "bg-red-600",
   yahoo: "bg-purple-500",
 };
+const SHOW_PRODUCT_IMAGES = false;
 
 export default function ProductsPage() {
   const params = useParams();
@@ -283,7 +284,6 @@ export default function ProductsPage() {
       position: index + 1,
       url: `https://jp-buy.com/products/${product.id}`,
       name: product.title,
-      image: getProductImage(product) || undefined,
     })),
   };
 
@@ -481,7 +481,7 @@ export default function ProductsPage() {
               <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                 {/* Image */}
                 <div className="relative h-48 bg-muted">
-                  {getProductImage(product) ? (
+                  {SHOW_PRODUCT_IMAGES && getProductImage(product) ? (
                     <Image
                       src={getProductImage(product)}
                       alt={product.title}

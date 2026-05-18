@@ -4,11 +4,10 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
-import Image from "next/image";
 import { routing } from "@/i18n/routing";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { extractProducts, getProductImage } from "@/lib/product-utils";
+import { extractProducts } from "@/lib/product-utils";
 import { useAuthStore } from "@/lib/auth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -279,20 +278,7 @@ export function HomePageClient() {
               {featuredProducts.map((product) => (
                 <Link key={product.id} href={`/products/${product.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <div className="relative h-40 bg-muted">
-                      {getProductImage(product) ? (
-                        <Image
-                          src={getProductImage(product)}
-                          alt={product.title}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 50vw, 25vw"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                          {t("product.noImage")}
-                        </div>
-                      )}
+                    <div className="relative h-16 bg-zinc-100">
                       <Badge
                         className={`absolute top-2 left-2 ${PLATFORM_COLORS[product.platform] || "bg-gray-500"} text-white text-xs`}
                       >
@@ -362,20 +348,7 @@ export function HomePageClient() {
               {latestProducts.map((product) => (
                 <Link key={product.id} href={`/products/${product.id}`}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <div className="relative h-40 bg-muted">
-                      {getProductImage(product) ? (
-                        <Image
-                          src={getProductImage(product)}
-                          alt={product.title}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 50vw, 25vw"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                          {t("product.noImage")}
-                        </div>
-                      )}
+                    <div className="relative h-16 bg-zinc-100">
                       <Badge
                         className={`absolute top-2 left-2 ${PLATFORM_COLORS[product.platform] || "bg-gray-500"} text-white text-xs`}
                       >
