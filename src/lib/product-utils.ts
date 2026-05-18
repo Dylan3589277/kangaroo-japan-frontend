@@ -2,13 +2,29 @@ export interface ProductLike {
   id?: string | number | null;
   productId?: string | number | null;
   platformProductId?: string | number | null;
+  goods_no?: string | number | null;
+  goodsNo?: string | number | null;
+  slug?: string | number | null;
   platform?: string | null;
   platformName?: string | null;
+  platformUrl?: string | null;
   title?: string | null;
+  goods_name?: string | null;
+  goodsName?: string | null;
   name?: string | null;
+  description?: string | null;
+  descriptionZh?: string | null;
+  descriptionEn?: string | null;
+  descriptionJa?: string | null;
+  content?: string | null;
+  url?: string | null;
   priceJpy?: number | string | null;
   priceCny?: number | string | null;
   priceUsd?: number | string | null;
+  price?: number | string | null;
+  price_rmb?: number | string | null;
+  priceRmb?: number | string | null;
+  rate?: number | string | null;
   currency?: string | null;
   images?: unknown;
   imgurls?: unknown;
@@ -156,23 +172,50 @@ export function getProductImage(product: ProductLike | null | undefined) {
 }
 
 export function getProductId(product: ProductLike) {
-  return String(product.id ?? product.productId ?? product.platformProductId ?? "");
+  return String(
+    product.id ??
+      product.productId ??
+      product.goodsNo ??
+      product.goods_no ??
+      product.platformProductId ??
+      product.slug ??
+      "",
+  );
 }
 
 export function normalizeProduct<T extends ProductLike>(product: T): NormalizedProduct<T> {
   const id = getProductId(product);
   const platform = asString(product.platform) || "other";
-  const title = asString(product.title) || asString(product.name) || id;
+  const title =
+    asString(product.title) ||
+    asString(product.goods_name) ||
+    asString(product.goodsName) ||
+    asString(product.name) ||
+    id;
   const images = getProductImages(product);
+  const priceJpy = asNumber(product.priceJpy ?? product.price);
+  const legacyRate = asNumber(product.rate);
+  const priceCny = asNumber(
+    product.priceCny ??
+      product.price_rmb ??
+      product.priceRmb ??
+      (priceJpy && legacyRate ? priceJpy * legacyRate : undefined),
+  );
+  const priceUsd = asNumber(product.priceUsd);
   return {
     ...product,
     id,
     platform,
     platformName: asString(product.platformName) || platform,
+    platformUrl: asString(product.platformUrl) || asString(product.url) || undefined,
     title,
-    priceJpy: asNumber(product.priceJpy),
-    priceCny: asNumber(product.priceCny),
-    priceUsd: asNumber(product.priceUsd),
+    description:
+      asString(product.description) ||
+      asString(product.content) ||
+      undefined,
+    priceJpy,
+    priceCny,
+    priceUsd,
     images,
     rating: product.rating == null ? null : asNumber(product.rating),
     reviewCount: asNumber(product.reviewCount),

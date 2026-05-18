@@ -31,7 +31,7 @@ type Product = NormalizedProduct<ProductLike> & {
   specifications?: Record<string, unknown> | null;
   sellerId?: string | null;
   sellerName?: string | null;
-  slug?: string | null;
+  slug?: string | number | null;
   lastSyncedAt?: string | null;
 };
 
@@ -125,7 +125,8 @@ export default function ProductDetailPage() {
   const fetchProduct = async () => {
     setLoading(true);
     try {
-      const res = await api.getProduct(productId, lang);
+      const legacyRes = await api.getLegacyProductDetail(productId, lang);
+      const res = legacyRes.success ? legacyRes : await api.getProduct(productId, lang);
       let data: Product | null = null;
       if (res.success && res.data) {
         data = normalizeProduct(res.data as ProductLike);
@@ -323,6 +324,7 @@ export default function ProductDetailPage() {
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw"
                 priority
+                unoptimized
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -348,7 +350,7 @@ export default function ProductDetailPage() {
                     selectedImage === idx ? "border-primary" : "border-transparent"
                   }`}
                 >
-                  <Image src={img} alt={`${product.title} ${idx + 1}`} fill className="object-cover" sizes="80px" />
+                  <Image src={img} alt={`${product.title} ${idx + 1}`} fill className="object-cover" sizes="80px" unoptimized />
                 </button>
               ))}
             </div>
@@ -580,7 +582,7 @@ export default function ProductDetailPage() {
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                     <div className="relative h-40 bg-muted">
                       {getProductImage(p) ? (
-                        <Image src={getProductImage(p)} alt={p.title} fill className="object-cover" sizes="(max-width: 768px) 50vw, 25vw" />
+                        <Image src={getProductImage(p)} alt={p.title} fill className="object-cover" sizes="(max-width: 768px) 50vw, 25vw" unoptimized />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
                           {lang === "zh" ? "无图片" : lang === "en" ? "No Image" : "画像なし"}

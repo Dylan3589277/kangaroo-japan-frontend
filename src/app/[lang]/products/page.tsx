@@ -24,7 +24,7 @@ type Product = NormalizedProduct<ProductLike> & {
   currency?: string | null;
   imagesCount?: number | string | null;
   // UnifiedSearch 额外字段
-  url?: string;
+  url?: string | null;
   brand?: string;
   itemCondition?: string;
   shipping?: string;

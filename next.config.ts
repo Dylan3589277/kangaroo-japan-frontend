@@ -3,11 +3,16 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
-const DEFAULT_BACKEND_API_BASE_URL = "https://kangaroo-japan-backend.vercel.app/api/v1";
-const backendOrigin = process.env.KANGAROO_JAPAN_BACKEND_ORIGIN || process.env.NEXT_PUBLIC_BACKEND_ORIGIN;
+const DEFAULT_BACKEND_ORIGIN = "https://kangaroo-japan-backend.vercel.app";
+const DEFAULT_BACKEND_API_BASE_URL = `${DEFAULT_BACKEND_ORIGIN}/api/v1`;
+const backendOrigin = (
+  process.env.KANGAROO_JAPAN_BACKEND_ORIGIN ||
+  process.env.NEXT_PUBLIC_BACKEND_ORIGIN ||
+  DEFAULT_BACKEND_ORIGIN
+).replace(/\/$/, "");
 const backendRewriteDestination =
   process.env.KANGAROO_JAPAN_BACKEND_API_URL ||
-  (backendOrigin ? `${backendOrigin.replace(/\/$/, "")}/api/v1` : DEFAULT_BACKEND_API_BASE_URL);
+  (backendOrigin ? `${backendOrigin}/api/v1` : DEFAULT_BACKEND_API_BASE_URL);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -17,6 +22,10 @@ const nextConfig: NextConfig = {
       {
         source: "/api/backend/:path*",
         destination: `${backendRewriteDestination.replace(/\/$/, "")}/:path*`,
+      },
+      {
+        source: "/api/legacy/:path*",
+        destination: `${backendOrigin}/api/:path*`,
       },
     ];
   },

@@ -47,6 +47,15 @@ interface SupportTicketResponse {
   };
 }
 
+type LegacyProductPlatform = "yahoo" | "mercari" | "rakuten" | "amazon";
+
+const LEGACY_PRODUCT_DETAIL_PATHS: Record<LegacyProductPlatform, string> = {
+  yahoo: "/api/legacy/goods/ydetail",
+  mercari: "/api/legacy/goods/mdetail",
+  rakuten: "/api/legacy/goods/rdetail",
+  amazon: "/api/legacy/amazon/detail",
+};
+
 export interface SupportOrderLookupItem {
   id: string;
   orderNo: string;
@@ -238,6 +247,66 @@ class ApiClient {
       }
     }
     return { success: true, data: data as T };
+  }
+
+  private async legacyProductDetailRequest<T>(
+    path: string,
+    id: string,
+    lang: string,
+  ): Promise<ApiResponse<T>> {
+    const searchParams = new URLSearchParams({
+      appid: "kangaroo-japan-web",
+      id,
+      goodsNo: id,
+      goods_no: id,
+      lang,
+    });
+
+    try {
+      const response = await fetch(`${path}?${searchParams.toString()}`, {
+        credentials: "include",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: {
+            code: String(response.status),
+            message:
+              typeof data?.message === "string"
+                ? data.message
+                : typeof data?.msg === "string"
+                  ? data.msg
+                  : response.statusText,
+          },
+        };
+      }
+
+      if (data?.code === 0 && data?.data) {
+        return { success: true, data: data.data as T };
+      }
+
+      return {
+        success: false,
+        error: {
+          code: String(data?.code ?? "LEGACY_PRODUCT_DETAIL_ERROR"),
+          message:
+            typeof data?.msg === "string"
+              ? data.msg
+              : "Legacy product detail request failed",
+        },
+      };
+    } catch (error) {
+      console.error("Legacy product detail request failed:", error);
+      return {
+        success: false,
+        error: {
+          code: "NETWORK_ERROR",
+          message: "Network request failed",
+        },
+      };
+    }
   }
 
   // Response interceptor: attempt token refresh, then retry or redirect to login
@@ -489,6 +558,38 @@ class ApiClient {
 
   async getProduct(id: string, lang = "zh") {
     return this.request(`/products/${id}?lang=${lang}`);
+  }
+
+  async getLegacyProductDetail(
+    id: string,
+    lang = "zh",
+    platform?: string | null,
+  ) {
+    const normalizedPlatform = String(platform || "").toLowerCase();
+    const preferredPath =
+      LEGACY_PRODUCT_DETAIL_PATHS[
+        normalizedPlatform as LegacyProductPlatform
+      ];
+    const paths = [preferredPath || LEGACY_PRODUCT_DETAIL_PATHS.yahoo];
+
+    let lastError: ApiResponse["error"];
+    for (const path of paths) {
+      const result = await this.legacyProductDetailRequest(
+        path,
+        id,
+        lang,
+      );
+      if (result.success) return result;
+      lastError = result.error;
+    }
+
+    return {
+      success: false,
+      error: lastError || {
+        code: "LEGACY_PRODUCT_DETAIL_ERROR",
+        message: "Legacy product detail request failed",
+      },
+    };
   }
 
   async searchProducts(q: string, lang = "zh", page = 1, limit = 20) {
