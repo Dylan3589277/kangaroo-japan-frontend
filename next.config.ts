@@ -3,9 +3,11 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+const DEFAULT_BACKEND_API_BASE_URL = "https://kangaroo-japan-backend.vercel.app/api/v1";
 const backendOrigin = process.env.KANGAROO_JAPAN_BACKEND_ORIGIN || process.env.NEXT_PUBLIC_BACKEND_ORIGIN;
-const backendApiBaseUrl = process.env.KANGAROO_JAPAN_BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL;
-const backendRewriteDestination = backendApiBaseUrl || (backendOrigin ? `${backendOrigin.replace(/\/$/, "")}/api/v1` : undefined);
+const backendRewriteDestination =
+  process.env.KANGAROO_JAPAN_BACKEND_API_URL ||
+  (backendOrigin ? `${backendOrigin.replace(/\/$/, "")}/api/v1` : DEFAULT_BACKEND_API_BASE_URL);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

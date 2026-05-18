@@ -1,4 +1,15 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api/backend";
+function getApiBaseUrl() {
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+  if (
+    !configured ||
+    configured.includes("kangaroo-japan-backend-production.up.railway.app")
+  ) {
+    return "/api/backend";
+  }
+  return configured;
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 interface ApiOptions {
   method?: string;
