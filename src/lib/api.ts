@@ -88,6 +88,58 @@ export interface SupportOrderLookupResponse {
   };
 }
 
+export type SupportTicketStatus = "open" | "in_progress" | "resolved" | "closed";
+export type SupportTicketCategory =
+  | "order"
+  | "shipping"
+  | "refund"
+  | "change_address"
+  | "cancel_order"
+  | "compensation"
+  | "complaint"
+  | "general";
+export type HermesDraftStatus = "PENDING" | "READY" | "DISMISSED";
+
+export interface SupportTicket {
+  id: string;
+  ticketNumber: string;
+  visitorName: string;
+  visitorEmail: string;
+  visitorPhone?: string | null;
+  site: string;
+  language: string;
+  category: SupportTicketCategory;
+  subject: string;
+  description: string;
+  conversationSnapshot?: Array<Record<string, unknown>> | null;
+  conversationId?: string | null;
+  status: SupportTicketStatus;
+  adminNote?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupportTicketListResponse {
+  data: SupportTicket[];
+  total: number;
+}
+
+export interface SupportTicketContextResponse {
+  ticket: SupportTicket;
+  orders: SupportOrderLookupResponse;
+}
+
+export interface HermesDraft {
+  id: string;
+  ticketId: string;
+  jobId: string;
+  status: HermesDraftStatus;
+  draftBody: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 class ApiClient {
   private baseUrl: string;
   private isRefreshing = false;
@@ -623,6 +675,49 @@ class ApiClient {
     if (params.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
     return this.request<SupportOrderLookupResponse>(`/support/orders/lookup${query ? `?${query}` : ""}`);
+  }
+
+  async listSupportTickets(params?: {
+    site?: string;
+    category?: SupportTicketCategory;
+    status?: SupportTicketStatus;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.site) searchParams.set("site", params.site);
+    if (params?.category) searchParams.set("category", params.category);
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<SupportTicketListResponse>(`/support/tickets${query ? `?${query}` : ""}`);
+  }
+
+  async getSupportTicketContext(ticketId: string) {
+    return this.request<SupportTicketContextResponse>(`/support/admin/tickets/${ticketId}/context`);
+  }
+
+  async listHermesDraftsForTicket(ticketId: string) {
+    return this.request<HermesDraft[]>(`/support/admin/tickets/${ticketId}/hermes/drafts`);
+  }
+
+  async triggerHermesDraft(data: { ticketId: string; promptContext?: string }) {
+    return this.request<{ jobId: string }>("/support/admin/hermes/jobs", {
+      method: "POST",
+      body: data,
+    });
+  }
+
+  async getHermesDraft(jobId: string) {
+    return this.request<HermesDraft>(`/support/admin/hermes/drafts/${jobId}`);
+  }
+
+  async dismissHermesDraft(jobId: string, reason?: string) {
+    return this.request<HermesDraft>(`/support/admin/hermes/drafts/${jobId}/dismiss`, {
+      method: "POST",
+      body: { reason },
+    });
   }
 
   // Payment endpoints

@@ -1,13 +1,31 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { AlertTriangle, ClipboardList, Download, Loader2, Search, ShieldCheck } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  Bot,
+  ClipboardList,
+  Copy,
+  Download,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { api, type SupportOrderLookupItem } from "@/lib/api";
+import {
+  api,
+  type HermesDraft,
+  type SupportOrderLookupItem,
+  type SupportTicket,
+  type SupportTicketContextResponse,
+} from "@/lib/api";
 
 type TicketStatus = "new" | "in_progress" | "waiting_customer" | "resolved";
 type TicketPriority = "normal" | "urgent";
@@ -45,6 +63,30 @@ const statusLabel: Record<TicketStatus, string> = {
 const priorityLabel: Record<TicketPriority, string> = {
   normal: "普通",
   urgent: "紧急",
+};
+
+const supportTicketStatusLabel: Record<string, string> = {
+  open: "待处理",
+  in_progress: "处理中",
+  resolved: "已解决",
+  closed: "已关闭",
+};
+
+const supportTicketCategoryLabel: Record<string, string> = {
+  order: "订单问题",
+  shipping: "物流问题",
+  refund: "退款问题",
+  change_address: "改地址",
+  cancel_order: "取消订单",
+  compensation: "赔付问题",
+  complaint: "投诉建议",
+  general: "一般咨询",
+};
+
+const hermesDraftStatusLabel: Record<string, string> = {
+  PENDING: "生成中",
+  READY: "待审阅",
+  DISMISSED: "已驳回",
 };
 
 const ledgerRows: TicketLedgerRow[] = [
@@ -145,6 +187,28 @@ function compactDate(value?: string | null) {
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
+function getDraftEvidence(draft: HermesDraft | null) {
+  const metadata = draft?.metadata;
+  if (!metadata) return [];
+  const sourceIds = Array.isArray(metadata.sourceIds) ? metadata.sourceIds.map(String) : [];
+  const evidence = [];
+  if (sourceIds.length > 0) evidence.push(`知识库：${sourceIds.join(", ")}`);
+  if (metadata.orderContextUsed === true) evidence.push("使用本账号订单上下文");
+  if (metadata.boundaryFallback === true) evidence.push("知识库外问题：边界回复");
+  return evidence;
+}
+
+function getDraftPolicyLabels(draft: HermesDraft | null) {
+  const policy = draft?.metadata?.policy;
+  if (!policy || typeof policy !== "object") return [];
+  const typedPolicy = policy as Record<string, unknown>;
+  return [
+    typedPolicy.knowledgeOnly === true ? "仅知识库" : "",
+    typedPolicy.customerScopeOnly === true ? "仅本客户订单" : "",
+    typedPolicy.noAutoSendToCustomer === true ? "不自动发送" : "",
+  ].filter(Boolean);
+}
+
 function hasLookupCondition(form: OrderLookupForm) {
   return Object.values(form).some((value) => value.trim().length >= 4);
 }
@@ -161,11 +225,133 @@ export default function AdminSupportPage() {
   const [lookupTotal, setLookupTotal] = useState(0);
   const [lookupError, setLookupError] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [supportTotal, setSupportTotal] = useState(0);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportError, setSupportError] = useState("");
+  const [selectedTicketId, setSelectedTicketId] = useState("");
+  const [ticketContext, setTicketContext] = useState<SupportTicketContextResponse | null>(null);
+  const [ticketContextLoading, setTicketContextLoading] = useState(false);
+  const [drafts, setDrafts] = useState<HermesDraft[]>([]);
+  const [selectedDraftJobId, setSelectedDraftJobId] = useState("");
+  const [promptContext, setPromptContext] = useState("");
+  const [dismissReason, setDismissReason] = useState("");
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [refreshLoading, setRefreshLoading] = useState(false);
+  const [draftMessage, setDraftMessage] = useState("");
+  const [copiedJobId, setCopiedJobId] = useState("");
+  const selectedTicketIdRef = useRef("");
+  const reviewRequestSeq = useRef(0);
+
   const filteredRows = useMemo(() => {
     const normalized = keyword.trim().toLowerCase();
     if (!normalized) return ledgerRows;
     return ledgerRows.filter((row) => Object.values(row).some((value) => value.toLowerCase().includes(normalized)));
   }, [keyword]);
+
+  const selectedTicket = useMemo(
+    () => supportTickets.find((ticket) => ticket.id === selectedTicketId) ?? null,
+    [selectedTicketId, supportTickets]
+  );
+  const selectedDraft = useMemo(
+    () => (selectedDraftJobId ? drafts.find((draft) => draft.jobId === selectedDraftJobId) ?? null : drafts[0] ?? null),
+    [drafts, selectedDraftJobId]
+  );
+  const draftEvidence = useMemo(() => getDraftEvidence(selectedDraft), [selectedDraft]);
+  const draftPolicyLabels = useMemo(() => getDraftPolicyLabels(selectedDraft), [selectedDraft]);
+
+  const selectSupportTicket = useCallback((ticketId: string) => {
+    selectedTicketIdRef.current = ticketId;
+    reviewRequestSeq.current += 1;
+    setSelectedTicketId(ticketId);
+    setTicketContext(null);
+    setTicketContextLoading(false);
+    setDrafts([]);
+    setSelectedDraftJobId("");
+    setDraftMessage("");
+  }, []);
+
+  const loadSupportTickets = useCallback(async () => {
+    setSupportLoading(true);
+    setSupportError("");
+    const response = await api.listSupportTickets({ site: "kangaroo-japan", limit: 20 });
+    setSupportLoading(false);
+    if (!response.success || !response.data) {
+      setSupportError(response.error?.message || "工单列表读取失败，请确认管理员登录状态。");
+      setSupportTickets([]);
+      setSupportTotal(0);
+      return;
+    }
+
+    const rows = response.data.data || [];
+    setSupportTickets(rows);
+    setSupportTotal(response.data.total || 0);
+    if (!rows.some((ticket) => ticket.id === selectedTicketIdRef.current)) {
+      selectSupportTicket(rows[0]?.id || "");
+    }
+  }, [selectSupportTicket]);
+
+  const loadTicketReviewData = useCallback(async (ticketId: string) => {
+    if (!ticketId) return;
+    const requestSeq = ++reviewRequestSeq.current;
+    setTicketContextLoading(true);
+    setDraftMessage("");
+    const [contextResponse, draftsResponse] = await Promise.all([
+      api.getSupportTicketContext(ticketId),
+      api.listHermesDraftsForTicket(ticketId),
+    ]);
+    if (requestSeq !== reviewRequestSeq.current || selectedTicketIdRef.current !== ticketId) {
+      return;
+    }
+    setTicketContextLoading(false);
+
+    if (!contextResponse.success || !contextResponse.data) {
+      setDraftMessage(contextResponse.error?.message || "工单上下文读取失败。");
+      setTicketContext(null);
+    } else {
+      setTicketContext(contextResponse.data);
+    }
+
+    if (!draftsResponse.success || !draftsResponse.data) {
+      setDrafts([]);
+      setSelectedDraftJobId("");
+      setDraftMessage(draftsResponse.error?.message || "草稿列表读取失败。");
+      return;
+    }
+
+    setDrafts(draftsResponse.data);
+    setSelectedDraftJobId((current) =>
+      current && draftsResponse.data?.some((draft) => draft.jobId === current)
+        ? current
+        : draftsResponse.data?.[0]?.jobId || ""
+    );
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadSupportTickets();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadSupportTickets]);
+
+  useEffect(() => {
+    if (selectedTicketId) {
+      const timer = window.setTimeout(() => {
+        void loadTicketReviewData(selectedTicketId);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [loadTicketReviewData, selectedTicketId]);
+
+  useEffect(() => {
+    if (!selectedDraft || selectedDraft.status !== "PENDING") return;
+    const timer = window.setInterval(async () => {
+      const response = await api.getHermesDraft(selectedDraft.jobId);
+      if (!response.success || !response.data) return;
+      setDrafts((current) => current.map((draft) => (draft.jobId === response.data?.jobId ? response.data : draft)));
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [selectedDraft]);
 
   async function handleLookupSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -190,6 +376,69 @@ export default function AdminSupportPage() {
 
   function updateLookupField(field: keyof OrderLookupForm, value: string) {
     setLookupForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function refreshSelectedTicket() {
+    if (!selectedTicketId) return;
+    setRefreshLoading(true);
+    await loadTicketReviewData(selectedTicketId);
+    setRefreshLoading(false);
+  }
+
+  async function handleTriggerDraft() {
+    if (!selectedTicketId) return;
+    const ticketId = selectedTicketId;
+    setDraftLoading(true);
+    setDraftMessage("");
+    const response = await api.triggerHermesDraft({
+      ticketId,
+      promptContext: promptContext.trim() || undefined,
+    });
+    setDraftLoading(false);
+
+    if (!response.success || !response.data) {
+      setDraftMessage(response.error?.message || "Hermes 草稿任务创建失败。");
+      return;
+    }
+
+    const pendingDraft: HermesDraft = {
+      id: response.data.jobId,
+      ticketId,
+      jobId: response.data.jobId,
+      status: "PENDING",
+      draftBody: null,
+      metadata: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setDraftMessage("草稿任务已创建，正在等待客服分身回传。");
+    setSelectedDraftJobId(response.data.jobId);
+    setDrafts((current) => [pendingDraft, ...current.filter((draft) => draft.jobId !== response.data?.jobId)]);
+  }
+
+  async function handleDismissDraft() {
+    if (!selectedDraft || selectedDraft.status !== "READY") return;
+    setDraftLoading(true);
+    setDraftMessage("");
+    const response = await api.dismissHermesDraft(selectedDraft.jobId, dismissReason.trim() || undefined);
+    setDraftLoading(false);
+
+    if (!response.success || !response.data) {
+      setDraftMessage(response.error?.message || "草稿驳回失败。");
+      return;
+    }
+
+    setDrafts((current) => current.map((draft) => (draft.jobId === response.data?.jobId ? response.data : draft)));
+    setDismissReason("");
+    setDraftMessage("草稿已驳回，未发送给客户。");
+  }
+
+  async function handleCopyDraft() {
+    if (!selectedDraft?.draftBody) return;
+    await navigator.clipboard.writeText(selectedDraft.draftBody);
+    setCopiedJobId(selectedDraft.jobId);
+    window.setTimeout(() => setCopiedJobId(""), 1600);
   }
 
   return (
@@ -239,6 +488,231 @@ export default function AdminSupportPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="gap-3 lg:flex lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Bot className="h-4 w-4" />
+              Hermes 客服草稿 · 人工审阅
+            </div>
+            <CardTitle className="mt-2">草稿审阅队列</CardTitle>
+            <CardDescription>
+              前端只创建草稿、展示审阅和驳回；不会自动发送给客户，订单/支付/地址敏感信息由后端只读脱敏接口控制。
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={loadSupportTickets} disabled={supportLoading}>
+              {supportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              刷新工单
+            </Button>
+            <Button type="button" variant="outline" onClick={refreshSelectedTicket} disabled={!selectedTicketId || refreshLoading}>
+              {refreshLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              刷新草稿
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {supportError ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{supportError}</div>
+          ) : null}
+          {draftMessage ? (
+            <div className="rounded-lg border bg-muted p-3 text-sm text-muted-foreground">{draftMessage}</div>
+          ) : null}
+
+          <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
+            <div className="rounded-lg border">
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <div className="font-medium">真实工单</div>
+                <Badge variant="secondary">{supportTotal}</Badge>
+              </div>
+              <div className="max-h-[520px] overflow-y-auto">
+                {supportLoading ? (
+                  <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    正在读取工单
+                  </div>
+                ) : null}
+                {!supportLoading && supportTickets.length === 0 ? (
+                  <div className="p-4 text-sm text-muted-foreground">暂无可审阅工单。</div>
+                ) : null}
+                {supportTickets.map((ticket) => (
+                  <button
+                    type="button"
+                    key={ticket.id}
+                    onClick={() => selectSupportTicket(ticket.id)}
+                    className={`block w-full border-b px-4 py-3 text-left text-sm transition-colors last:border-b-0 ${
+                      selectedTicketId === ticket.id ? "bg-muted" : "hover:bg-muted/60"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{ticket.ticketNumber}</span>
+                      <Badge variant={ticket.status === "open" ? "secondary" : "outline"}>
+                        {supportTicketStatusLabel[ticket.status] || ticket.status}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 line-clamp-2 text-muted-foreground">{ticket.subject}</div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span>{supportTicketCategoryLabel[ticket.category] || ticket.category}</span>
+                      <span>{ticket.language}</span>
+                      <span>{compactDate(ticket.createdAt)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]">
+              <div className="space-y-4">
+                <div className="rounded-lg border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MessageSquare className="h-4 w-4" />
+                        工单上下文
+                      </div>
+                      <h2 className="mt-1 text-lg font-semibold">{selectedTicket?.subject || "请选择工单"}</h2>
+                    </div>
+                    {selectedTicket ? (
+                      <Badge variant="outline">{supportTicketCategoryLabel[selectedTicket.category] || selectedTicket.category}</Badge>
+                    ) : null}
+                  </div>
+
+                  {ticketContextLoading ? (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      正在读取上下文
+                    </div>
+                  ) : null}
+
+                  {selectedTicket ? (
+                    <div className="mt-4 space-y-3 text-sm">
+                      <div className="grid gap-2 text-muted-foreground md:grid-cols-2">
+                        <div>客户：{selectedTicket.visitorName || "-"}</div>
+                        <div>邮箱：{selectedTicket.visitorEmail || "-"}</div>
+                        <div>站点：{selectedTicket.site}</div>
+                        <div>更新时间：{compactDate(selectedTicket.updatedAt)}</div>
+                      </div>
+                      <div className="rounded-lg bg-muted p-3 text-muted-foreground">{selectedTicket.description}</div>
+                      <div className="rounded-lg border p-3">
+                        <div className="font-medium">本账号订单上下文</div>
+                        <div className="mt-2 text-muted-foreground">
+                          {ticketContext?.orders?.items?.length
+                            ? `匹配 ${ticketContext.orders.total} 条脱敏订单，草稿只能引用这些订单。`
+                            : "未匹配到本账号订单；Hermes 必须只按知识库或边界回复。"}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-sm text-muted-foreground">左侧选择一个工单后生成客服草稿。</div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border p-4">
+                  <div className="font-medium">给客服分身的补充说明</div>
+                  <textarea
+                    value={promptContext}
+                    onChange={(event) => setPromptContext(event.target.value)}
+                    className="mt-3 min-h-24 w-full rounded-lg border bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    maxLength={2000}
+                    placeholder="可选：只写客服需要知道的补充信息，不粘贴完整手机号、完整地址、支付号。"
+                  />
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-xs text-muted-foreground">{promptContext.length}/2000</div>
+                    <Button type="button" onClick={handleTriggerDraft} disabled={!selectedTicketId || draftLoading}>
+                      {draftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                      生成 Hermes 草稿
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border">
+                <div className="border-b px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium">草稿审阅</div>
+                    {selectedDraft ? (
+                      <Badge variant={selectedDraft.status === "READY" ? "secondary" : "outline"}>
+                        {hermesDraftStatusLabel[selectedDraft.status] || selectedDraft.status}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  {drafts.length > 1 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {drafts.map((draft) => (
+                        <Button
+                          key={draft.jobId}
+                          type="button"
+                          variant={selectedDraft?.jobId === draft.jobId ? "secondary" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedDraftJobId(draft.jobId)}
+                        >
+                          {compactDate(draft.createdAt)}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-4 p-4">
+                  {!selectedDraft ? (
+                    <div className="text-sm text-muted-foreground">还没有草稿。选择工单后点击“生成 Hermes 草稿”。</div>
+                  ) : null}
+                  {selectedDraft?.status === "PENDING" ? (
+                    <div className="flex items-center gap-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      客服分身正在生成草稿，页面会自动轮询。
+                    </div>
+                  ) : null}
+                  {selectedDraft?.draftBody ? (
+                    <div className="whitespace-pre-wrap rounded-lg bg-muted p-4 text-sm leading-6">{selectedDraft.draftBody}</div>
+                  ) : null}
+
+                  {draftPolicyLabels.length > 0 || draftEvidence.length > 0 ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="font-medium">边界证据</div>
+                      <div className="flex flex-wrap gap-2">
+                        {draftPolicyLabels.map((label) => (
+                          <Badge key={label} variant="outline">{label}</Badge>
+                        ))}
+                        {draftEvidence.map((item) => (
+                          <Badge key={item} variant="secondary">{item}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    草稿只供人工审阅。工单原文可能包含客户主动填写的信息；退款、赔偿、补发、改地址、禁运判断等事项必须人工最终确认。
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={handleCopyDraft} disabled={!selectedDraft?.draftBody}>
+                      <Copy className="h-4 w-4" />
+                      {copiedJobId === selectedDraft?.jobId ? "已复制" : "复制草稿"}
+                    </Button>
+                  </div>
+
+                  {selectedDraft?.status === "READY" ? (
+                    <div className="space-y-3 border-t pt-4">
+                      <Input
+                        value={dismissReason}
+                        onChange={(event) => setDismissReason(event.target.value)}
+                        placeholder="驳回原因，可选"
+                        aria-label="驳回原因"
+                      />
+                      <Button type="button" variant="destructive" onClick={handleDismissDraft} disabled={draftLoading}>
+                        {draftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                        驳回草稿
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
