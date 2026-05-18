@@ -5,6 +5,7 @@ import { useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
+import { isDevelopmentRuntime } from "@/lib/runtime";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -131,27 +132,24 @@ export default function DaipayPage() {
             : "Payment link generated"
         );
       } else {
-        // Fallback: generate a simulated link
-        const link = `${window.location.origin}/${lang}/pay/daipay?order=${orderNo.trim()}`;
+        throw new Error(res.error?.message || "Payment link generation failed");
+      }
+    } catch (error) {
+      if (isDevelopmentRuntime) {
+        const link = `${window.location.origin}/${lang}/pay/daipay?order=${orderNo.trim()}&demo=1`;
         setPaymentLink(link);
         setShowDialog(true);
-        toast.success(
-          lang === "zh"
-            ? "代付链接已生成（模拟）"
-            : lang === "ja"
-            ? "代払いリンクを生成しました（模擬）"
-            : "Payment link generated (simulated)"
-        );
+        toast.warning("Demo payment link generated for local development only.");
+        return;
       }
-    } catch {
-      // Fallback on error
-      const link = `${window.location.origin}/${lang}/pay/daipay?order=${orderNo.trim()}`;
-      setPaymentLink(link);
-      setShowDialog(true);
-      toast.success(
+
+      console.error("Failed to generate daipay link:", error);
+      setPaymentLink(null);
+      setShowDialog(false);
+      toast.error(
         lang === "zh"
-          ? "代付链接已生成（模拟）"
-          : "Payment link generated (simulated)"
+          ? "代付链接生成失败，请稍后再试"
+          : "Payment link generation failed. Please try again later."
       );
     } finally {
       setGenerating(false);

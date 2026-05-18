@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { isDevelopmentRuntime } from "@/lib/runtime";
 import Image from "next/image";
 import { Heart, MessageCircle, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -100,7 +101,7 @@ export default function CommunityPage() {
         body: { page: pageNum, pageSize: 10 },
       });
       if (res.success && res.data) {
-        const d = res.data as any;
+        const d = res.data as Partial<CommunityData>;
         const items = d.list || [];
         const pages = d.totalPages || 1;
         if (append) {
@@ -112,10 +113,17 @@ export default function CommunityPage() {
         return;
       }
     } catch {
-      // Fallback to mock
+      // Demo data is development-only.
     }
 
-    // Mock data fallback
+    if (!isDevelopmentRuntime) {
+      if (!append) {
+        setList([]);
+      }
+      setTotalPages(1);
+      return;
+    }
+
     const pageSize = 10;
     const mockPages = 3;
     const start = (pageNum - 1) * pageSize;
@@ -140,7 +148,7 @@ export default function CommunityPage() {
           body: { page: 1, pageSize: 10 },
         });
         if (res.success && res.data) {
-          const d = res.data as any;
+          const d = res.data as Partial<CommunityData>;
           const items = d.list || [];
           const pages = d.totalPages || 1;
           setList(items);
@@ -148,10 +156,15 @@ export default function CommunityPage() {
           return;
         }
       } catch {
-        // Fallback to mock
+        // Demo data is development-only.
       }
 
-      // Mock data fallback
+      if (!isDevelopmentRuntime) {
+        setList([]);
+        setTotalPages(1);
+        return;
+      }
+
       const pageSize = 10;
       const mockPages = 3;
       const items = MOCK_COMMUNITY.slice(0, pageSize);

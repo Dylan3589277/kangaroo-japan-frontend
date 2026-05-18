@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import { isDevelopmentRuntime } from "@/lib/runtime";
 import { Calendar, Eye, ArrowLeft } from "lucide-react";
 import Image from "next/image";
-import { Link } from "@/i18n/navigation";
 interface ArticleDetail {
   id: number;
   title: string;
@@ -117,10 +117,14 @@ export default function ArticleDetailPage() {
           return;
         }
       } catch {
-        // Fallback to mock
+        // Demo data is development-only.
       }
 
-      // Mock data fallback
+      if (!isDevelopmentRuntime) {
+        setArticle(null);
+        return;
+      }
+
       const mockArticle = MOCK_DETAILS[articleId] || MOCK_DETAILS[1];
       setArticle(mockArticle || null);
     };

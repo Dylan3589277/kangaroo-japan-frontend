@@ -7,6 +7,7 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
+import { isDevelopmentRuntime } from "@/lib/runtime";
 import Image from "next/image";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 
@@ -84,11 +85,15 @@ export default function CommunityCreatePage() {
         throw new Error(res.error?.message || "Submit failed");
       }
     } catch {
-      // Mock success fallback
-      alert(
-        t('submitSuccess')
-      );
-      router.push(`/${lang}/community`);
+      if (isDevelopmentRuntime) {
+        alert(
+          t('submitSuccess')
+        );
+        router.push(`/${lang}/community`);
+        return;
+      }
+
+      alert("Submit failed. Please try again later.");
     } finally {
       setSubmitting(false);
     }

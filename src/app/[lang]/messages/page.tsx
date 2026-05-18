@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isDevelopmentRuntime } from "@/lib/runtime";
 
 interface Message {
   id: number;
@@ -16,11 +17,6 @@ interface Message {
   content: string;
   add_time: string;
   is_read: number;
-}
-
-interface MessageData {
-  list: Message[];
-  totalCount: number;
 }
 
 const MESSAGE_ICONS: Record<string, string> = {
@@ -125,13 +121,20 @@ export default function MessagesPage() {
         const pagedMessages = allMessages.slice(start, end);
 
         if (append) {
-          setMessages((prev) => [...prev, ...pagedMessages.slice(messages.length - (pageNum - 1) * PAGE_SIZE)]);
+          setMessages((prev) => [...prev, ...pagedMessages.slice(prev.length)]);
         } else {
           setMessages(pagedMessages);
         }
       } catch (error) {
         console.error("Failed to fetch messages:", error);
-        // Fallback mock data
+        if (!isDevelopmentRuntime) {
+          setTotalCount(0);
+          if (!append) {
+            setMessages([]);
+          }
+          return;
+        }
+
         const mockMessages: Message[] = Array.from({ length: 8 }).map((_, i) => ({
           id: i + 1,
           type: ["order", "system", "promotion", "payment"][i % 4],

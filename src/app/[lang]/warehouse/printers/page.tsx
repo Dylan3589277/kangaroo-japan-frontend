@@ -5,10 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
+import { isDevelopmentRuntime } from "@/lib/runtime";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -45,7 +45,7 @@ const PRINTER_TYPE_ICONS: Record<string, string> = {
   usb: "🔌",
 };
 
-// Mock printer data for demo when API is unavailable
+// Development-only demo printer data.
 const MOCK_PRINTERS: Printer[] = [
   {
     id: "mock-1",
@@ -107,7 +107,7 @@ export default function PrintersPage() {
     if (isAuthenticated) {
       fetchPrinters();
     }
-  }, [isAuthenticated, authLoading, lang]);
+  }, [isAuthenticated, authLoading, lang, router]);
 
   const fetchPrinters = async () => {
     setLoading(true);
@@ -117,13 +117,14 @@ export default function PrintersPage() {
       });
       if (res.success && res.data?.list) {
         setPrinters(res.data.list);
-      } else {
-        // Use mock data when API is unavailable
+      } else if (isDevelopmentRuntime) {
         setPrinters(MOCK_PRINTERS);
+      } else {
+        setPrinters([]);
       }
     } catch (error) {
-      console.error("Failed to fetch printers, using mock data:", error);
-      setPrinters(MOCK_PRINTERS);
+      console.error("Failed to fetch printers:", error);
+      setPrinters(isDevelopmentRuntime ? MOCK_PRINTERS : []);
     } finally {
       setLoading(false);
     }
@@ -139,18 +140,22 @@ export default function PrintersPage() {
       if (res.success && res.data?.list) {
         setPrinters(res.data.list);
         toast.success(`找到 ${res.data.list.length} 台打印机`);
-      } else {
-        // Simulate search with delay for mock
-        await new Promise((r) => setTimeout(r, 1500));
+      } else if (isDevelopmentRuntime) {
         setPrinters(MOCK_PRINTERS);
-        toast.success(`找到 ${MOCK_PRINTERS.length} 台打印机`);
+        toast.warning("Demo printers shown for local development only.");
+      } else {
+        setPrinters([]);
+        toast.error("Printer search failed. Please try again later.");
       }
     } catch (error) {
       console.error("Failed to search printers:", error);
-      // Simulate search with delay for mock
-      await new Promise((r) => setTimeout(r, 1500));
-      setPrinters(MOCK_PRINTERS);
-      toast.success(`找到 ${MOCK_PRINTERS.length} 台打印机`);
+      if (isDevelopmentRuntime) {
+        setPrinters(MOCK_PRINTERS);
+        toast.warning("Demo printers shown for local development only.");
+      } else {
+        setPrinters([]);
+        toast.error("Printer search failed. Please try again later.");
+      }
     } finally {
       setSearching(false);
     }
@@ -169,24 +174,28 @@ export default function PrintersPage() {
             p.id === printer.id ? { ...p, connected: true, status: "online" } : p
           )
         );
-      } else {
-        // For mock: toggle locally
+      } else if (isDevelopmentRuntime && printer.id.startsWith("mock-")) {
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: true, status: "online" } : p
           )
         );
-        toast.success(`已连接 ${printer.name}`);
+        toast.warning("Demo printer connection updated locally.");
+      } else {
+        toast.error("Printer connection failed. Please try again later.");
       }
     } catch (error) {
       console.error("Failed to connect printer:", error);
-      // For mock: toggle locally
-      setPrinters((prev) =>
-        prev.map((p) =>
-          p.id === printer.id ? { ...p, connected: true, status: "online" } : p
-        )
-      );
-      toast.success(`已连接 ${printer.name}`);
+      if (isDevelopmentRuntime && printer.id.startsWith("mock-")) {
+        setPrinters((prev) =>
+          prev.map((p) =>
+            p.id === printer.id ? { ...p, connected: true, status: "online" } : p
+          )
+        );
+        toast.warning("Demo printer connection updated locally.");
+      } else {
+        toast.error("Printer connection failed. Please try again later.");
+      }
     }
   };
 
@@ -203,24 +212,28 @@ export default function PrintersPage() {
             p.id === printer.id ? { ...p, connected: false } : p
           )
         );
-      } else {
-        // For mock: toggle locally
+      } else if (isDevelopmentRuntime && printer.id.startsWith("mock-")) {
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: false } : p
           )
         );
-        toast.success(`已断开 ${printer.name}`);
+        toast.warning("Demo printer connection updated locally.");
+      } else {
+        toast.error("Printer disconnect failed. Please try again later.");
       }
     } catch (error) {
       console.error("Failed to disconnect printer:", error);
-      // For mock: toggle locally
-      setPrinters((prev) =>
-        prev.map((p) =>
-          p.id === printer.id ? { ...p, connected: false } : p
-        )
-      );
-      toast.success(`已断开 ${printer.name}`);
+      if (isDevelopmentRuntime && printer.id.startsWith("mock-")) {
+        setPrinters((prev) =>
+          prev.map((p) =>
+            p.id === printer.id ? { ...p, connected: false } : p
+          )
+        );
+        toast.warning("Demo printer connection updated locally.");
+      } else {
+        toast.error("Printer disconnect failed. Please try again later.");
+      }
     }
   };
 

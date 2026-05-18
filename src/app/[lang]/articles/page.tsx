@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import { isDevelopmentRuntime } from "@/lib/runtime";
 import Image from "next/image";
 import { Calendar, Eye } from "lucide-react";
 
@@ -114,7 +115,7 @@ export default function ArticlesPage() {
           },
         });
         if (res.success && res.data) {
-          const d = res.data as any;
+          const d = res.data as Partial<ArticleData>;
           const items = d.list || [];
           const pages = d.totalPages || 1;
           if (append) {
@@ -126,10 +127,17 @@ export default function ArticlesPage() {
           return;
         }
       } catch {
-        // Fallback to mock
+        // Demo data is development-only.
       }
 
-      // Mock data
+      if (!isDevelopmentRuntime) {
+        if (!append) {
+          setArticles([]);
+        }
+        setTotalPages(1);
+        return;
+      }
+
       const pageSize = 10;
       const filtered =
         categoryId > 0
