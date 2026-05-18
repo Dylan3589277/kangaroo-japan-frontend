@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   AlertTriangle,
   Bot,
@@ -17,7 +24,13 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   api,
@@ -27,42 +40,11 @@ import {
   type SupportTicketContextResponse,
 } from "@/lib/api";
 
-type TicketStatus = "new" | "in_progress" | "waiting_customer" | "resolved";
-type TicketPriority = "normal" | "urgent";
-
-type TicketLedgerRow = {
-  ticketNo: string;
-  createdAt: string;
-  source: string;
-  language: string;
-  customerEmail: string;
-  orderNo: string;
-  category: string;
-  priority: TicketPriority;
-  status: TicketStatus;
-  owner: string;
-  nextAction: string;
-  summary: string;
-  updatedAt: string;
-};
-
 type OrderLookupForm = {
   orderNo: string;
   email: string;
   phone: string;
   trackingNumber: string;
-};
-
-const statusLabel: Record<TicketStatus, string> = {
-  new: "新工单",
-  in_progress: "处理中",
-  waiting_customer: "等客户回复",
-  resolved: "已解决",
-};
-
-const priorityLabel: Record<TicketPriority, string> = {
-  normal: "普通",
-  urgent: "紧急",
 };
 
 const supportTicketStatusLabel: Record<string, string> = {
@@ -88,39 +70,6 @@ const hermesDraftStatusLabel: Record<string, string> = {
   READY: "待审阅",
   DISMISSED: "已驳回",
 };
-
-const ledgerRows: TicketLedgerRow[] = [
-  {
-    ticketNo: "SUP-20260510-001",
-    createdAt: "2026-05-10 18:30",
-    source: "tawk.to 在线咨询",
-    language: "zh",
-    customerEmail: "customer@example.com",
-    orderNo: "未提供",
-    category: "商品咨询",
-    priority: "normal",
-    status: "new",
-    owner: "未分配",
-    nextAction: "确认客户想购买的平台链接和预算",
-    summary: "示例：客户询问日本代拍商品是否可以发往海外。",
-    updatedAt: "2026-05-10 18:30",
-  },
-  {
-    ticketNo: "SUP-20260510-002",
-    createdAt: "2026-05-10 19:00",
-    source: "离线留言",
-    language: "ja",
-    customerEmail: "hidden@example.com",
-    orderNo: "DSJ-****-1234",
-    category: "物流问题",
-    priority: "urgent",
-    status: "in_progress",
-    owner: "客服A",
-    nextAction: "核对公开物流状态，不在第三方工具中粘贴完整地址",
-    summary: "示例：客户询问预计发货时间。",
-    updatedAt: "2026-05-10 19:05",
-  },
-];
 
 const csvHeaders = [
   "工单编号",
@@ -167,11 +116,15 @@ function escapeCsvCell(value: string) {
 }
 
 function buildCsv() {
-  return [csvHeaders, ...csvTemplateRows].map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+  return [csvHeaders, ...csvTemplateRows]
+    .map((row) => row.map(escapeCsvCell).join(","))
+    .join("\n");
 }
 
 function downloadCsvTemplate() {
-  const blob = new Blob([`\ufeff${buildCsv()}`], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([`\ufeff${buildCsv()}`], {
+    type: "text/csv;charset=utf-8",
+  });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -190,11 +143,14 @@ function compactDate(value?: string | null) {
 function getDraftEvidence(draft: HermesDraft | null) {
   const metadata = draft?.metadata;
   if (!metadata) return [];
-  const sourceIds = Array.isArray(metadata.sourceIds) ? metadata.sourceIds.map(String) : [];
+  const sourceIds = Array.isArray(metadata.sourceIds)
+    ? metadata.sourceIds.map(String)
+    : [];
   const evidence = [];
   if (sourceIds.length > 0) evidence.push(`知识库：${sourceIds.join(", ")}`);
   if (metadata.orderContextUsed === true) evidence.push("使用本账号订单上下文");
-  if (metadata.boundaryFallback === true) evidence.push("知识库外问题：边界回复");
+  if (metadata.boundaryFallback === true)
+    evidence.push("知识库外问题：边界回复");
   return evidence;
 }
 
@@ -214,7 +170,7 @@ function hasLookupCondition(form: OrderLookupForm) {
 }
 
 export default function AdminSupportPage() {
-  const [keyword, setKeyword] = useState("");
+  const [ticketKeyword, setTicketKeyword] = useState("");
   const [lookupForm, setLookupForm] = useState<OrderLookupForm>({
     orderNo: "",
     email: "",
@@ -230,7 +186,8 @@ export default function AdminSupportPage() {
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportError, setSupportError] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState("");
-  const [ticketContext, setTicketContext] = useState<SupportTicketContextResponse | null>(null);
+  const [ticketContext, setTicketContext] =
+    useState<SupportTicketContextResponse | null>(null);
   const [ticketContextLoading, setTicketContextLoading] = useState(false);
   const [drafts, setDrafts] = useState<HermesDraft[]>([]);
   const [selectedDraftJobId, setSelectedDraftJobId] = useState("");
@@ -243,22 +200,57 @@ export default function AdminSupportPage() {
   const selectedTicketIdRef = useRef("");
   const reviewRequestSeq = useRef(0);
 
-  const filteredRows = useMemo(() => {
-    const normalized = keyword.trim().toLowerCase();
-    if (!normalized) return ledgerRows;
-    return ledgerRows.filter((row) => Object.values(row).some((value) => value.toLowerCase().includes(normalized)));
-  }, [keyword]);
+  const openTicketCount = useMemo(
+    () =>
+      supportTickets.filter(
+        (ticket) => ticket.status === "open" || ticket.status === "in_progress",
+      ).length,
+    [supportTickets],
+  );
+  const latestTicket = useMemo(
+    () => supportTickets[0] ?? null,
+    [supportTickets],
+  );
+  const filteredSupportTickets = useMemo(() => {
+    const normalized = ticketKeyword.trim().toLowerCase();
+    if (!normalized) return supportTickets;
+    return supportTickets.filter((ticket) =>
+      [
+        ticket.ticketNumber,
+        ticket.site,
+        ticket.language,
+        ticket.visitorName,
+        ticket.visitorEmail,
+        ticket.category,
+        ticket.status,
+        ticket.subject,
+        ticket.description,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalized)),
+    );
+  }, [supportTickets, ticketKeyword]);
 
   const selectedTicket = useMemo(
-    () => supportTickets.find((ticket) => ticket.id === selectedTicketId) ?? null,
-    [selectedTicketId, supportTickets]
+    () =>
+      supportTickets.find((ticket) => ticket.id === selectedTicketId) ?? null,
+    [selectedTicketId, supportTickets],
   );
   const selectedDraft = useMemo(
-    () => (selectedDraftJobId ? drafts.find((draft) => draft.jobId === selectedDraftJobId) ?? null : drafts[0] ?? null),
-    [drafts, selectedDraftJobId]
+    () =>
+      selectedDraftJobId
+        ? (drafts.find((draft) => draft.jobId === selectedDraftJobId) ?? null)
+        : (drafts[0] ?? null),
+    [drafts, selectedDraftJobId],
   );
-  const draftEvidence = useMemo(() => getDraftEvidence(selectedDraft), [selectedDraft]);
-  const draftPolicyLabels = useMemo(() => getDraftPolicyLabels(selectedDraft), [selectedDraft]);
+  const draftEvidence = useMemo(
+    () => getDraftEvidence(selectedDraft),
+    [selectedDraft],
+  );
+  const draftPolicyLabels = useMemo(
+    () => getDraftPolicyLabels(selectedDraft),
+    [selectedDraft],
+  );
 
   const selectSupportTicket = useCallback((ticketId: string) => {
     selectedTicketIdRef.current = ticketId;
@@ -274,10 +266,15 @@ export default function AdminSupportPage() {
   const loadSupportTickets = useCallback(async () => {
     setSupportLoading(true);
     setSupportError("");
-    const response = await api.listSupportTickets({ site: "kangaroo-japan", limit: 20 });
+    const response = await api.listSupportTickets({
+      site: "kangaroo-japan",
+      limit: 20,
+    });
     setSupportLoading(false);
     if (!response.success || !response.data) {
-      setSupportError(response.error?.message || "工单列表读取失败，请确认管理员登录状态。");
+      setSupportError(
+        response.error?.message || "工单列表读取失败，请确认管理员登录状态。",
+      );
       setSupportTickets([]);
       setSupportTotal(0);
       return;
@@ -300,7 +297,10 @@ export default function AdminSupportPage() {
       api.getSupportTicketContext(ticketId),
       api.listHermesDraftsForTicket(ticketId),
     ]);
-    if (requestSeq !== reviewRequestSeq.current || selectedTicketIdRef.current !== ticketId) {
+    if (
+      requestSeq !== reviewRequestSeq.current ||
+      selectedTicketIdRef.current !== ticketId
+    ) {
       return;
     }
     setTicketContextLoading(false);
@@ -323,7 +323,7 @@ export default function AdminSupportPage() {
     setSelectedDraftJobId((current) =>
       current && draftsResponse.data?.some((draft) => draft.jobId === current)
         ? current
-        : draftsResponse.data?.[0]?.jobId || ""
+        : draftsResponse.data?.[0]?.jobId || "",
     );
   }, []);
 
@@ -348,7 +348,11 @@ export default function AdminSupportPage() {
     const timer = window.setInterval(async () => {
       const response = await api.getHermesDraft(selectedDraft.jobId);
       if (!response.success || !response.data) return;
-      setDrafts((current) => current.map((draft) => (draft.jobId === response.data?.jobId ? response.data : draft)));
+      setDrafts((current) =>
+        current.map((draft) =>
+          draft.jobId === response.data?.jobId ? response.data : draft,
+        ),
+      );
     }, 2500);
     return () => window.clearInterval(timer);
   }, [selectedDraft]);
@@ -357,15 +361,22 @@ export default function AdminSupportPage() {
     event.preventDefault();
     setLookupError("");
     if (!hasLookupCondition(lookupForm)) {
-      setLookupError("请至少填写一个 4 位以上的查询条件，避免过宽查询。可用订单号、邮箱、手机号或物流单号。");
+      setLookupError(
+        "请至少填写一个 4 位以上的查询条件，避免过宽查询。可用订单号、邮箱、手机号或物流单号。",
+      );
       return;
     }
 
     setLookupLoading(true);
-    const response = await api.lookupSupportOrders({ ...lookupForm, limit: 10 });
+    const response = await api.lookupSupportOrders({
+      ...lookupForm,
+      limit: 10,
+    });
     setLookupLoading(false);
     if (!response.success || !response.data) {
-      setLookupError(response.error?.message || "查询失败，请确认账号权限和查询条件。");
+      setLookupError(
+        response.error?.message || "查询失败，请确认账号权限和查询条件。",
+      );
       setLookupItems([]);
       setLookupTotal(0);
       return;
@@ -414,14 +425,20 @@ export default function AdminSupportPage() {
 
     setDraftMessage("草稿任务已创建，正在等待客服分身回传。");
     setSelectedDraftJobId(response.data.jobId);
-    setDrafts((current) => [pendingDraft, ...current.filter((draft) => draft.jobId !== response.data?.jobId)]);
+    setDrafts((current) => [
+      pendingDraft,
+      ...current.filter((draft) => draft.jobId !== response.data?.jobId),
+    ]);
   }
 
   async function handleDismissDraft() {
     if (!selectedDraft || selectedDraft.status !== "READY") return;
     setDraftLoading(true);
     setDraftMessage("");
-    const response = await api.dismissHermesDraft(selectedDraft.jobId, dismissReason.trim() || undefined);
+    const response = await api.dismissHermesDraft(
+      selectedDraft.jobId,
+      dismissReason.trim() || undefined,
+    );
     setDraftLoading(false);
 
     if (!response.success || !response.data) {
@@ -429,7 +446,11 @@ export default function AdminSupportPage() {
       return;
     }
 
-    setDrafts((current) => current.map((draft) => (draft.jobId === response.data?.jobId ? response.data : draft)));
+    setDrafts((current) =>
+      current.map((draft) =>
+        draft.jobId === response.data?.jobId ? response.data : draft,
+      ),
+    );
     setDismissReason("");
     setDraftMessage("草稿已驳回，未发送给客户。");
   }
@@ -450,19 +471,29 @@ export default function AdminSupportPage() {
         </div>
         <h1 className="mt-2 text-2xl font-semibold">客服工单台账</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          先把 tawk.to 在线咨询、离线留言和人工跟进统一记录到台账；订单/物流只读查询只给管理员使用，并保持脱敏、审计和限流边界。
+          先把 tawk.to
+          在线咨询、离线留言和人工跟进统一记录到台账；订单/物流只读查询只给管理员使用，并保持脱敏、审计和限流边界。
         </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>今日待处理</CardTitle>
-            <CardDescription>示例台账统计，后续可接真实工单接口。</CardDescription>
+            <CardTitle>真实工单</CardTitle>
+            <CardDescription>
+              来自后台工单接口，只统计当前可读取数据。
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold">2</div>
-            <p className="mt-1 text-sm text-muted-foreground">新工单 1 个，处理中 1 个</p>
+            <div className="text-3xl font-semibold">
+              {supportLoading ? "..." : supportTotal}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              待处理 {openTicketCount} 个
+              {latestTicket
+                ? `，最近更新 ${compactDate(latestTicket.updatedAt)}`
+                : ""}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -502,22 +533,44 @@ export default function AdminSupportPage() {
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={loadSupportTickets} disabled={supportLoading}>
-              {supportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={loadSupportTickets}
+              disabled={supportLoading}
+            >
+              {supportLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
               刷新工单
             </Button>
-            <Button type="button" variant="outline" onClick={refreshSelectedTicket} disabled={!selectedTicketId || refreshLoading}>
-              {refreshLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={refreshSelectedTicket}
+              disabled={!selectedTicketId || refreshLoading}
+            >
+              {refreshLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
               刷新草稿
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {supportError ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{supportError}</div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              {supportError}
+            </div>
           ) : null}
           {draftMessage ? (
-            <div className="rounded-lg border bg-muted p-3 text-sm text-muted-foreground">{draftMessage}</div>
+            <div className="rounded-lg border bg-muted p-3 text-sm text-muted-foreground">
+              {draftMessage}
+            </div>
           ) : null}
 
           <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
@@ -534,7 +587,9 @@ export default function AdminSupportPage() {
                   </div>
                 ) : null}
                 {!supportLoading && supportTickets.length === 0 ? (
-                  <div className="p-4 text-sm text-muted-foreground">暂无可审阅工单。</div>
+                  <div className="p-4 text-sm text-muted-foreground">
+                    暂无可审阅工单。
+                  </div>
                 ) : null}
                 {supportTickets.map((ticket) => (
                   <button
@@ -542,18 +597,30 @@ export default function AdminSupportPage() {
                     key={ticket.id}
                     onClick={() => selectSupportTicket(ticket.id)}
                     className={`block w-full border-b px-4 py-3 text-left text-sm transition-colors last:border-b-0 ${
-                      selectedTicketId === ticket.id ? "bg-muted" : "hover:bg-muted/60"
+                      selectedTicketId === ticket.id
+                        ? "bg-muted"
+                        : "hover:bg-muted/60"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{ticket.ticketNumber}</span>
-                      <Badge variant={ticket.status === "open" ? "secondary" : "outline"}>
-                        {supportTicketStatusLabel[ticket.status] || ticket.status}
+                      <Badge
+                        variant={
+                          ticket.status === "open" ? "secondary" : "outline"
+                        }
+                      >
+                        {supportTicketStatusLabel[ticket.status] ||
+                          ticket.status}
                       </Badge>
                     </div>
-                    <div className="mt-2 line-clamp-2 text-muted-foreground">{ticket.subject}</div>
+                    <div className="mt-2 line-clamp-2 text-muted-foreground">
+                      {ticket.subject}
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span>{supportTicketCategoryLabel[ticket.category] || ticket.category}</span>
+                      <span>
+                        {supportTicketCategoryLabel[ticket.category] ||
+                          ticket.category}
+                      </span>
                       <span>{ticket.language}</span>
                       <span>{compactDate(ticket.createdAt)}</span>
                     </div>
@@ -571,10 +638,15 @@ export default function AdminSupportPage() {
                         <MessageSquare className="h-4 w-4" />
                         工单上下文
                       </div>
-                      <h2 className="mt-1 text-lg font-semibold">{selectedTicket?.subject || "请选择工单"}</h2>
+                      <h2 className="mt-1 text-lg font-semibold">
+                        {selectedTicket?.subject || "请选择工单"}
+                      </h2>
                     </div>
                     {selectedTicket ? (
-                      <Badge variant="outline">{supportTicketCategoryLabel[selectedTicket.category] || selectedTicket.category}</Badge>
+                      <Badge variant="outline">
+                        {supportTicketCategoryLabel[selectedTicket.category] ||
+                          selectedTicket.category}
+                      </Badge>
                     ) : null}
                   </div>
 
@@ -591,9 +663,13 @@ export default function AdminSupportPage() {
                         <div>客户：{selectedTicket.visitorName || "-"}</div>
                         <div>邮箱：{selectedTicket.visitorEmail || "-"}</div>
                         <div>站点：{selectedTicket.site}</div>
-                        <div>更新时间：{compactDate(selectedTicket.updatedAt)}</div>
+                        <div>
+                          更新时间：{compactDate(selectedTicket.updatedAt)}
+                        </div>
                       </div>
-                      <div className="rounded-lg bg-muted p-3 text-muted-foreground">{selectedTicket.description}</div>
+                      <div className="rounded-lg bg-muted p-3 text-muted-foreground">
+                        {selectedTicket.description}
+                      </div>
                       <div className="rounded-lg border p-3">
                         <div className="font-medium">本账号订单上下文</div>
                         <div className="mt-2 text-muted-foreground">
@@ -604,7 +680,9 @@ export default function AdminSupportPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-4 text-sm text-muted-foreground">左侧选择一个工单后生成客服草稿。</div>
+                    <div className="mt-4 text-sm text-muted-foreground">
+                      左侧选择一个工单后生成客服草稿。
+                    </div>
                   )}
                 </div>
 
@@ -618,9 +696,19 @@ export default function AdminSupportPage() {
                     placeholder="可选：只写客服需要知道的补充信息，不粘贴完整手机号、完整地址、支付号。"
                   />
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-xs text-muted-foreground">{promptContext.length}/2000</div>
-                    <Button type="button" onClick={handleTriggerDraft} disabled={!selectedTicketId || draftLoading}>
-                      {draftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                    <div className="text-xs text-muted-foreground">
+                      {promptContext.length}/2000
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleTriggerDraft}
+                      disabled={!selectedTicketId || draftLoading}
+                    >
+                      {draftLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Bot className="h-4 w-4" />
+                      )}
                       生成 Hermes 草稿
                     </Button>
                   </div>
@@ -632,8 +720,15 @@ export default function AdminSupportPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-medium">草稿审阅</div>
                     {selectedDraft ? (
-                      <Badge variant={selectedDraft.status === "READY" ? "secondary" : "outline"}>
-                        {hermesDraftStatusLabel[selectedDraft.status] || selectedDraft.status}
+                      <Badge
+                        variant={
+                          selectedDraft.status === "READY"
+                            ? "secondary"
+                            : "outline"
+                        }
+                      >
+                        {hermesDraftStatusLabel[selectedDraft.status] ||
+                          selectedDraft.status}
                       </Badge>
                     ) : null}
                   </div>
@@ -643,7 +738,11 @@ export default function AdminSupportPage() {
                         <Button
                           key={draft.jobId}
                           type="button"
-                          variant={selectedDraft?.jobId === draft.jobId ? "secondary" : "outline"}
+                          variant={
+                            selectedDraft?.jobId === draft.jobId
+                              ? "secondary"
+                              : "outline"
+                          }
                           size="sm"
                           onClick={() => setSelectedDraftJobId(draft.jobId)}
                         >
@@ -656,7 +755,9 @@ export default function AdminSupportPage() {
 
                 <div className="space-y-4 p-4">
                   {!selectedDraft ? (
-                    <div className="text-sm text-muted-foreground">还没有草稿。选择工单后点击“生成 Hermes 草稿”。</div>
+                    <div className="text-sm text-muted-foreground">
+                      还没有草稿。选择工单后点击“生成 Hermes 草稿”。
+                    </div>
                   ) : null}
                   {selectedDraft?.status === "PENDING" ? (
                     <div className="flex items-center gap-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
@@ -665,7 +766,9 @@ export default function AdminSupportPage() {
                     </div>
                   ) : null}
                   {selectedDraft?.draftBody ? (
-                    <div className="whitespace-pre-wrap rounded-lg bg-muted p-4 text-sm leading-6">{selectedDraft.draftBody}</div>
+                    <div className="whitespace-pre-wrap rounded-lg bg-muted p-4 text-sm leading-6">
+                      {selectedDraft.draftBody}
+                    </div>
                   ) : null}
 
                   {draftPolicyLabels.length > 0 || draftEvidence.length > 0 ? (
@@ -673,10 +776,14 @@ export default function AdminSupportPage() {
                       <div className="font-medium">边界证据</div>
                       <div className="flex flex-wrap gap-2">
                         {draftPolicyLabels.map((label) => (
-                          <Badge key={label} variant="outline">{label}</Badge>
+                          <Badge key={label} variant="outline">
+                            {label}
+                          </Badge>
                         ))}
                         {draftEvidence.map((item) => (
-                          <Badge key={item} variant="secondary">{item}</Badge>
+                          <Badge key={item} variant="secondary">
+                            {item}
+                          </Badge>
                         ))}
                       </div>
                     </div>
@@ -687,9 +794,16 @@ export default function AdminSupportPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" onClick={handleCopyDraft} disabled={!selectedDraft?.draftBody}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCopyDraft}
+                      disabled={!selectedDraft?.draftBody}
+                    >
                       <Copy className="h-4 w-4" />
-                      {copiedJobId === selectedDraft?.jobId ? "已复制" : "复制草稿"}
+                      {copiedJobId === selectedDraft?.jobId
+                        ? "已复制"
+                        : "复制草稿"}
                     </Button>
                   </div>
 
@@ -697,12 +811,23 @@ export default function AdminSupportPage() {
                     <div className="space-y-3 border-t pt-4">
                       <Input
                         value={dismissReason}
-                        onChange={(event) => setDismissReason(event.target.value)}
+                        onChange={(event) =>
+                          setDismissReason(event.target.value)
+                        }
                         placeholder="驳回原因，可选"
                         aria-label="驳回原因"
                       />
-                      <Button type="button" variant="destructive" onClick={handleDismissDraft} disabled={draftLoading}>
-                        {draftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={handleDismissDraft}
+                        disabled={draftLoading}
+                      >
+                        {draftLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <XCircle className="h-4 w-4" />
+                        )}
                         驳回草稿
                       </Button>
                     </div>
@@ -722,39 +847,56 @@ export default function AdminSupportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form className="grid gap-3 md:grid-cols-5" onSubmit={handleLookupSubmit}>
+          <form
+            className="grid gap-3 md:grid-cols-5"
+            onSubmit={handleLookupSubmit}
+          >
             <Input
               value={lookupForm.orderNo}
-              onChange={(event) => updateLookupField("orderNo", event.target.value)}
+              onChange={(event) =>
+                updateLookupField("orderNo", event.target.value)
+              }
               placeholder="订单号"
               aria-label="订单号"
             />
             <Input
               value={lookupForm.email}
-              onChange={(event) => updateLookupField("email", event.target.value)}
+              onChange={(event) =>
+                updateLookupField("email", event.target.value)
+              }
               placeholder="客户邮箱"
               aria-label="客户邮箱"
             />
             <Input
               value={lookupForm.phone}
-              onChange={(event) => updateLookupField("phone", event.target.value)}
+              onChange={(event) =>
+                updateLookupField("phone", event.target.value)
+              }
               placeholder="手机号"
               aria-label="手机号"
             />
             <Input
               value={lookupForm.trackingNumber}
-              onChange={(event) => updateLookupField("trackingNumber", event.target.value)}
+              onChange={(event) =>
+                updateLookupField("trackingNumber", event.target.value)
+              }
               placeholder="物流单号"
               aria-label="物流单号"
             />
             <Button type="submit" disabled={lookupLoading}>
-              {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              {lookupLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
               查询
             </Button>
           </form>
 
           {lookupError ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{lookupError}</div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              {lookupError}
+            </div>
           ) : null}
 
           <div className="rounded-lg border p-4 text-sm text-muted-foreground">
@@ -762,13 +904,17 @@ export default function AdminSupportPage() {
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li>最少 4 位查询条件，避免客服随意拉全量订单。</li>
               <li>手机号、邮箱、姓名、地址、邮编、物流单号均只返回脱敏值。</li>
-              <li>每次查询都会记录审计日志，日志只存查询条件哈希，不存明文。</li>
+              <li>
+                每次查询都会记录审计日志，日志只存查询条件哈希，不存明文。
+              </li>
             </ul>
           </div>
 
           {lookupItems.length > 0 ? (
             <div className="space-y-3">
-              <div className="text-sm text-muted-foreground">共匹配 {lookupTotal} 条，当前显示 {lookupItems.length} 条。</div>
+              <div className="text-sm text-muted-foreground">
+                共匹配 {lookupTotal} 条，当前显示 {lookupItems.length} 条。
+              </div>
               {lookupItems.map((order) => (
                 <div key={order.id} className="rounded-lg border p-4 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -776,19 +922,43 @@ export default function AdminSupportPage() {
                     <Badge variant="outline">{order.status}</Badge>
                   </div>
                   <div className="mt-3 grid gap-2 text-muted-foreground md:grid-cols-2">
-                    <div>客户：{order.customer.name || "-"} / {order.customer.email || "-"} / {order.customer.phone || "-"}</div>
-                    <div>金额：{order.total.amount} {order.total.currency || ""}</div>
+                    <div>
+                      客户：{order.customer.name || "-"} /{" "}
+                      {order.customer.email || "-"} /{" "}
+                      {order.customer.phone || "-"}
+                    </div>
+                    <div>
+                      金额：{order.total.amount} {order.total.currency || ""}
+                    </div>
                     <div>下单时间：{compactDate(order.createdAt)}</div>
                     <div>支付时间：{compactDate(order.paidAt)}</div>
-                    <div>物流：{order.shipping.carrier || "-"} / {order.shipping.trackingNumber || "-"}</div>
-                    <div>收货城市：{order.shipping.address?.country || "-"} {order.shipping.address?.city || ""}</div>
+                    <div>
+                      物流：{order.shipping.carrier || "-"} /{" "}
+                      {order.shipping.trackingNumber || "-"}
+                    </div>
+                    <div>
+                      收货城市：{order.shipping.address?.country || "-"}{" "}
+                      {order.shipping.address?.city || ""}
+                    </div>
                   </div>
                   <div className="mt-3 text-muted-foreground">
-                    商品：{order.items.map((item) => `${item.title || "未命名商品"} × ${item.quantity}`).join("；") || "-"}
+                    商品：
+                    {order.items
+                      .map(
+                        (item) =>
+                          `${item.title || "未命名商品"} × ${item.quantity}`,
+                      )
+                      .join("；") || "-"}
                   </div>
                   {order.shipmentOrders.length > 0 ? (
                     <div className="mt-3 rounded-md bg-muted p-3 text-muted-foreground">
-                      仓库发货单：{order.shipmentOrders.map((shipment) => `${shipment.status || "未知状态"} / ${shipment.shipWay || "未知线路"}`).join("；")}
+                      仓库发货单：
+                      {order.shipmentOrders
+                        .map(
+                          (shipment) =>
+                            `${shipment.status || "未知状态"} / ${shipment.shipWay || "未知线路"}`,
+                        )
+                        .join("；")}
                     </div>
                   ) : null}
                 </div>
@@ -802,7 +972,8 @@ export default function AdminSupportPage() {
         <CardHeader>
           <CardTitle>tawk.to 预聊天表单字段建议</CardTitle>
           <CardDescription>
-            预聊天表单需要在 tawk.to 后台开启；站点代码只传低敏上下文，不传订单详情。
+            预聊天表单需要在 tawk.to
+            后台开启；站点代码只传低敏上下文，不传订单详情。
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 text-sm md:grid-cols-2">
@@ -837,15 +1008,17 @@ export default function AdminSupportPage() {
       <Card>
         <CardHeader className="gap-3 md:flex md:flex-row md:items-center md:justify-between">
           <div>
-            <CardTitle>工单台账示例</CardTitle>
-            <CardDescription>当前为安全示例数据；正式接工单接口前需要再确认鉴权和数据字段。</CardDescription>
+            <CardTitle>真实工单台账</CardTitle>
+            <CardDescription>
+              从后台工单接口读取；只展示脱敏字段，不展示支付号、完整地址或内部敏感备注。
+            </CardDescription>
           </div>
           <Input
             className="max-w-xs"
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
+            value={ticketKeyword}
+            onChange={(event) => setTicketKeyword(event.target.value)}
             placeholder="搜索工单、邮箱、分类"
-            aria-label="搜索工单"
+            aria-label="搜索真实工单"
           />
         </CardHeader>
         <CardContent>
@@ -854,30 +1027,56 @@ export default function AdminSupportPage() {
               <thead className="bg-muted text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 font-medium">工单编号</th>
-                  <th className="px-3 py-2 font-medium">来源</th>
+                  <th className="px-3 py-2 font-medium">站点/语言</th>
                   <th className="px-3 py-2 font-medium">分类</th>
-                  <th className="px-3 py-2 font-medium">优先级</th>
                   <th className="px-3 py-2 font-medium">状态</th>
-                  <th className="px-3 py-2 font-medium">负责人</th>
-                  <th className="px-3 py-2 font-medium">下一步</th>
+                  <th className="px-3 py-2 font-medium">客户</th>
+                  <th className="px-3 py-2 font-medium">主题</th>
                   <th className="px-3 py-2 font-medium">更新时间</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.map((row) => (
-                  <tr key={row.ticketNo} className="border-t">
-                    <td className="px-3 py-2 font-medium">{row.ticketNo}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{row.source}</td>
-                    <td className="px-3 py-2">{row.category}</td>
-                    <td className="px-3 py-2">
-                      <Badge variant={row.priority === "urgent" ? "destructive" : "secondary"}>{priorityLabel[row.priority]}</Badge>
+                {filteredSupportTickets.length === 0 ? (
+                  <tr className="border-t">
+                    <td
+                      className="px-3 py-6 text-center text-muted-foreground"
+                      colSpan={7}
+                    >
+                      暂无匹配工单
+                    </td>
+                  </tr>
+                ) : null}
+                {filteredSupportTickets.map((ticket) => (
+                  <tr key={ticket.id} className="border-t">
+                    <td className="px-3 py-2 font-medium">
+                      {ticket.ticketNumber}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {ticket.site} / {ticket.language}
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant="outline">{statusLabel[row.status]}</Badge>
+                      {supportTicketCategoryLabel[ticket.category] ||
+                        ticket.category}
                     </td>
-                    <td className="px-3 py-2">{row.owner}</td>
-                    <td className="max-w-[280px] px-3 py-2 text-muted-foreground">{row.nextAction}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{row.updatedAt}</td>
+                    <td className="px-3 py-2">
+                      <Badge
+                        variant={
+                          ticket.status === "open" ? "secondary" : "outline"
+                        }
+                      >
+                        {supportTicketStatusLabel[ticket.status] ||
+                          ticket.status}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {ticket.visitorEmail || ticket.visitorName || "-"}
+                    </td>
+                    <td className="max-w-[340px] px-3 py-2">
+                      {ticket.subject}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {compactDate(ticket.updatedAt)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
