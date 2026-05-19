@@ -22,6 +22,11 @@ const strictPlatformSmoke = process.env.STRICT_PLATFORM_SMOKE === "1";
 const e2eAdminEmail = process.env.E2E_ADMIN_EMAIL;
 const e2eAdminPassword = process.env.E2E_ADMIN_PASSWORD;
 const e2eAdminSeedSecret = process.env.E2E_ADMIN_SEED_SECRET;
+const livePlatformSamples = {
+  rakuten: process.env.RAKUTEN_SAMPLE_ITEM_CODE || "alpen:10431509",
+  amazon: process.env.AMAZON_SAMPLE_ASIN || "B0DWZJBXNZ",
+  mercari: process.env.MERCARI_SAMPLE_ITEM_ID || "m97035025426",
+} as const;
 
 type ImageProbe = {
   src: string | null;
@@ -29,6 +34,19 @@ type ImageProbe = {
   complete: boolean;
   naturalWidth: number;
   naturalHeight: number;
+};
+
+type PlatformKey = keyof typeof livePlatformSamples;
+
+type PlatformDetailAudit = {
+  configured: boolean;
+  sampleId: string;
+  detailOk: boolean;
+  imageUrl: string | null;
+  imageOk: boolean;
+  blocked?: boolean;
+  error?: string;
+  notice?: string;
 };
 
 async function expectOkResponse(page: Page, url: string) {
@@ -87,6 +105,35 @@ async function injectAdminSession(
   );
 
   return accessToken as string;
+}
+
+async function probeImage(request: APIRequestContext, imageUrl: string | null) {
+  if (!imageUrl) return false;
+  const response = await request.get(imageUrl);
+  return response.ok();
+}
+
+async function auditPlatformDetail(
+  request: APIRequestContext,
+  platform: PlatformKey,
+): Promise<PlatformDetailAudit> {
+  const sampleId = livePlatformSamples[platform];
+  const detailResponse = await request.get(
+    `${backendUrl}/api/v1/integrations/${platform}/detail?id=${encodeURIComponent(sampleId)}`,
+  );
+  const body = await detailResponse.json();
+  const imageUrl = body.data?.imgurls?.[0] || null;
+  const imageOk = await probeImage(request, imageUrl);
+  return {
+    configured: Boolean(body.success || body.data?.blocked === false),
+    sampleId,
+    detailOk: detailResponse.ok() && body.success === true,
+    imageUrl,
+    imageOk,
+    blocked: body.data?.blocked,
+    error: body.error,
+    notice: body.notice,
+  };
 }
 
 test.describe("kangaroo-japan production smoke", () => {
@@ -220,23 +267,27 @@ test.describe("kangaroo-japan production smoke", () => {
     const yahooImageResponse = await request.get(yahooImage);
     expect(yahooImageResponse.ok()).toBe(true);
 
+    const rakutenDetail = await auditPlatformDetail(request, "rakuten");
+    const amazonDetail = await auditPlatformDetail(request, "amazon");
+    const mercariDetail = await auditPlatformDetail(request, "mercari");
+
     const audit = {
       yahoo: {
         configured: byPlatform.get("yahoo")?.configured === true,
         liveSearchImage: yahooImage,
         liveSearchImageOk: yahooImageResponse.ok(),
       },
-      rakuten: byPlatform.get("rakuten") || {
-        configured: false,
-        totalProducts: 0,
+      rakuten: {
+        ...(byPlatform.get("rakuten") || { configured: false, totalProducts: 0 }),
+        liveDetail: rakutenDetail,
       },
-      amazon: byPlatform.get("amazon") || {
-        configured: false,
-        totalProducts: 0,
+      amazon: {
+        ...(byPlatform.get("amazon") || { configured: false, totalProducts: 0 }),
+        liveDetail: amazonDetail,
       },
-      mercari: byPlatform.get("mercari") || {
-        configured: false,
-        totalProducts: 0,
+      mercari: {
+        ...(byPlatform.get("mercari") || { configured: false, totalProducts: 0 }),
+        liveDetail: mercariDetail,
       },
     };
 
@@ -252,6 +303,12 @@ test.describe("kangaroo-japan production smoke", () => {
 
     expect(audit.yahoo.configured).toBe(true);
     expect(audit.yahoo.liveSearchImageOk).toBe(true);
+    expect(audit.rakuten.liveDetail.detailOk).toBe(true);
+    expect(audit.rakuten.liveDetail.imageOk).toBe(true);
+    expect(audit.amazon.liveDetail.detailOk).toBe(true);
+    expect(audit.amazon.liveDetail.imageOk).toBe(true);
+    expect(audit.mercari.liveDetail.detailOk).toBe(true);
+    expect(audit.mercari.liveDetail.imageOk).toBe(true);
 
     if (strictPlatformSmoke) {
       expect(audit.rakuten.configured).toBe(true);
@@ -284,6 +341,25 @@ test.describe("kangaroo-japan production smoke", () => {
       ),
     ).toBeVisible();
 
+    const healthSmokeResponse = await request.post(
+      `${backendUrl}/api/v1/integrations/admin/health/smoke`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    expect(healthSmokeResponse.ok()).toBe(true);
+    const healthSmokeBody = await healthSmokeResponse.json();
+    expect(healthSmokeBody.success).toBe(true);
+    expect(healthSmokeBody.data?.safety?.writesHealthHistory).toBe(true);
+    expect(healthSmokeBody.data?.persistence?.tableReady).toBe(true);
+    const healthItems = healthSmokeBody.data?.data || [];
+    for (const platform of ["rakuten", "amazon", "mercari"] as const) {
+      const item = healthItems.find(
+        (candidate: { platform?: string }) => candidate.platform === platform,
+      );
+      expect(item?.sample?.sampleId).toBeTruthy();
+      expect(item?.sampleSmoke?.status).not.toMatch(/^blocked/);
+      expect(item?.sampleSmoke?.detailStatus).not.toBe("blocked");
+    }
+
     const historyResponse = await request.get(
       `${backendUrl}/api/v1/integrations/admin/health/history?alertCode=live_smoke_failed&limit=5`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -292,5 +368,21 @@ test.describe("kangaroo-japan production smoke", () => {
     const historyBody = await historyResponse.json();
     expect(historyBody.success).toBe(true);
     expect(historyBody.data?.safety?.adminOnly).toBe(true);
+    expect(historyBody.data?.alerts).toEqual(
+      expect.objectContaining({
+        total: expect.any(Number),
+        blocked: expect.any(Number),
+        attention: expect.any(Number),
+      }),
+    );
+
+    const migrationStatusResponse = await request.get(
+      `${backendUrl}/api/v1/integrations/admin/health/migration-status`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    expect(migrationStatusResponse.ok()).toBe(true);
+    const migrationStatusBody = await migrationStatusResponse.json();
+    expect(migrationStatusBody.success).toBe(true);
+    expect(migrationStatusBody.data?.schema?.allRequiredReady).toBe(true);
   });
 });
