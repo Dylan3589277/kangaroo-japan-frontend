@@ -1,4 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -14,6 +19,9 @@ const artifactDir =
     `prod-smoke-${new Date().toISOString().slice(0, 10)}`,
   );
 const strictPlatformSmoke = process.env.STRICT_PLATFORM_SMOKE === "1";
+const e2eAdminEmail = process.env.E2E_ADMIN_EMAIL;
+const e2eAdminPassword = process.env.E2E_ADMIN_PASSWORD;
+const e2eAdminSeedSecret = process.env.E2E_ADMIN_SEED_SECRET;
 
 type ImageProbe = {
   src: string | null;
@@ -30,6 +38,55 @@ async function expectOkResponse(page: Page, url: string) {
   });
   expect(response?.status(), url).toBeGreaterThanOrEqual(200);
   expect(response?.status(), url).toBeLessThan(400);
+}
+
+async function seedE2EAdminIfConfigured(request: APIRequestContext) {
+  if (!e2eAdminSeedSecret) return;
+  const response = await request.post(
+    `${backendUrl}/api/v1/auth/internal/e2e-admin/seed`,
+    {
+      headers: { Authorization: `Bearer ${e2eAdminSeedSecret}` },
+    },
+  );
+  expect(response.ok()).toBe(true);
+}
+
+async function injectAdminSession(
+  page: Page,
+  request: APIRequestContext,
+) {
+  await seedE2EAdminIfConfigured(request);
+  const loginResponse = await request.post(`${backendUrl}/api/v1/auth/login`, {
+    data: {
+      email: e2eAdminEmail,
+      password: e2eAdminPassword,
+    },
+  });
+  expect(loginResponse.ok()).toBe(true);
+  const loginBody = await loginResponse.json();
+  const user = loginBody.data?.user;
+  const accessToken = loginBody.data?.tokens?.access_token;
+  expect(accessToken).toBeTruthy();
+  expect(user?.role).toBe("admin");
+
+  await page.addInitScript(
+    ({ storedUser, token }) => {
+      window.localStorage.setItem(
+        "auth-storage",
+        JSON.stringify({
+          state: {
+            user: storedUser,
+            accessToken: token,
+            isAuthenticated: true,
+          },
+          version: 0,
+        }),
+      );
+    },
+    { storedUser: user, token: accessToken },
+  );
+
+  return accessToken as string;
 }
 
 test.describe("kangaroo-japan production smoke", () => {
@@ -201,5 +258,39 @@ test.describe("kangaroo-japan production smoke", () => {
       expect(audit.amazon.configured).toBe(true);
       expect(audit.mercari.configured).toBe(true);
     }
+  });
+
+  test("admin pages expose refund lifecycle and platform alert filters when E2E credentials are available", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    test.skip(
+      !e2eAdminEmail || !e2eAdminPassword,
+      "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run authenticated admin smoke.",
+    );
+
+    const accessToken = await injectAdminSession(page, request);
+
+    await expectOkResponse(page, `${baseURL}/zh/admin/payments`);
+    await expect(page.getByText("Refund lifecycle")).toBeVisible();
+    await expect(page.getByText("manual_refund_completed")).toBeVisible();
+
+    await expectOkResponse(page, `${baseURL}/zh/admin/platforms`);
+    await expect(page.getByText("Health alert rules")).toBeVisible();
+    await expect(
+      page.locator(
+        'select[aria-label="platform health history alert code filter"]',
+      ),
+    ).toBeVisible();
+
+    const historyResponse = await request.get(
+      `${backendUrl}/api/v1/integrations/admin/health/history?alertCode=live_smoke_failed&limit=5`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    expect(historyResponse.ok()).toBe(true);
+    const historyBody = await historyResponse.json();
+    expect(historyBody.success).toBe(true);
+    expect(historyBody.data?.safety?.adminOnly).toBe(true);
   });
 });
