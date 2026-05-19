@@ -22,7 +22,10 @@ import type {
 
 type RefundReviewDecision =
   | "needs_review"
+  | "finance_review"
   | "approved_for_manual_refund"
+  | "manual_refund_processing"
+  | "manual_refund_completed"
   | "rejected";
 
 function formatDate(value?: string | null) {
@@ -34,6 +37,29 @@ function refundReviewLabel(decision: RefundReviewDecision | string) {
   if (decision === "approved_for_manual_refund") return "批准人工退款";
   if (decision === "rejected") return "驳回退款";
   return "需要复核";
+}
+
+function refundLifecycle(approval?: AdminRefundApprovalItem) {
+  return (approval?.metadata as {
+    lifecycle?: {
+      previousDecision?: string | null;
+      currentDecision?: string;
+      nextAllowed?: string[];
+      terminal?: boolean;
+    };
+  } | null)?.lifecycle;
+}
+
+function refundReviewDisplayLabel(decision: RefundReviewDecision | string) {
+  const labels: Record<string, string> = {
+    needs_review: "Needs review",
+    finance_review: "Finance review",
+    approved_for_manual_refund: "Approved manual refund",
+    manual_refund_processing: "Manual refund processing",
+    manual_refund_completed: "Manual refund completed",
+    rejected: "Rejected",
+  };
+  return labels[decision] || decision;
 }
 
 export default function AdminPaymentsPage() {
@@ -123,7 +149,7 @@ export default function AdminPaymentsPage() {
       return;
     }
     setReviewMessage(
-      `已记录 ${payment.paymentNo} 的退款审核：${refundReviewLabel(
+      `已记录 ${payment.paymentNo} 的退款审核：${refundReviewDisplayLabel(
         decision,
       )}；未触发真实退款，也未改写支付状态。`,
     );
@@ -209,6 +235,30 @@ export default function AdminPaymentsPage() {
         </div>
       ) : null}
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Refund lifecycle</CardTitle>
+          <CardDescription>
+            Approval ledger only; provider refund and payment state changes stay
+            disabled.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2 text-sm">
+          {[
+            "needs_review",
+            "finance_review",
+            "approved_for_manual_refund",
+            "manual_refund_processing",
+            "manual_refund_completed",
+            "rejected",
+          ].map((state) => (
+            <Badge key={state} variant="outline">
+              {state}
+            </Badge>
+          ))}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
@@ -278,6 +328,7 @@ export default function AdminPaymentsPage() {
                   const latestApproval = latestApprovalByPayment.get(
                     payment.id,
                   );
+                  const lifecycle = refundLifecycle(latestApproval);
                   return (
                     <tr key={payment.id} className="border-t align-top">
                       <td className="px-3 py-2 font-medium">
@@ -317,13 +368,29 @@ export default function AdminPaymentsPage() {
                         {latestApproval ? (
                           <div className="grid gap-1">
                             <Badge variant="outline" className="w-fit">
-                              {refundReviewLabel(latestApproval.decision)}
+                              {refundReviewDisplayLabel(latestApproval.decision)}
                             </Badge>
                             <span>{formatDate(latestApproval.createdAt)}</span>
                             <span className="text-xs">
                               provider refund:{" "}
                               {String(latestApproval.providerRefundAction)}
                             </span>
+                            {lifecycle ? (
+                              <div className="grid gap-1 text-xs">
+                                <span>
+                                  current:{" "}
+                                  {lifecycle.currentDecision ||
+                                    latestApproval.decision}
+                                </span>
+                                <span>
+                                  next:{" "}
+                                  {lifecycle.terminal
+                                    ? "terminal"
+                                    : lifecycle.nextAllowed?.join(" / ") ||
+                                      "-"}
+                                </span>
+                              </div>
+                            ) : null}
                           </div>
                         ) : (
                           "-"
@@ -338,7 +405,7 @@ export default function AdminPaymentsPage() {
                             <ShieldCheck className="h-3.5 w-3.5" />
                             生命周期留痕，不触发 provider refund
                           </div>
-                          <div className="grid gap-2 md:grid-cols-[150px_1fr_auto]">
+                          <div className="grid gap-2 md:grid-cols-[230px_1fr_auto]">
                             <select
                               className="h-9 rounded-md border bg-background px-2 text-sm"
                               value={
@@ -353,8 +420,17 @@ export default function AdminPaymentsPage() {
                               }
                             >
                               <option value="needs_review">需要复核</option>
+                              <option value="finance_review">
+                                finance_review
+                              </option>
                               <option value="approved_for_manual_refund">
                                 批准人工退款
+                              </option>
+                              <option value="manual_refund_processing">
+                                manual_refund_processing
+                              </option>
+                              <option value="manual_refund_completed">
+                                manual_refund_completed
                               </option>
                               <option value="rejected">驳回</option>
                             </select>

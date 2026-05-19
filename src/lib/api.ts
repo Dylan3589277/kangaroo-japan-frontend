@@ -228,6 +228,24 @@ export interface AdminPlatformHealthItem {
     error?: string;
     checkedAt: string;
   };
+  alerts?: Array<{
+    code: string;
+    severity: "critical" | "warning" | string;
+    message: string;
+    actionPath: string;
+    notification: {
+      channel: "admin_console" | string;
+      enabled: boolean;
+      externalPush: boolean;
+    };
+  }>;
+  notification?: {
+    channel: "admin_console" | string;
+    enabled: boolean;
+    externalPush: boolean;
+    message: string | null;
+    actionPath: string;
+  };
 }
 
 export interface AdminOrderItem {
@@ -271,7 +289,20 @@ export interface AdminOrderItem {
     payment_id: string;
     payment_method?: string | null;
     paid_at?: string | null;
+    admin_path?: string | null;
   } | null;
+  linked_context?: {
+    readonly: boolean;
+    order_admin_path: string;
+    payment_admin_path?: string | null;
+    support_lookup_path: string;
+    refund_review_candidate: boolean;
+    product_sources: {
+      platforms: string[];
+      count: number;
+      detail_links: string[];
+    };
+  };
 }
 
 export interface AdminPaymentItem {
@@ -342,6 +373,14 @@ export interface AdminRefundReviewResponse {
   payment: AdminPaymentItem;
   approval: AdminRefundApprovalItem;
   lifecycleRecorded: boolean;
+  lifecycle?: {
+    previousDecision: string | null;
+    currentDecision: string;
+    nextAllowed: string[];
+    terminal: boolean;
+    providerRefundAction: boolean;
+    paymentStateChanged: boolean;
+  };
   auditRecorded: boolean;
   safety: {
     adminOnly: boolean;
@@ -1148,6 +1187,12 @@ class ApiClient {
   async getAdminPlatformHealth() {
     return this.request<{
       data: AdminPlatformHealthItem[];
+      alerts?: {
+        total: number;
+        blocked: number;
+        attention: number;
+        notifications?: Array<Record<string, unknown>>;
+      };
       safety: Record<string, unknown>;
     }>("/integrations/admin/health");
   }
@@ -1155,11 +1200,18 @@ class ApiClient {
   async getAdminPlatformHealthHistory(params?: {
     platform?: "yahoo" | "rakuten" | "amazon" | "mercari";
     status?: "healthy" | "attention" | "blocked";
+    alertCode?:
+      | "platform_blocked"
+      | "missing_credentials"
+      | "missing_sample"
+      | "live_smoke_failed"
+      | "stale_sync";
     limit?: number;
   }) {
     const searchParams = new URLSearchParams();
     if (params?.platform) searchParams.set("platform", params.platform);
     if (params?.status) searchParams.set("status", params.status);
+    if (params?.alertCode) searchParams.set("alertCode", params.alertCode);
     if (params?.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
     return this.request<{
@@ -1183,6 +1235,12 @@ class ApiClient {
     return this.request<{
       data: AdminPlatformHealthItem[];
       persistence: AdminPlatformHealthMigrationStatus;
+      alerts?: {
+        total: number;
+        blocked: number;
+        attention: number;
+        notifications?: Array<Record<string, unknown>>;
+      };
       safety: Record<string, unknown>;
     }>("/integrations/admin/health/smoke", {
       method: "POST",
@@ -1269,7 +1327,13 @@ class ApiClient {
   async recordAdminRefundReview(
     paymentId: string,
     data: {
-      decision: "needs_review" | "approved_for_manual_refund" | "rejected";
+      decision:
+        | "needs_review"
+        | "finance_review"
+        | "approved_for_manual_refund"
+        | "manual_refund_processing"
+        | "manual_refund_completed"
+        | "rejected";
       reason?: string | null;
     },
   ) {

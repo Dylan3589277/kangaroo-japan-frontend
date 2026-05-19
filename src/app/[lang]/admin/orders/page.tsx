@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { RefreshCw, Search, ShoppingCart } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -125,7 +126,7 @@ export default function AdminOrdersPage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[1080px] text-left text-sm">
+            <table className="w-full min-w-[1280px] text-left text-sm">
               <thead className="bg-muted text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 font-medium">订单号</th>
@@ -150,7 +151,21 @@ export default function AdminOrdersPage() {
                 ) : null}
                 {orders.map((order) => (
                   <tr key={order.id} className="border-t">
-                    <td className="px-3 py-2 font-medium">{order.order_no}</td>
+                    <td className="px-3 py-2 font-medium">
+                      {order.order_no}
+                      {order.linked_context ? (
+                        <div className="mt-2 grid gap-1 text-xs font-normal text-muted-foreground">
+                          <span>
+                            support: {order.linked_context.support_lookup_path}
+                          </span>
+                          {order.linked_context.refund_review_candidate ? (
+                            <Badge variant="outline" className="w-fit">
+                              refund candidate
+                            </Badge>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-2">
                       <Badge variant="outline">{order.status}</Badge>
                     </td>
@@ -164,12 +179,40 @@ export default function AdminOrdersPage() {
                             `${item.title || item.product_id} x ${item.quantity}`,
                         )
                         .join("；") || "-"}
+                      {order.linked_context?.product_sources ? (
+                        <div className="mt-2 flex flex-wrap gap-1 text-xs">
+                          {order.linked_context.product_sources.platforms.map(
+                            (platform) => (
+                              <Badge key={platform} variant="outline">
+                                {platform}
+                              </Badge>
+                            ),
+                          )}
+                          <span>
+                            detail links{" "}
+                            {
+                              order.linked_context.product_sources.detail_links
+                                .length
+                            }
+                          </span>
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {order.payment_link?.payment_id ||
                         order.payment_method ||
                         "-"}{" "}
                       / {formatDate(order.paid_at)}
+                      {order.payment_link?.admin_path ? (
+                        <div className="mt-1 text-xs">
+                          <Link
+                            className="text-primary hover:underline"
+                            href={order.payment_link.admin_path}
+                          >
+                            payment admin
+                          </Link>
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {order.shipping_carrier || "-"} /{" "}

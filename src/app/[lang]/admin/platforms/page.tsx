@@ -39,6 +39,17 @@ function badgeVariant(status: string) {
   return "outline";
 }
 
+function historyAlertCodes(item: AdminPlatformHealthHistoryItem) {
+  const alerts = (item.payload as {
+    alerts?: Array<{ code?: string; severity?: string }>;
+  })?.alerts;
+  return Array.isArray(alerts)
+    ? alerts
+        .map((alert) => alert.code)
+        .filter((code): code is string => Boolean(code))
+    : [];
+}
+
 function tableBadge(table?: AdminSchemaTableStatus) {
   if (!table) return { text: "未检查", variant: "outline" as const };
   if (table.tableReady && table.migrationRecorded !== false) {
@@ -67,11 +78,25 @@ export default function AdminPlatformsPage() {
   const [historyStatus, setHistoryStatus] = useState<
     "all" | "healthy" | "attention" | "blocked"
   >("all");
+  const [historyAlertCode, setHistoryAlertCode] = useState<
+    | "all"
+    | "platform_blocked"
+    | "missing_credentials"
+    | "missing_sample"
+    | "live_smoke_failed"
+    | "stale_sync"
+  >("all");
   const [historyAlerts, setHistoryAlerts] = useState({
     total: 0,
     blocked: 0,
     attention: 0,
   });
+  const [healthAlerts, setHealthAlerts] = useState<{
+    total: number;
+    blocked: number;
+    attention: number;
+    notifications?: Array<Record<string, unknown>>;
+  }>({ total: 0, blocked: 0, attention: 0 });
 
   const schema = migration?.schema;
   const blockedCount = useMemo(
@@ -92,6 +117,8 @@ export default function AdminPlatformsPage() {
         limit: 16,
         platform: historyPlatform === "all" ? undefined : historyPlatform,
         status: historyStatus === "all" ? undefined : historyStatus,
+        alertCode:
+          historyAlertCode === "all" ? undefined : historyAlertCode,
       }),
       api.getAdminPlatformHealthMigrationStatus(),
     ]);
@@ -105,7 +132,7 @@ export default function AdminPlatformsPage() {
     if (migrationResponse.success && migrationResponse.data) {
       setMigration(migrationResponse.data);
     }
-  }, [historyPlatform, historyStatus]);
+  }, [historyAlertCode, historyPlatform, historyStatus]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,6 +145,9 @@ export default function AdminPlatformsPage() {
       return;
     }
     setItems(response.data.data || []);
+    setHealthAlerts(
+      response.data.alerts || { total: 0, blocked: 0, attention: 0 },
+    );
     await loadHistory();
   }, [loadHistory]);
 
@@ -132,6 +162,9 @@ export default function AdminPlatformsPage() {
     }
     setItems(response.data.data || []);
     setMigration(response.data.persistence);
+    setHealthAlerts(
+      response.data.alerts || { total: 0, blocked: 0, attention: 0 },
+    );
     setSyncMessage("健康 smoke 已写入历史");
     await loadHistory();
   }
@@ -291,6 +324,60 @@ export default function AdminPlatformsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Health alert rules</CardTitle>
+          <CardDescription>
+            Admin console notifications only; external push remains disabled.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant={healthAlerts.total > 0 ? "destructive" : "secondary"}
+            >
+              current alerts {healthAlerts.total}
+            </Badge>
+            <span className="text-muted-foreground">
+              critical {healthAlerts.blocked} / warning{" "}
+              {healthAlerts.attention}
+            </span>
+          </div>
+          {(healthAlerts.notifications || []).length > 0 ? (
+            <div className="grid gap-2 md:grid-cols-2">
+              {(healthAlerts.notifications || []).map((notification, index) => (
+                <div key={index} className="rounded-lg border p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={
+                        notification.severity === "critical"
+                          ? "destructive"
+                          : "outline"
+                      }
+                    >
+                      {String(notification.platform)} /{" "}
+                      {String(notification.code)}
+                    </Badge>
+                    <span className="text-muted-foreground">
+                      {String(notification.channel)}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-muted-foreground">
+                    {String(notification.message)}
+                  </div>
+                  <div className="mt-1 font-mono text-xs text-muted-foreground">
+                    externalPush={String(notification.externalPush)} action=
+                    {String(notification.actionPath)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-muted-foreground">No active health alerts.</div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Database className="h-4 w-4" />
             基础 schema 状态
@@ -327,6 +414,23 @@ export default function AdminPlatformsPage() {
               <option value="healthy">healthy</option>
               <option value="attention">attention</option>
               <option value="blocked">blocked</option>
+            </select>
+            <select
+              value={historyAlertCode}
+              onChange={(event) =>
+                setHistoryAlertCode(
+                  event.target.value as typeof historyAlertCode,
+                )
+              }
+              className="h-9 rounded-md border bg-background px-3 text-sm"
+              aria-label="platform health history alert code filter"
+            >
+              <option value="all">all alert codes</option>
+              <option value="missing_credentials">missing_credentials</option>
+              <option value="missing_sample">missing_sample</option>
+              <option value="live_smoke_failed">live_smoke_failed</option>
+              <option value="platform_blocked">platform_blocked</option>
+              <option value="stale_sync">stale_sync</option>
             </select>
             <Badge
               variant={historyAlerts.total > 0 ? "destructive" : "secondary"}
@@ -546,6 +650,15 @@ export default function AdminPlatformsPage() {
                       <Badge variant={badgeVariant(item.status)}>
                         {item.status}
                       </Badge>
+                      {historyAlertCodes(item).length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {historyAlertCodes(item).map((code) => (
+                            <Badge key={code} variant="outline">
+                              {code}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {item.credentialStatus} / {item.sampleStatus}
