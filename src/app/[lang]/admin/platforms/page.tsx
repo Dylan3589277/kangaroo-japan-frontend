@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  ClipboardCheck,
   Database,
   RefreshCw,
   Server,
@@ -20,6 +21,9 @@ import {
 } from "@/components/ui/card";
 import {
   api,
+  type AdminAuditLogItem,
+  type AdminPlatformHealthAlertCode,
+  type AdminPlatformHealthHandlingOutcome,
   type AdminPlatformHealthHistoryItem,
   type AdminPlatformHealthItem,
   type AdminPlatformHealthMigrationStatus,
@@ -72,6 +76,9 @@ export default function AdminPlatformsPage() {
   const [syncKeyword, setSyncKeyword] = useState("iphone");
   const [syncingPlatform, setSyncingPlatform] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
+  const [alertNote, setAlertNote] = useState("");
+  const [alertActionBusy, setAlertActionBusy] = useState("");
+  const [alertAuditLogs, setAlertAuditLogs] = useState<AdminAuditLogItem[]>([]);
   const [historyPlatform, setHistoryPlatform] = useState<
     "all" | AdminPlatformHealthItem["platform"]
   >("all");
@@ -112,7 +119,8 @@ export default function AdminPlatformsPage() {
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
-    const [historyResponse, migrationResponse] = await Promise.all([
+    const [historyResponse, migrationResponse, auditResponse] =
+      await Promise.all([
       api.getAdminPlatformHealthHistory({
         limit: 16,
         platform: historyPlatform === "all" ? undefined : historyPlatform,
@@ -121,6 +129,10 @@ export default function AdminPlatformsPage() {
           historyAlertCode === "all" ? undefined : historyAlertCode,
       }),
       api.getAdminPlatformHealthMigrationStatus(),
+      api.listAdminAuditLogs({
+        resourceType: "platform_health_alert",
+        limit: 8,
+      }),
     ]);
     setHistoryLoading(false);
     if (historyResponse.success && historyResponse.data) {
@@ -131,6 +143,9 @@ export default function AdminPlatformsPage() {
     }
     if (migrationResponse.success && migrationResponse.data) {
       setMigration(migrationResponse.data);
+    }
+    if (auditResponse.success && auditResponse.data) {
+      setAlertAuditLogs(auditResponse.data.data || []);
     }
   }, [historyAlertCode, historyPlatform, historyStatus]);
 
@@ -188,6 +203,53 @@ export default function AdminPlatformsPage() {
       `${platform}: ${result.success ? "成功" : "失败"}，同步 ${result.synced} 个`,
     );
     await load();
+  }
+
+  async function acknowledgeAlert(
+    platform: AdminPlatformHealthItem["platform"],
+    code: AdminPlatformHealthAlertCode,
+  ) {
+    const key = `${platform}:${code}:ack`;
+    setAlertActionBusy(key);
+    setSyncMessage("");
+    const response = await api.acknowledgePlatformHealthAlert({
+      platform,
+      code,
+      note: alertNote.trim() || undefined,
+    });
+    setAlertActionBusy("");
+    if (!response.success) {
+      setSyncMessage(response.error?.message || "Alert acknowledge failed");
+      return;
+    }
+    setSyncMessage(`acknowledged ${platform}/${code}`);
+    setAlertNote("");
+    await loadHistory();
+  }
+
+  async function recordAlertHandling(
+    platform: AdminPlatformHealthItem["platform"],
+    code: AdminPlatformHealthAlertCode,
+    outcome: AdminPlatformHealthHandlingOutcome,
+  ) {
+    const key = `${platform}:${code}:${outcome}`;
+    setAlertActionBusy(key);
+    setSyncMessage("");
+    const response = await api.handlePlatformHealthAlert({
+      platform,
+      code,
+      outcome,
+      note: alertNote.trim() || undefined,
+      nextAction: outcome === "retry_started" ? "platform sync retry" : undefined,
+    });
+    setAlertActionBusy("");
+    if (!response.success) {
+      setSyncMessage(response.error?.message || "Alert handling failed");
+      return;
+    }
+    setSyncMessage(`recorded ${outcome} for ${platform}/${code}`);
+    setAlertNote("");
+    await loadHistory();
   }
 
   useEffect(() => {
@@ -330,6 +392,16 @@ export default function AdminPlatformsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+            <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+            <input
+              value={alertNote}
+              onChange={(event) => setAlertNote(event.target.value)}
+              className="h-9 min-w-72 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="platform alert handling note"
+              placeholder="Handling note for acknowledge / record"
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant={healthAlerts.total > 0 ? "destructive" : "secondary"}
@@ -373,6 +445,32 @@ export default function AdminPlatformsPage() {
           ) : (
             <div className="text-muted-foreground">No active health alerts.</div>
           )}
+          {alertAuditLogs.length > 0 ? (
+            <div className="rounded-lg border p-3">
+              <div className="mb-2 font-medium">Recent alert handling audit</div>
+              <div className="grid gap-2">
+                {alertAuditLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="grid gap-1 border-t pt-2 first:border-t-0 first:pt-0"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{log.action}</Badge>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {log.resourceId || "-"}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {formatDate(log.createdAt)}
+                      </span>
+                    </div>
+                    {log.summary ? (
+                      <div className="text-muted-foreground">{log.summary}</div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -588,6 +686,107 @@ export default function AdminPlatformsPage() {
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
                 {item.sample.notice}
               </div>
+              {item.alerts?.length ? (
+                <div className="rounded-lg border p-3">
+                  <div className="font-medium">Alert operations</div>
+                  <div className="mt-2 grid gap-2">
+                    {item.alerts.map((alert) => {
+                      const code = alert.code as AdminPlatformHealthAlertCode;
+                      return (
+                        <div
+                          key={`${item.platform}-${alert.code}`}
+                          className="rounded-md bg-muted p-2"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge
+                              variant={
+                                alert.severity === "critical"
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                            >
+                              {alert.code}
+                            </Badge>
+                            <span className="text-muted-foreground">
+                              {alert.message}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                acknowledgeAlert(item.platform, code)
+                              }
+                              disabled={
+                                alertActionBusy ===
+                                `${item.platform}:${code}:ack`
+                              }
+                            >
+                              Acknowledge
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                recordAlertHandling(
+                                  item.platform,
+                                  code,
+                                  "investigating",
+                                )
+                              }
+                              disabled={
+                                alertActionBusy ===
+                                `${item.platform}:${code}:investigating`
+                              }
+                            >
+                              Investigating
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                recordAlertHandling(
+                                  item.platform,
+                                  code,
+                                  "retry_started",
+                                )
+                              }
+                              disabled={
+                                alertActionBusy ===
+                                `${item.platform}:${code}:retry_started`
+                              }
+                            >
+                              Retry noted
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                recordAlertHandling(
+                                  item.platform,
+                                  code,
+                                  "resolved",
+                                )
+                              }
+                              disabled={
+                                alertActionBusy ===
+                                `${item.platform}:${code}:resolved`
+                              }
+                            >
+                              Resolved
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"

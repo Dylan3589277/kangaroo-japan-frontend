@@ -248,6 +248,20 @@ export interface AdminPlatformHealthItem {
   };
 }
 
+export type AdminPlatformHealthAlertCode =
+  | "platform_blocked"
+  | "missing_credentials"
+  | "missing_sample"
+  | "live_smoke_failed"
+  | "stale_sync";
+
+export type AdminPlatformHealthHandlingOutcome =
+  | "investigating"
+  | "retry_started"
+  | "resolved"
+  | "false_positive"
+  | "escalated";
+
 export interface AdminOrderItem {
   id: string;
   order_no: string;
@@ -1262,6 +1276,42 @@ class ApiClient {
       };
       safety: Record<string, unknown>;
     }>("/integrations/admin/sync/retry", {
+      method: "POST",
+      body: data,
+    });
+  }
+
+  async acknowledgePlatformHealthAlert(data: {
+    platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+    code: AdminPlatformHealthAlertCode;
+    historyId?: string;
+    note?: string;
+  }) {
+    return this.request<{
+      action: "acknowledged";
+      alert: Record<string, unknown>;
+      audit: { id?: string; action?: string } | null;
+      safety: Record<string, unknown>;
+    }>("/integrations/admin/health/alerts/acknowledge", {
+      method: "POST",
+      body: data,
+    });
+  }
+
+  async handlePlatformHealthAlert(data: {
+    platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+    code: AdminPlatformHealthAlertCode;
+    historyId?: string;
+    outcome?: AdminPlatformHealthHandlingOutcome;
+    note?: string;
+    nextAction?: string;
+  }) {
+    return this.request<{
+      action: "handling_recorded";
+      alert: Record<string, unknown>;
+      audit: { id?: string; action?: string } | null;
+      safety: Record<string, unknown>;
+    }>("/integrations/admin/health/alerts/handle", {
       method: "POST",
       body: data,
     });
