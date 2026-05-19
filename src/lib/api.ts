@@ -1154,14 +1154,17 @@ class ApiClient {
 
   async getAdminPlatformHealthHistory(params?: {
     platform?: "yahoo" | "rakuten" | "amazon" | "mercari";
+    status?: "healthy" | "attention" | "blocked";
     limit?: number;
   }) {
     const searchParams = new URLSearchParams();
     if (params?.platform) searchParams.set("platform", params.platform);
+    if (params?.status) searchParams.set("status", params.status);
     if (params?.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
     return this.request<{
       data: AdminPlatformHealthHistoryItem[];
+      alerts?: { total: number; blocked: number; attention: number };
       safety: Record<string, unknown>;
     }>(`/integrations/admin/health/history${query ? `?${query}` : ""}`);
   }

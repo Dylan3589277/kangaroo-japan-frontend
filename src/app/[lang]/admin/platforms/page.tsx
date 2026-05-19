@@ -61,6 +61,17 @@ export default function AdminPlatformsPage() {
   const [syncKeyword, setSyncKeyword] = useState("iphone");
   const [syncingPlatform, setSyncingPlatform] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
+  const [historyPlatform, setHistoryPlatform] = useState<
+    "all" | AdminPlatformHealthItem["platform"]
+  >("all");
+  const [historyStatus, setHistoryStatus] = useState<
+    "all" | "healthy" | "attention" | "blocked"
+  >("all");
+  const [historyAlerts, setHistoryAlerts] = useState({
+    total: 0,
+    blocked: 0,
+    attention: 0,
+  });
 
   const schema = migration?.schema;
   const blockedCount = useMemo(
@@ -77,17 +88,24 @@ export default function AdminPlatformsPage() {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     const [historyResponse, migrationResponse] = await Promise.all([
-      api.getAdminPlatformHealthHistory({ limit: 16 }),
+      api.getAdminPlatformHealthHistory({
+        limit: 16,
+        platform: historyPlatform === "all" ? undefined : historyPlatform,
+        status: historyStatus === "all" ? undefined : historyStatus,
+      }),
       api.getAdminPlatformHealthMigrationStatus(),
     ]);
     setHistoryLoading(false);
     if (historyResponse.success && historyResponse.data) {
       setHistory(historyResponse.data.data || []);
+      setHistoryAlerts(
+        historyResponse.data.alerts || { total: 0, blocked: 0, attention: 0 },
+      );
     }
     if (migrationResponse.success && migrationResponse.data) {
       setMigration(migrationResponse.data);
     }
-  }, []);
+  }, [historyPlatform, historyStatus]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -282,6 +300,44 @@ export default function AdminPlatformsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <select
+              value={historyPlatform}
+              onChange={(event) =>
+                setHistoryPlatform(event.target.value as typeof historyPlatform)
+              }
+              className="h-9 rounded-md border bg-background px-3 text-sm"
+              aria-label="platform health history platform filter"
+            >
+              <option value="all">全部平台</option>
+              <option value="yahoo">Yahoo Auction</option>
+              <option value="rakuten">Rakuten</option>
+              <option value="amazon">Amazon</option>
+              <option value="mercari">Mercari</option>
+            </select>
+            <select
+              value={historyStatus}
+              onChange={(event) =>
+                setHistoryStatus(event.target.value as typeof historyStatus)
+              }
+              className="h-9 rounded-md border bg-background px-3 text-sm"
+              aria-label="platform health history status filter"
+            >
+              <option value="all">全部状态</option>
+              <option value="healthy">healthy</option>
+              <option value="attention">attention</option>
+              <option value="blocked">blocked</option>
+            </select>
+            <Badge
+              variant={historyAlerts.total > 0 ? "destructive" : "secondary"}
+            >
+              alerts {historyAlerts.total}
+            </Badge>
+            <span className="text-sm text-muted-foreground">
+              blocked {historyAlerts.blocked} / attention{" "}
+              {historyAlerts.attention}
+            </span>
+          </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-muted text-muted-foreground">
