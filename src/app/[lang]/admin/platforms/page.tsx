@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, RefreshCw, Server } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { api, type AdminPlatformHealthItem } from "@/lib/api";
+import {
+  api,
+  type AdminPlatformHealthHistoryItem,
+  type AdminPlatformHealthItem,
+} from "@/lib/api";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -20,16 +24,18 @@ function formatDate(value?: string | null) {
 }
 
 function badgeVariant(
-  status: AdminPlatformHealthItem["sampleSmoke"]["status"],
+  status: AdminPlatformHealthItem["sampleSmoke"]["status"] | string,
 ) {
-  if (status === "passed") return "secondary";
-  if (status === "failed") return "destructive";
+  if (status === "passed" || status === "healthy") return "secondary";
+  if (status === "failed" || status === "blocked") return "destructive";
   return "outline";
 }
 
 export default function AdminPlatformsPage() {
   const [items, setItems] = useState<AdminPlatformHealthItem[]>([]);
+  const [history, setHistory] = useState<AdminPlatformHealthHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState("");
   const [syncKeyword, setSyncKeyword] = useState("iphone");
   const [syncingPlatform, setSyncingPlatform] = useState("");
@@ -44,7 +50,16 @@ export default function AdminPlatformsPage() {
     [items],
   );
 
-  async function load() {
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    const response = await api.getAdminPlatformHealthHistory({ limit: 16 });
+    setHistoryLoading(false);
+    if (response.success && response.data) {
+      setHistory(response.data.data || []);
+    }
+  }, []);
+
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     const response = await api.getAdminPlatformHealth();
@@ -55,7 +70,8 @@ export default function AdminPlatformsPage() {
       return;
     }
     setItems(response.data.data || []);
-  }
+    await loadHistory();
+  }, [loadHistory]);
 
   async function retrySync(platform: AdminPlatformHealthItem["platform"]) {
     const keyword = syncKeyword.trim();
@@ -73,7 +89,9 @@ export default function AdminPlatformsPage() {
     }
     const result = response.data.result;
     setSyncMessage(
-      `${platform}: ${result.success ? "成功" : "失败"}，同步 ${result.synced} 个`,
+      `${platform}: ${result.success ? "成功" : "失败"}，同步 ${
+        result.synced
+      } 个`,
     );
     await load();
   }
@@ -83,7 +101,7 @@ export default function AdminPlatformsPage() {
       void load();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [load]);
 
   return (
     <div className="space-y-6">
@@ -255,6 +273,76 @@ export default function AdminPlatformsPage() {
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>最近健康留痕</CardTitle>
+          <CardDescription>
+            每次后台健康检查会保存一条只读快照，方便追踪凭证、样本、详情和图片状态。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">时间</th>
+                  <th className="px-3 py-2 font-medium">平台</th>
+                  <th className="px-3 py-2 font-medium">总状态</th>
+                  <th className="px-3 py-2 font-medium">凭证 / 样本</th>
+                  <th className="px-3 py-2 font-medium">Smoke</th>
+                  <th className="px-3 py-2 font-medium">详情 / 图片</th>
+                  <th className="px-3 py-2 font-medium">样本 / 错误</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-3 py-8 text-center text-muted-foreground"
+                    >
+                      {historyLoading ? "正在读取历史留痕" : "暂无历史留痕"}
+                    </td>
+                  </tr>
+                ) : null}
+                {history.map((item) => (
+                  <tr key={item.id} className="border-t align-top">
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {formatDate(item.checkedAt || item.createdAt)}
+                    </td>
+                    <td className="px-3 py-2 font-medium capitalize">
+                      {item.platform}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant={badgeVariant(item.status)}>
+                        {item.status}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {item.credentialStatus} / {item.sampleStatus}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {item.sampleSmokeStatus}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {item.detailStatus} / {item.imageStatus}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      <div>{item.sampleId || "-"}</div>
+                      {item.error ? (
+                        <div className="mt-1 max-w-md break-all text-red-600">
+                          {item.error}
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

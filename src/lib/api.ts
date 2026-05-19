@@ -335,6 +335,34 @@ export interface AdminPaymentReconciliation {
   safety?: Record<string, unknown>;
 }
 
+export interface AdminRefundReviewResponse {
+  payment: AdminPaymentItem;
+  auditRecorded: boolean;
+  safety: {
+    adminOnly: boolean;
+    approvalOnly: boolean;
+    providerRefundAction: boolean;
+    paymentStateChanged: boolean;
+  };
+}
+
+export interface AdminPlatformHealthHistoryItem {
+  id: string;
+  platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+  status: "healthy" | "attention" | "blocked" | string;
+  credentialStatus: string;
+  sampleStatus: string;
+  sampleId?: string | null;
+  sampleSmokeStatus: string;
+  detailStatus: string;
+  imageStatus: string;
+  imageUrl?: string | null;
+  error?: string | null;
+  payload: Record<string, unknown>;
+  checkedAt: string;
+  createdAt: string;
+}
+
 class ApiClient {
   private baseUrl: string;
   private isRefreshing = false;
@@ -1059,6 +1087,20 @@ class ApiClient {
     }>("/integrations/admin/health");
   }
 
+  async getAdminPlatformHealthHistory(params?: {
+    platform?: "yahoo" | "rakuten" | "amazon" | "mercari";
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.platform) searchParams.set("platform", params.platform);
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<{
+      data: AdminPlatformHealthHistoryItem[];
+      safety: Record<string, unknown>;
+    }>(`/integrations/admin/health/history${query ? `?${query}` : ""}`);
+  }
+
   async retryPlatformSync(data: {
     platform: "yahoo" | "rakuten" | "amazon" | "mercari";
     keyword: string;
@@ -1118,6 +1160,22 @@ class ApiClient {
   async getAdminPaymentReconciliation() {
     return this.request<AdminPaymentReconciliation>(
       "/payments/admin/reconciliation",
+    );
+  }
+
+  async recordAdminRefundReview(
+    paymentId: string,
+    data: {
+      decision: "needs_review" | "approved_for_manual_refund" | "rejected";
+      reason?: string | null;
+    },
+  ) {
+    return this.request<AdminRefundReviewResponse>(
+      `/payments/admin/${paymentId}/refund-review`,
+      {
+        method: "POST",
+        body: data,
+      },
     );
   }
 

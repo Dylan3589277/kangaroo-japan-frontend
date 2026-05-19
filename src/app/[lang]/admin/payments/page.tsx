@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { CreditCard, RefreshCw, Search } from "lucide-react";
+import { CreditCard, RefreshCw, Search, ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,9 +17,20 @@ import { Input } from "@/components/ui/input";
 import { api, type AdminPaymentItem } from "@/lib/api";
 import type { AdminPaymentReconciliation } from "@/lib/api";
 
+type RefundReviewDecision =
+  | "needs_review"
+  | "approved_for_manual_refund"
+  | "rejected";
+
 function formatDate(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
+}
+
+function refundReviewLabel(decision: RefundReviewDecision) {
+  if (decision === "approved_for_manual_refund") return "批准人工退款";
+  if (decision === "rejected") return "驳回退款";
+  return "需要复核";
 }
 
 export default function AdminPaymentsPage() {
@@ -32,6 +43,12 @@ export default function AdminPaymentsPage() {
   const [error, setError] = useState("");
   const [reconciliation, setReconciliation] =
     useState<AdminPaymentReconciliation | null>(null);
+  const [reviewDecision, setReviewDecision] = useState<
+    Record<string, RefundReviewDecision>
+  >({});
+  const [reviewReason, setReviewReason] = useState<Record<string, string>>({});
+  const [reviewingPaymentId, setReviewingPaymentId] = useState("");
+  const [reviewMessage, setReviewMessage] = useState("");
 
   async function load(params?: {
     q?: string;
@@ -70,6 +87,31 @@ export default function AdminPaymentsPage() {
     });
   }
 
+  async function submitRefundReview(payment: AdminPaymentItem) {
+    const decision = reviewDecision[payment.id] || "needs_review";
+    setReviewingPaymentId(payment.id);
+    setReviewMessage("");
+    const response = await api.recordAdminRefundReview(payment.id, {
+      decision,
+      reason: reviewReason[payment.id]?.trim() || null,
+    });
+    setReviewingPaymentId("");
+    if (!response.success || !response.data) {
+      setReviewMessage(response.error?.message || "退款审核记录失败");
+      return;
+    }
+    setReviewMessage(
+      `已记录 ${payment.paymentNo} 的退款审核：${refundReviewLabel(
+        decision,
+      )}；未触发真实退款，也未改写支付状态。`,
+    );
+    await load({
+      q: query.trim(),
+      status: status.trim(),
+      provider: provider.trim(),
+    });
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void load();
@@ -85,7 +127,7 @@ export default function AdminPaymentsPage() {
             <CreditCard className="h-4 w-4" />
             共用后台 P0
           </div>
-          <h1 className="mt-2 text-2xl font-semibold">支付流水只读</h1>
+          <h1 className="mt-2 text-2xl font-semibold">支付流水与退款审核</h1>
         </div>
         <Button
           type="button"
@@ -102,7 +144,7 @@ export default function AdminPaymentsPage() {
         <CardHeader>
           <CardTitle>筛选</CardTitle>
           <CardDescription>
-            支付号、网关 ID、订单号；不展示卡号等敏感字段
+            支付号、网关 ID、订单号；不展示卡号等敏感字段。
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -136,6 +178,12 @@ export default function AdminPaymentsPage() {
       {error ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {error}
+        </div>
+      ) : null}
+
+      {reviewMessage ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          {reviewMessage}
         </div>
       ) : null}
 
@@ -173,12 +221,12 @@ export default function AdminPaymentsPage() {
         <CardHeader>
           <CardTitle>流水列表</CardTitle>
           <CardDescription>
-            共 {total} 笔，显示前 {payments.length} 笔
+            共 {total} 笔，显示前 {payments.length} 笔。退款审核只写入审计日志。
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[1080px] text-left text-sm">
+            <table className="w-full min-w-[1480px] text-left text-sm">
               <thead className="bg-muted text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 font-medium">支付号</th>
@@ -186,15 +234,17 @@ export default function AdminPaymentsPage() {
                   <th className="px-3 py-2 font-medium">金额</th>
                   <th className="px-3 py-2 font-medium">通道</th>
                   <th className="px-3 py-2 font-medium">状态</th>
+                  <th className="px-3 py-2 font-medium">退款</th>
                   <th className="px-3 py-2 font-medium">支付时间</th>
                   <th className="px-3 py-2 font-medium">创建时间</th>
+                  <th className="px-3 py-2 font-medium">退款审核</th>
                 </tr>
               </thead>
               <tbody>
                 {payments.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={9}
                       className="px-3 py-8 text-center text-muted-foreground"
                     >
                       {loading ? "正在读取支付流水" : "暂无支付流水"}
@@ -202,7 +252,7 @@ export default function AdminPaymentsPage() {
                   </tr>
                 ) : null}
                 {payments.map((payment) => (
-                  <tr key={payment.id} className="border-t">
+                  <tr key={payment.id} className="border-t align-top">
                     <td className="px-3 py-2 font-medium">
                       {payment.paymentNo}
                     </td>
@@ -228,10 +278,66 @@ export default function AdminPaymentsPage() {
                       <Badge variant="outline">{payment.status}</Badge>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
+                      {payment.refundAmount > 0 ? (
+                        <span>
+                          {payment.refundAmount} {payment.currency}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
                       {formatDate(payment.paidAt)}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {formatDate(payment.createdAt)}
+                    </td>
+                    <td className="min-w-[360px] px-3 py-2">
+                      <div className="grid gap-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          审批留痕，不触发 provider refund
+                        </div>
+                        <div className="grid gap-2 md:grid-cols-[150px_1fr_auto]">
+                          <select
+                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                            value={reviewDecision[payment.id] || "needs_review"}
+                            onChange={(event) =>
+                              setReviewDecision((current) => ({
+                                ...current,
+                                [payment.id]: event.target
+                                  .value as RefundReviewDecision,
+                              }))
+                            }
+                          >
+                            <option value="needs_review">需要复核</option>
+                            <option value="approved_for_manual_refund">
+                              批准人工退款
+                            </option>
+                            <option value="rejected">驳回</option>
+                          </select>
+                          <Input
+                            value={reviewReason[payment.id] || ""}
+                            onChange={(event) =>
+                              setReviewReason((current) => ({
+                                ...current,
+                                [payment.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="原因 / 备注"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => submitRefundReview(payment)}
+                            disabled={reviewingPaymentId === payment.id}
+                          >
+                            {reviewingPaymentId === payment.id
+                              ? "记录中"
+                              : "记录"}
+                          </Button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ))}
