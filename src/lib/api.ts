@@ -298,6 +298,20 @@ export interface AdminPaymentItem {
   updatedAt: string;
 }
 
+export interface AdminAuditLogItem {
+  id: string;
+  actorId?: string | null;
+  actorEmailHash?: string | null;
+  action: string;
+  resourceType: string;
+  resourceId?: string | null;
+  summary?: string | null;
+  metadata?: Record<string, unknown> | null;
+  ipHash?: string | null;
+  userAgentHash?: string | null;
+  createdAt: string;
+}
+
 export interface AdminListResponse<T> {
   data: T[];
   pagination: {
@@ -1104,6 +1118,28 @@ class ApiClient {
   async getAdminPaymentReconciliation() {
     return this.request<AdminPaymentReconciliation>(
       "/payments/admin/reconciliation",
+    );
+  }
+
+  async listAdminAuditLogs(params?: {
+    action?: string;
+    resourceType?: string;
+    resourceId?: string;
+    actorId?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.action) searchParams.set("action", params.action);
+    if (params?.resourceType)
+      searchParams.set("resourceType", params.resourceType);
+    if (params?.resourceId) searchParams.set("resourceId", params.resourceId);
+    if (params?.actorId) searchParams.set("actorId", params.actorId);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminListResponse<AdminAuditLogItem>>(
+      `/admin/audit-logs${query ? `?${query}` : ""}`,
     );
   }
 

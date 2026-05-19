@@ -14,6 +14,7 @@ import {
   DollarOutlined,
   ShoppingCartOutlined,
   CloudServerOutlined,
+  FileSearchOutlined,
 } from "@ant-design/icons";
 const menuItems = [
   {
@@ -81,6 +82,12 @@ const menuItems = [
     icon: <InboxOutlined />,
     label: "客服台账",
     href: "/admin/support",
+  },
+  {
+    key: "/admin/audit",
+    icon: <FileSearchOutlined />,
+    label: "审计日志",
+    href: "/admin/audit",
   },
   {
     key: "/admin/alerts",
