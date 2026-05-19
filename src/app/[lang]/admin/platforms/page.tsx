@@ -16,6 +16,7 @@ import {
   api,
   type AdminPlatformHealthHistoryItem,
   type AdminPlatformHealthItem,
+  type AdminPlatformHealthMigrationStatus,
 } from "@/lib/api";
 
 function formatDate(value?: string | null) {
@@ -34,8 +35,11 @@ function badgeVariant(
 export default function AdminPlatformsPage() {
   const [items, setItems] = useState<AdminPlatformHealthItem[]>([]);
   const [history, setHistory] = useState<AdminPlatformHealthHistoryItem[]>([]);
+  const [migration, setMigration] =
+    useState<AdminPlatformHealthMigrationStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [smokeRunning, setSmokeRunning] = useState(false);
   const [error, setError] = useState("");
   const [syncKeyword, setSyncKeyword] = useState("iphone");
   const [syncingPlatform, setSyncingPlatform] = useState("");
@@ -52,10 +56,16 @@ export default function AdminPlatformsPage() {
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
-    const response = await api.getAdminPlatformHealthHistory({ limit: 16 });
+    const [historyResponse, migrationResponse] = await Promise.all([
+      api.getAdminPlatformHealthHistory({ limit: 16 }),
+      api.getAdminPlatformHealthMigrationStatus(),
+    ]);
     setHistoryLoading(false);
-    if (response.success && response.data) {
-      setHistory(response.data.data || []);
+    if (historyResponse.success && historyResponse.data) {
+      setHistory(historyResponse.data.data || []);
+    }
+    if (migrationResponse.success && migrationResponse.data) {
+      setMigration(migrationResponse.data);
     }
   }, []);
 
@@ -72,6 +82,21 @@ export default function AdminPlatformsPage() {
     setItems(response.data.data || []);
     await loadHistory();
   }, [loadHistory]);
+
+  async function runSmoke() {
+    setSmokeRunning(true);
+    setSyncMessage("");
+    const response = await api.runAdminPlatformHealthSmoke();
+    setSmokeRunning(false);
+    if (!response.success || !response.data) {
+      setSyncMessage(response.error?.message || "健康 smoke 触发失败");
+      return;
+    }
+    setItems(response.data.data || []);
+    setMigration(response.data.persistence);
+    setSyncMessage("健康 smoke 已写入历史留痕");
+    await loadHistory();
+  }
 
   async function retrySync(platform: AdminPlatformHealthItem["platform"]) {
     const keyword = syncKeyword.trim();
@@ -113,15 +138,28 @@ export default function AdminPlatformsPage() {
           </div>
           <h1 className="mt-2 text-2xl font-semibold">平台健康与真实样本</h1>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={load}
-          disabled={loading}
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          刷新
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => runSmoke()}
+            disabled={loading || smokeRunning}
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${smokeRunning ? "animate-spin" : ""}`}
+            />
+            手动 smoke
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={load}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            刷新
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
@@ -133,7 +171,7 @@ export default function AdminPlatformsPage() {
           placeholder="同步关键词"
         />
         <span className="text-sm text-muted-foreground">
-          平台同步重试会写入商品缓存；对平台侧只做读取。
+          平台同步重试会写入商品缓存；健康 smoke 只读平台详情并写入健康历史。
         </span>
         {syncMessage ? (
           <span className="text-sm text-muted-foreground">{syncMessage}</span>
@@ -146,7 +184,7 @@ export default function AdminPlatformsPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader>
             <CardTitle>平台数</CardTitle>
@@ -183,6 +221,28 @@ export default function AdminPlatformsPage() {
           </CardHeader>
           <CardContent className="text-3xl font-semibold text-emerald-600">
             {passedCount}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>迁移状态</CardTitle>
+            <CardDescription>platform_health_checks</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <Badge
+              variant={
+                migration?.tableReady && migration?.migrationRecorded
+                  ? "secondary"
+                  : "outline"
+              }
+            >
+              {migration?.tableReady && migration?.migrationRecorded
+                ? "已就绪"
+                : "待确认"}
+            </Badge>
+            <div className="text-muted-foreground">
+              历史 {migration?.historyRows ?? "-"} 条
+            </div>
           </CardContent>
         </Card>
       </div>

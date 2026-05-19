@@ -337,6 +337,8 @@ export interface AdminPaymentReconciliation {
 
 export interface AdminRefundReviewResponse {
   payment: AdminPaymentItem;
+  approval: AdminRefundApprovalItem;
+  lifecycleRecorded: boolean;
   auditRecorded: boolean;
   safety: {
     adminOnly: boolean;
@@ -344,6 +346,23 @@ export interface AdminRefundReviewResponse {
     providerRefundAction: boolean;
     paymentStateChanged: boolean;
   };
+}
+
+export interface AdminRefundApprovalItem {
+  id: string;
+  paymentId: string;
+  decision: "needs_review" | "approved_for_manual_refund" | "rejected" | string;
+  reason?: string | null;
+  actorId?: string | null;
+  paymentStatus: string;
+  orderId?: string | null;
+  provider: string;
+  amount: number;
+  currency: string;
+  providerRefundAction: boolean;
+  paymentStateChanged: boolean;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 export interface AdminPlatformHealthHistoryItem {
@@ -361,6 +380,15 @@ export interface AdminPlatformHealthHistoryItem {
   payload: Record<string, unknown>;
   checkedAt: string;
   createdAt: string;
+}
+
+export interface AdminPlatformHealthMigrationStatus {
+  tableReady: boolean;
+  migrationRecorded: boolean;
+  historyRows: number | null;
+  checkedAt: string;
+  error?: string;
+  safety?: Record<string, unknown>;
 }
 
 class ApiClient {
@@ -1101,6 +1129,22 @@ class ApiClient {
     }>(`/integrations/admin/health/history${query ? `?${query}` : ""}`);
   }
 
+  async getAdminPlatformHealthMigrationStatus() {
+    return this.request<AdminPlatformHealthMigrationStatus>(
+      "/integrations/admin/health/migration-status",
+    );
+  }
+
+  async runAdminPlatformHealthSmoke() {
+    return this.request<{
+      data: AdminPlatformHealthItem[];
+      persistence: AdminPlatformHealthMigrationStatus;
+      safety: Record<string, unknown>;
+    }>("/integrations/admin/health/smoke", {
+      method: "POST",
+    });
+  }
+
   async retryPlatformSync(data: {
     platform: "yahoo" | "rakuten" | "amazon" | "mercari";
     keyword: string;
@@ -1160,6 +1204,21 @@ class ApiClient {
   async getAdminPaymentReconciliation() {
     return this.request<AdminPaymentReconciliation>(
       "/payments/admin/reconciliation",
+    );
+  }
+
+  async listAdminRefundApprovals(params?: {
+    paymentId?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.paymentId) searchParams.set("paymentId", params.paymentId);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminListResponse<AdminRefundApprovalItem>>(
+      `/payments/admin/refund-approvals${query ? `?${query}` : ""}`,
     );
   }
 
