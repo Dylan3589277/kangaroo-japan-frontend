@@ -55,6 +55,11 @@ const PLATFORM_COLORS: Record<string, string> = {
   yahoo: "bg-purple-500",
 };
 
+function safeNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -174,14 +179,17 @@ export default function ProductDetailPage() {
     }
   };
 
-  const getPriceByCurrency = (priceJpy: number, priceCny: number, priceUsd: number) => {
+  const getPriceByCurrency = (priceJpy: unknown, priceCny: unknown, priceUsd: unknown) => {
+    const jpy = safeNumber(priceJpy);
+    const cny = safeNumber(priceCny);
+    const usd = safeNumber(priceUsd);
     switch (lang) {
       case "en":
-        return { main: `$${priceUsd.toFixed(2)}`, secondary: `¥${priceJpy.toLocaleString()}` };
+        return { main: `$${usd.toFixed(2)}`, secondary: `¥${jpy.toLocaleString()}` };
       case "ja":
-        return { main: `¥${priceJpy.toLocaleString()}`, secondary: `¥${priceCny.toFixed(2)}` };
+        return { main: `¥${jpy.toLocaleString()}`, secondary: `¥${cny.toFixed(2)}` };
       default:
-        return { main: `¥${priceCny.toFixed(2)}`, secondary: `¥${priceJpy.toLocaleString()}` };
+        return { main: `¥${cny.toFixed(2)}`, secondary: `¥${jpy.toLocaleString()}` };
     }
   };
 
@@ -247,7 +255,7 @@ export default function ProductDetailPage() {
     image: productImages,
     offers: {
       "@type": "Offer",
-      price: product.priceCny.toFixed(2),
+      price: safeNumber(product.priceCny).toFixed(2),
       priceCurrency: "CNY",
       availability: product.inStock
         ? "https://schema.org/InStock"
@@ -514,25 +522,25 @@ export default function ProductDetailPage() {
                     <p className="text-sm text-muted-foreground mb-1">
                       {lang === "zh" ? "当前价格" : lang === "en" ? "Current" : "現在"}
                     </p>
-                    <p className="text-xl font-bold">¥{priceHistory.statistics.currentPrice.toFixed(2)}</p>
+                    <p className="text-xl font-bold">¥{safeNumber(priceHistory.statistics.currentPrice).toFixed(2)}</p>
                   </div>
                   <div className="bg-muted/50 rounded-lg p-4">
                     <p className="text-sm text-muted-foreground mb-1">
                       {lang === "zh" ? "最低价" : lang === "en" ? "Lowest" : "最安"}
                     </p>
-                    <p className="text-xl font-bold text-green-600">¥{priceHistory.statistics.lowestPrice.toFixed(2)}</p>
+                    <p className="text-xl font-bold text-green-600">¥{safeNumber(priceHistory.statistics.lowestPrice).toFixed(2)}</p>
                   </div>
                   <div className="bg-muted/50 rounded-lg p-4">
                     <p className="text-sm text-muted-foreground mb-1">
                       {lang === "zh" ? "最高价" : lang === "en" ? "Highest" : "最高"}
                     </p>
-                    <p className="text-xl font-bold text-red-600">¥{priceHistory.statistics.highestPrice.toFixed(2)}</p>
+                    <p className="text-xl font-bold text-red-600">¥{safeNumber(priceHistory.statistics.highestPrice).toFixed(2)}</p>
                   </div>
                   <div className="bg-muted/50 rounded-lg p-4">
                     <p className="text-sm text-muted-foreground mb-1">
                       {lang === "zh" ? "平均价格" : lang === "en" ? "Average" : "平均"}
                     </p>
-                    <p className="text-xl font-bold">¥{priceHistory.statistics.averagePrice.toFixed(2)}</p>
+                    <p className="text-xl font-bold">¥{safeNumber(priceHistory.statistics.averagePrice).toFixed(2)}</p>
                   </div>
                 </div>
 
@@ -540,15 +548,16 @@ export default function ProductDetailPage() {
                 {priceHistory.history.length > 0 ? (
                   <div className="h-48 flex items-end gap-1">
                     {priceHistory.history.map((point, idx) => {
-                      const min = priceHistory.statistics.lowestPrice;
-                      const max = priceHistory.statistics.highestPrice;
-                      const height = max > min ? ((point.price - min) / (max - min)) * 100 : 50;
+                      const min = safeNumber(priceHistory.statistics.lowestPrice);
+                      const max = safeNumber(priceHistory.statistics.highestPrice);
+                      const price = safeNumber(point.price);
+                      const height = max > min ? ((price - min) / (max - min)) * 100 : 50;
                       return (
                         <div
                           key={idx}
                           className="flex-1 bg-primary/80 rounded-t"
                           style={{ height: `${Math.max(height, 5)}%` }}
-                          title={`${point.date}: ¥${point.price.toFixed(2)}`}
+                          title={`${point.date}: ¥${price.toFixed(2)}`}
                         />
                       );
                     })}
