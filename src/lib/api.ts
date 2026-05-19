@@ -198,6 +198,9 @@ export interface AdminPlatformHealthItem {
     credentialStatus: "configured" | "missing";
     sampleStatus: "configured" | "missing";
     sampleSource: "env" | "default" | "missing";
+    sampleEnvKey?: string;
+    credentialMissingKeys?: string[];
+    optionalCredentialMissingKeys?: string[];
     notice: string;
   };
   sampleSmoke: {
@@ -388,6 +391,40 @@ export interface AdminPlatformHealthMigrationStatus {
   historyRows: number | null;
   checkedAt: string;
   error?: string;
+  checks?: {
+    platformHealth?: {
+      tableReady: boolean;
+      migrationRecorded: boolean;
+      historyRows: number | null;
+    };
+    refundApprovals?: {
+      tableReady: boolean;
+      migrationRecorded: boolean;
+      rows: number | null;
+    };
+  };
+  schema?: AdminSchemaStatus;
+  safety?: Record<string, unknown>;
+}
+
+export interface AdminSchemaTableStatus {
+  key: string;
+  table: string;
+  label: string;
+  requiredFor: string;
+  migrationName?: string;
+  tableReady: boolean;
+  migrationRecorded: boolean | null;
+  rows: number | null;
+  severity: "ok" | "warning" | "blocked";
+  error?: string;
+}
+
+export interface AdminSchemaStatus {
+  checkedAt: string;
+  allRequiredReady: boolean;
+  tables: AdminSchemaTableStatus[];
+  missingRequired: string[];
   safety?: Record<string, unknown>;
 }
 
@@ -1133,6 +1170,10 @@ class ApiClient {
     return this.request<AdminPlatformHealthMigrationStatus>(
       "/integrations/admin/health/migration-status",
     );
+  }
+
+  async getAdminSchemaStatus() {
+    return this.request<AdminSchemaStatus>("/integrations/admin/schema-status");
   }
 
   async runAdminPlatformHealthSmoke() {

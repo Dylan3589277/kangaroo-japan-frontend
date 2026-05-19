@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, RefreshCw, Server } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Database,
+  RefreshCw,
+  Server,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +23,7 @@ import {
   type AdminPlatformHealthHistoryItem,
   type AdminPlatformHealthItem,
   type AdminPlatformHealthMigrationStatus,
+  type AdminSchemaTableStatus,
 } from "@/lib/api";
 
 function formatDate(value?: string | null) {
@@ -24,12 +31,22 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
-function badgeVariant(
-  status: AdminPlatformHealthItem["sampleSmoke"]["status"] | string,
-) {
-  if (status === "passed" || status === "healthy") return "secondary";
+function badgeVariant(status: string) {
+  if (status === "passed" || status === "healthy" || status === "ok") {
+    return "secondary";
+  }
   if (status === "failed" || status === "blocked") return "destructive";
   return "outline";
+}
+
+function tableBadge(table?: AdminSchemaTableStatus) {
+  if (!table) return { text: "未检查", variant: "outline" as const };
+  if (table.tableReady && table.migrationRecorded !== false) {
+    return { text: "已就绪", variant: "secondary" as const };
+  }
+  if (table.tableReady)
+    return { text: "表存在，迁移待查", variant: "outline" as const };
+  return { text: "缺表", variant: "destructive" as const };
 }
 
 export default function AdminPlatformsPage() {
@@ -45,6 +62,7 @@ export default function AdminPlatformsPage() {
   const [syncingPlatform, setSyncingPlatform] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
 
+  const schema = migration?.schema;
   const blockedCount = useMemo(
     () => items.filter((item) => item.status === "blocked").length,
     [items],
@@ -53,6 +71,8 @@ export default function AdminPlatformsPage() {
     () => items.filter((item) => item.sampleSmoke.status === "passed").length,
     [items],
   );
+  const schemaTables = schema?.tables || [];
+  const paymentTable = schemaTables.find((table) => table.key === "payments");
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -94,7 +114,7 @@ export default function AdminPlatformsPage() {
     }
     setItems(response.data.data || []);
     setMigration(response.data.persistence);
-    setSyncMessage("健康 smoke 已写入历史留痕");
+    setSyncMessage("健康 smoke 已写入历史");
     await loadHistory();
   }
 
@@ -114,9 +134,7 @@ export default function AdminPlatformsPage() {
     }
     const result = response.data.result;
     setSyncMessage(
-      `${platform}: ${result.success ? "成功" : "失败"}，同步 ${
-        result.synced
-      } 个`,
+      `${platform}: ${result.success ? "成功" : "失败"}，同步 ${result.synced} 个`,
     );
     await load();
   }
@@ -184,13 +202,11 @@ export default function AdminPlatformsPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-6">
         <Card>
           <CardHeader>
             <CardTitle>平台数</CardTitle>
-            <CardDescription>
-              Yahoo / Rakuten / Amazon / Mercari
-            </CardDescription>
+            <CardDescription>四个平台</CardDescription>
           </CardHeader>
           <CardContent className="text-3xl font-semibold">
             {loading ? "..." : items.length}
@@ -199,7 +215,7 @@ export default function AdminPlatformsPage() {
         <Card>
           <CardHeader>
             <CardTitle>已配置</CardTitle>
-            <CardDescription>凭证可用于真实详情探测</CardDescription>
+            <CardDescription>凭证可用</CardDescription>
           </CardHeader>
           <CardContent className="text-3xl font-semibold">
             {items.filter((item) => item.configured).length}
@@ -217,7 +233,7 @@ export default function AdminPlatformsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Live smoke</CardTitle>
-            <CardDescription>详情和图片均通过</CardDescription>
+            <CardDescription>详情与图片通过</CardDescription>
           </CardHeader>
           <CardContent className="text-3xl font-semibold text-emerald-600">
             {passedCount}
@@ -225,27 +241,96 @@ export default function AdminPlatformsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>迁移状态</CardTitle>
-            <CardDescription>platform_health_checks</CardDescription>
+            <CardTitle>基础 schema</CardTitle>
+            <CardDescription>订单/支付核心表</CardDescription>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             <Badge
-              variant={
-                migration?.tableReady && migration?.migrationRecorded
-                  ? "secondary"
-                  : "outline"
-              }
+              variant={schema?.allRequiredReady ? "secondary" : "destructive"}
             >
-              {migration?.tableReady && migration?.migrationRecorded
-                ? "已就绪"
-                : "待确认"}
+              {schema?.allRequiredReady ? "全部就绪" : "有缺失"}
             </Badge>
             <div className="text-muted-foreground">
-              历史 {migration?.historyRows ?? "-"} 条
+              缺失 {schema?.missingRequired.length ?? "-"} 项
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>支付表</CardTitle>
+            <CardDescription>payments</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <Badge variant={tableBadge(paymentTable).variant}>
+              {tableBadge(paymentTable).text}
+            </Badge>
+            <div className="text-muted-foreground">
+              行数 {paymentTable?.rows ?? "-"}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            基础 schema 状态
+          </CardTitle>
+          <CardDescription>
+            只读检查真实生产库表状态，支付/订单能力上线前必须持续可见。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">能力</th>
+                  <th className="px-3 py-2 font-medium">表</th>
+                  <th className="px-3 py-2 font-medium">状态</th>
+                  <th className="px-3 py-2 font-medium">迁移</th>
+                  <th className="px-3 py-2 font-medium">行数</th>
+                  <th className="px-3 py-2 font-medium">用途</th>
+                </tr>
+              </thead>
+              <tbody>
+                {schemaTables.map((table) => (
+                  <tr key={table.key} className="border-t align-top">
+                    <td className="px-3 py-2 font-medium">{table.label}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {table.table}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant={tableBadge(table).variant}>
+                        {tableBadge(table).text}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {table.migrationRecorded === null
+                        ? "-"
+                        : table.migrationRecorded
+                          ? "recorded"
+                          : "missing"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {table.rows ?? "-"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {table.requiredFor}
+                      {table.error ? (
+                        <div className="mt-1 break-all text-red-600">
+                          {table.error}
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
         {items.map((item) => (
@@ -274,15 +359,21 @@ export default function AdminPlatformsPage() {
                   {item.sample.sampleId || "缺少样本"} /{" "}
                   {item.sample.sampleKind} / {item.sample.sampleSource}
                 </div>
+                {item.sample.sampleEnvKey ? (
+                  <div className="mt-1 font-mono text-xs text-muted-foreground">
+                    {item.sample.sampleEnvKey}
+                  </div>
+                ) : null}
                 {item.sample.detailPath ? (
                   <div className="mt-1 font-mono text-xs text-muted-foreground">
                     {item.sample.detailPath}
                   </div>
                 ) : null}
               </div>
+
               <div className="rounded-lg border p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="font-medium">Smoke 状态</div>
+                  <div className="font-medium">Live smoke</div>
                   <Badge variant={badgeVariant(item.sampleSmoke.status)}>
                     {item.sampleSmoke.status}
                   </Badge>
@@ -297,12 +388,33 @@ export default function AdminPlatformsPage() {
                   ) : null}
                   {item.sampleSmoke.error ? (
                     <div className="break-all text-red-600">
-                      错误：{item.sampleSmoke.error}
+                      原因：{item.sampleSmoke.error}
                     </div>
                   ) : null}
                   <div>检查：{formatDate(item.sampleSmoke.checkedAt)}</div>
                 </div>
               </div>
+
+              <div className="rounded-lg border p-3">
+                <div className="font-medium">凭证状态</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(item.sample.credentialMissingKeys || []).length === 0 ? (
+                    <Badge variant="secondary">required ready</Badge>
+                  ) : (
+                    item.sample.credentialMissingKeys?.map((key) => (
+                      <Badge key={key} variant="destructive">
+                        missing {key}
+                      </Badge>
+                    ))
+                  )}
+                  {item.sample.optionalCredentialMissingKeys?.map((key) => (
+                    <Badge key={key} variant="outline">
+                      optional {key}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <div className="font-medium">图片源</div>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -338,7 +450,7 @@ export default function AdminPlatformsPage() {
         <CardHeader>
           <CardTitle>最近健康留痕</CardTitle>
           <CardDescription>
-            每次后台健康检查会保存一条只读快照，方便追踪凭证、样本、详情和图片状态。
+            每次后台健康检查会保存一组只读快照，方便追踪凭证、样本、详情和图片状态。
           </CardDescription>
         </CardHeader>
         <CardContent>
