@@ -187,7 +187,7 @@ export interface ExchangeRatesResponse {
 }
 
 export interface AdminPlatformHealthItem {
-  platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+  platform: "yahoo" | "yahoo-shopping" | "rakuten" | "amazon" | "mercari";
   configured: boolean;
   credentialStatus: "configured" | "missing";
   totalProducts: number;
@@ -272,7 +272,7 @@ export type AdminPlatformHealthAlertHandlingStatus =
 
 export interface AdminPlatformHealthAlertState {
   id: string;
-  platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+  platform: "yahoo" | "yahoo-shopping" | "rakuten" | "amazon" | "mercari";
   code: AdminPlatformHealthAlertCode;
   status: AdminPlatformHealthAlertHandlingStatus;
   severity: string;
@@ -505,7 +505,7 @@ export interface SupportTicketLifecycleResponse {
 
 export interface AdminPlatformHealthHistoryItem {
   id: string;
-  platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+  platform: "yahoo" | "yahoo-shopping" | "rakuten" | "amazon" | "mercari";
   status: "healthy" | "attention" | "blocked" | string;
   credentialStatus: string;
   sampleStatus: string;
@@ -1305,7 +1305,7 @@ class ApiClient {
   }
 
   async getAdminPlatformHealthHistory(params?: {
-    platform?: "yahoo" | "rakuten" | "amazon" | "mercari";
+    platform?: "yahoo" | "yahoo-shopping" | "rakuten" | "amazon" | "mercari";
     status?: "healthy" | "attention" | "blocked";
     alertCode?:
       | "platform_blocked"
@@ -1329,7 +1329,7 @@ class ApiClient {
   }
 
   async getAdminPlatformHealthAlertStates(params?: {
-    platform?: "yahoo" | "rakuten" | "amazon" | "mercari";
+    platform?: "yahoo" | "yahoo-shopping" | "rakuten" | "amazon" | "mercari";
     code?: AdminPlatformHealthAlertCode;
     status?: AdminPlatformHealthAlertHandlingStatus;
     limit?: number;
@@ -1395,7 +1395,7 @@ class ApiClient {
   }
 
   async acknowledgePlatformHealthAlert(data: {
-    platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+    platform: "yahoo" | "yahoo-shopping" | "rakuten" | "amazon" | "mercari";
     code: AdminPlatformHealthAlertCode;
     historyId?: string;
     note?: string;
@@ -1413,7 +1413,7 @@ class ApiClient {
   }
 
   async handlePlatformHealthAlert(data: {
-    platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+    platform: "yahoo" | "yahoo-shopping" | "rakuten" | "amazon" | "mercari";
     code: AdminPlatformHealthAlertCode;
     historyId?: string;
     outcome?: AdminPlatformHealthHandlingOutcome;

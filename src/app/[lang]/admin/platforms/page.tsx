@@ -47,9 +47,11 @@ function badgeVariant(status: string) {
 }
 
 function historyAlertCodes(item: AdminPlatformHealthHistoryItem) {
-  const alerts = (item.payload as {
-    alerts?: Array<{ code?: string; severity?: string }>;
-  })?.alerts;
+  const alerts = (
+    item.payload as {
+      alerts?: Array<{ code?: string; severity?: string }>;
+    }
+  )?.alerts;
   return Array.isArray(alerts)
     ? alerts
         .map((alert) => alert.code)
@@ -137,24 +139,23 @@ export default function AdminPlatformsPage() {
     setHistoryLoading(true);
     const [historyResponse, migrationResponse, auditResponse, stateResponse] =
       await Promise.all([
-      api.getAdminPlatformHealthHistory({
-        limit: 16,
-        platform: historyPlatform === "all" ? undefined : historyPlatform,
-        status: historyStatus === "all" ? undefined : historyStatus,
-        alertCode:
-          historyAlertCode === "all" ? undefined : historyAlertCode,
-      }),
-      api.getAdminPlatformHealthMigrationStatus(),
-      api.listAdminAuditLogs({
-        resourceType: "platform_health_alert",
-        limit: 8,
-      }),
-      api.getAdminPlatformHealthAlertStates({
-        limit: 16,
-        platform: historyPlatform === "all" ? undefined : historyPlatform,
-        status: alertStateStatus === "all" ? undefined : alertStateStatus,
-      }),
-    ]);
+        api.getAdminPlatformHealthHistory({
+          limit: 16,
+          platform: historyPlatform === "all" ? undefined : historyPlatform,
+          status: historyStatus === "all" ? undefined : historyStatus,
+          alertCode: historyAlertCode === "all" ? undefined : historyAlertCode,
+        }),
+        api.getAdminPlatformHealthMigrationStatus(),
+        api.listAdminAuditLogs({
+          resourceType: "platform_health_alert",
+          limit: 8,
+        }),
+        api.getAdminPlatformHealthAlertStates({
+          limit: 16,
+          platform: historyPlatform === "all" ? undefined : historyPlatform,
+          status: alertStateStatus === "all" ? undefined : alertStateStatus,
+        }),
+      ]);
     setHistoryLoading(false);
     if (historyResponse.success && historyResponse.data) {
       setHistory(historyResponse.data.data || []);
@@ -216,6 +217,12 @@ export default function AdminPlatformsPage() {
   }
 
   async function retrySync(platform: AdminPlatformHealthItem["platform"]) {
+    if (platform === "yahoo-shopping") {
+      setSyncMessage(
+        "Yahoo Shopping uses the Yahoo sync path; retry yahoo instead.",
+      );
+      return;
+    }
     const keyword = syncKeyword.trim();
     if (!keyword) {
       setSyncMessage("请先填写同步关键词");
@@ -271,7 +278,8 @@ export default function AdminPlatformsPage() {
       code,
       outcome,
       note: alertNote.trim() || undefined,
-      nextAction: outcome === "retry_started" ? "platform sync retry" : undefined,
+      nextAction:
+        outcome === "retry_started" ? "platform sync retry" : undefined,
     });
     setAlertActionBusy("");
     if (!response.success) {
@@ -440,8 +448,7 @@ export default function AdminPlatformsPage() {
               current alerts {healthAlerts.total}
             </Badge>
             <span className="text-muted-foreground">
-              critical {healthAlerts.blocked} / warning{" "}
-              {healthAlerts.attention}
+              critical {healthAlerts.blocked} / warning {healthAlerts.attention}
             </span>
           </div>
           {(healthAlerts.notifications || []).length > 0 ? (
@@ -474,11 +481,15 @@ export default function AdminPlatformsPage() {
               ))}
             </div>
           ) : (
-            <div className="text-muted-foreground">No active health alerts.</div>
+            <div className="text-muted-foreground">
+              No active health alerts.
+            </div>
           )}
           {alertAuditLogs.length > 0 ? (
             <div className="rounded-lg border p-3">
-              <div className="mb-2 font-medium">Recent alert handling audit</div>
+              <div className="mb-2 font-medium">
+                Recent alert handling audit
+              </div>
               <div className="grid gap-2">
                 {alertAuditLogs.map((log) => (
                   <div
@@ -541,7 +552,9 @@ export default function AdminPlatformsPage() {
             >
               处理中 {alertStateSummary.inProgress}
             </Badge>
-            <Badge variant="secondary">已解决 {alertStateSummary.resolved}</Badge>
+            <Badge variant="secondary">
+              已解决 {alertStateSummary.resolved}
+            </Badge>
           </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[900px] text-left text-sm">
@@ -631,6 +644,7 @@ export default function AdminPlatformsPage() {
             >
               <option value="all">全部平台</option>
               <option value="yahoo">Yahoo Auction</option>
+              <option value="yahoo-shopping">Yahoo Shopping</option>
               <option value="rakuten">Rakuten</option>
               <option value="amazon">Amazon</option>
               <option value="mercari">Mercari</option>
@@ -926,7 +940,10 @@ export default function AdminPlatformsPage() {
                 type="button"
                 variant="outline"
                 onClick={() => retrySync(item.platform)}
-                disabled={syncingPlatform === item.platform}
+                disabled={
+                  syncingPlatform === item.platform ||
+                  item.platform === "yahoo-shopping"
+                }
               >
                 <RefreshCw
                   className={`h-4 w-4 ${
