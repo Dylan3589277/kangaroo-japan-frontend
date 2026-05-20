@@ -262,6 +262,39 @@ export type AdminPlatformHealthHandlingOutcome =
   | "false_positive"
   | "escalated";
 
+export type AdminPlatformHealthAlertHandlingStatus =
+  | "unhandled"
+  | "in_progress"
+  | "resolved";
+
+export interface AdminPlatformHealthAlertState {
+  id: string;
+  platform: "yahoo" | "rakuten" | "amazon" | "mercari";
+  code: AdminPlatformHealthAlertCode;
+  status: AdminPlatformHealthAlertHandlingStatus;
+  severity: string;
+  message: string;
+  note?: string | null;
+  lastOutcome?: string | null;
+  lastAction?: string | null;
+  lastHistoryId?: string | null;
+  lastAuditLogId?: string | null;
+  handledByActorId?: string | null;
+  handlingCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminPlatformHealthAlertStateSummary {
+  total: number;
+  unhandled: number;
+  inProgress: number;
+  resolved: number;
+}
+
 export interface AdminOrderItem {
   id: string;
   order_no: string;
@@ -451,6 +484,11 @@ export interface AdminPlatformHealthMigrationStatus {
       historyRows: number | null;
     };
     refundApprovals?: {
+      tableReady: boolean;
+      migrationRecorded: boolean;
+      rows: number | null;
+    };
+    platformHealthAlertStates?: {
       tableReady: boolean;
       migrationRecorded: boolean;
       rows: number | null;
@@ -1207,6 +1245,7 @@ class ApiClient {
         attention: number;
         notifications?: Array<Record<string, unknown>>;
       };
+      alertStates?: AdminPlatformHealthAlertStateSummary;
       safety: Record<string, unknown>;
     }>("/integrations/admin/health");
   }
@@ -1235,6 +1274,25 @@ class ApiClient {
     }>(`/integrations/admin/health/history${query ? `?${query}` : ""}`);
   }
 
+  async getAdminPlatformHealthAlertStates(params?: {
+    platform?: "yahoo" | "rakuten" | "amazon" | "mercari";
+    code?: AdminPlatformHealthAlertCode;
+    status?: AdminPlatformHealthAlertHandlingStatus;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.platform) searchParams.set("platform", params.platform);
+    if (params?.code) searchParams.set("code", params.code);
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<{
+      data: AdminPlatformHealthAlertState[];
+      summary: AdminPlatformHealthAlertStateSummary;
+      safety: Record<string, unknown>;
+    }>(`/integrations/admin/health/alert-states${query ? `?${query}` : ""}`);
+  }
+
   async getAdminPlatformHealthMigrationStatus() {
     return this.request<AdminPlatformHealthMigrationStatus>(
       "/integrations/admin/health/migration-status",
@@ -1255,6 +1313,7 @@ class ApiClient {
         attention: number;
         notifications?: Array<Record<string, unknown>>;
       };
+      alertStates?: AdminPlatformHealthAlertStateSummary;
       safety: Record<string, unknown>;
     }>("/integrations/admin/health/smoke", {
       method: "POST",

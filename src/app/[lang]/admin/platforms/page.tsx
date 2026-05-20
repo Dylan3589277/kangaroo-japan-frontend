@@ -23,6 +23,9 @@ import {
   api,
   type AdminAuditLogItem,
   type AdminPlatformHealthAlertCode,
+  type AdminPlatformHealthAlertHandlingStatus,
+  type AdminPlatformHealthAlertState,
+  type AdminPlatformHealthAlertStateSummary,
   type AdminPlatformHealthHandlingOutcome,
   type AdminPlatformHealthHistoryItem,
   type AdminPlatformHealthItem,
@@ -79,6 +82,19 @@ export default function AdminPlatformsPage() {
   const [alertNote, setAlertNote] = useState("");
   const [alertActionBusy, setAlertActionBusy] = useState("");
   const [alertAuditLogs, setAlertAuditLogs] = useState<AdminAuditLogItem[]>([]);
+  const [alertStates, setAlertStates] = useState<
+    AdminPlatformHealthAlertState[]
+  >([]);
+  const [alertStateSummary, setAlertStateSummary] =
+    useState<AdminPlatformHealthAlertStateSummary>({
+      total: 0,
+      unhandled: 0,
+      inProgress: 0,
+      resolved: 0,
+    });
+  const [alertStateStatus, setAlertStateStatus] = useState<
+    "all" | AdminPlatformHealthAlertHandlingStatus
+  >("all");
   const [historyPlatform, setHistoryPlatform] = useState<
     "all" | AdminPlatformHealthItem["platform"]
   >("all");
@@ -119,7 +135,7 @@ export default function AdminPlatformsPage() {
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
-    const [historyResponse, migrationResponse, auditResponse] =
+    const [historyResponse, migrationResponse, auditResponse, stateResponse] =
       await Promise.all([
       api.getAdminPlatformHealthHistory({
         limit: 16,
@@ -132,6 +148,11 @@ export default function AdminPlatformsPage() {
       api.listAdminAuditLogs({
         resourceType: "platform_health_alert",
         limit: 8,
+      }),
+      api.getAdminPlatformHealthAlertStates({
+        limit: 16,
+        platform: historyPlatform === "all" ? undefined : historyPlatform,
+        status: alertStateStatus === "all" ? undefined : alertStateStatus,
       }),
     ]);
     setHistoryLoading(false);
@@ -147,7 +168,11 @@ export default function AdminPlatformsPage() {
     if (auditResponse.success && auditResponse.data) {
       setAlertAuditLogs(auditResponse.data.data || []);
     }
-  }, [historyAlertCode, historyPlatform, historyStatus]);
+    if (stateResponse.success && stateResponse.data) {
+      setAlertStates(stateResponse.data.data || []);
+      setAlertStateSummary(stateResponse.data.summary);
+    }
+  }, [alertStateStatus, historyAlertCode, historyPlatform, historyStatus]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,6 +188,9 @@ export default function AdminPlatformsPage() {
     setHealthAlerts(
       response.data.alerts || { total: 0, blocked: 0, attention: 0 },
     );
+    if (response.data.alertStates) {
+      setAlertStateSummary(response.data.alertStates);
+    }
     await loadHistory();
   }, [loadHistory]);
 
@@ -180,6 +208,9 @@ export default function AdminPlatformsPage() {
     setHealthAlerts(
       response.data.alerts || { total: 0, blocked: 0, attention: 0 },
     );
+    if (response.data.alertStates) {
+      setAlertStateSummary(response.data.alertStates);
+    }
     setSyncMessage("健康 smoke 已写入历史");
     await loadHistory();
   }
@@ -471,6 +502,110 @@ export default function AdminPlatformsPage() {
               </div>
             </div>
           ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Alert handling state</CardTitle>
+          <CardDescription>
+            Mutable operations view for unhandled, in-progress, and resolved
+            platform health alerts.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={alertStateStatus}
+              onChange={(event) =>
+                setAlertStateStatus(
+                  event.target.value as typeof alertStateStatus,
+                )
+              }
+              className="h-9 rounded-md border bg-background px-3 text-sm"
+              aria-label="platform alert handling status filter"
+            >
+              <option value="all">all handling states</option>
+              <option value="unhandled">未处理</option>
+              <option value="in_progress">处理中</option>
+              <option value="resolved">已解决</option>
+            </select>
+            <Badge variant="outline">total {alertStateSummary.total}</Badge>
+            <Badge
+              variant={alertStateSummary.unhandled ? "destructive" : "outline"}
+            >
+              未处理 {alertStateSummary.unhandled}
+            </Badge>
+            <Badge
+              variant={alertStateSummary.inProgress ? "outline" : "secondary"}
+            >
+              处理中 {alertStateSummary.inProgress}
+            </Badge>
+            <Badge variant="secondary">已解决 {alertStateSummary.resolved}</Badge>
+          </div>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[900px] text-left text-sm">
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Platform</th>
+                  <th className="px-3 py-2 font-medium">Alert</th>
+                  <th className="px-3 py-2 font-medium">State</th>
+                  <th className="px-3 py-2 font-medium">Last action</th>
+                  <th className="px-3 py-2 font-medium">Note</th>
+                  <th className="px-3 py-2 font-medium">Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alertStates.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-3 py-8 text-center text-muted-foreground"
+                    >
+                      No mutable alert states for this filter.
+                    </td>
+                  </tr>
+                ) : null}
+                {alertStates.map((state) => (
+                  <tr key={state.id} className="border-t align-top">
+                    <td className="px-3 py-2 font-medium capitalize">
+                      {state.platform}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="font-mono text-xs">{state.code}</div>
+                      <div className="mt-1 text-muted-foreground">
+                        {state.message}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge
+                        variant={
+                          state.status === "resolved"
+                            ? "secondary"
+                            : state.status === "unhandled"
+                              ? "destructive"
+                              : "outline"
+                        }
+                      >
+                        {state.status}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      <div>{state.lastAction || "-"}</div>
+                      <div>{state.lastOutcome || "-"}</div>
+                      <div>count {state.handlingCount}</div>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {state.note || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {formatDate(state.updatedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
