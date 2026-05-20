@@ -28,6 +28,8 @@ export default function AdminOrdersPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [operationBusyId, setOperationBusyId] = useState("");
+  const [operationMessage, setOperationMessage] = useState("");
 
   async function load(params?: { q?: string; status?: string }) {
     setLoading(true);
@@ -51,6 +53,31 @@ export default function AdminOrdersPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void load({ q: query.trim(), status: status.trim() });
+  }
+
+  async function recordOperation(order: AdminOrderItem, operation: string) {
+    setOperationBusyId(order.id);
+    setOperationMessage("");
+    const response = await api.recordAdminOrderOperation(order.id, {
+      operation: operation as
+        | "cancel_request"
+        | "refund_request"
+        | "compensation_request"
+        | "shipping_request",
+      reason: `Admin console recorded ${operation}`,
+      currency: order.total_currency,
+    });
+    setOperationBusyId("");
+    if (!response.success || !response.data) {
+      setOperationMessage(response.error?.message || "Order workflow failed.");
+      return;
+    }
+    setOperationMessage(
+      `Order workflow recorded: ${operation}; audit=${String(
+        response.data.auditRecorded,
+      )}`,
+    );
+    await load({ q: query.trim(), status: status.trim() });
   }
 
   useEffect(() => {
@@ -114,6 +141,12 @@ export default function AdminOrdersPage() {
       {error ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {error}
+        </div>
+      ) : null}
+
+      {operationMessage ? (
+        <div className="rounded-lg border bg-muted p-3 text-sm text-muted-foreground">
+          {operationMessage}
         </div>
       ) : null}
 
@@ -225,6 +258,26 @@ export default function AdminOrdersPage() {
                     <td className="px-3 py-2 text-muted-foreground">
                       {order.shipping_carrier || "-"} /{" "}
                       {order.tracking_number || "-"}
+                      {order.linked_context?.operation_candidates?.length ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {order.linked_context.operation_candidates.map(
+                            (operation) => (
+                              <Button
+                                key={operation}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void recordOperation(order, operation)
+                                }
+                                disabled={operationBusyId === order.id}
+                              >
+                                {operation}
+                              </Button>
+                            ),
+                          )}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {formatDate(order.created_at)}

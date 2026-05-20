@@ -35,14 +35,16 @@ function formatDate(value?: string | null) {
 
 function refundLifecycle(approval?: AdminRefundApprovalItem) {
   if (approval?.lifecycle) return approval.lifecycle;
-  return (approval?.metadata as {
-    lifecycle?: {
-      previousDecision?: string | null;
-      currentDecision?: string;
-      nextAllowed?: string[];
-      terminal?: boolean;
-    };
-  } | null)?.lifecycle;
+  return (
+    approval?.metadata as {
+      lifecycle?: {
+        previousDecision?: string | null;
+        currentDecision?: string;
+        nextAllowed?: string[];
+        terminal?: boolean;
+      };
+    } | null
+  )?.lifecycle;
 }
 
 function refundReviewDisplayLabel(decision: RefundReviewDecision | string) {
@@ -73,6 +75,7 @@ export default function AdminPaymentsPage() {
   >({});
   const [reviewReason, setReviewReason] = useState<Record<string, string>>({});
   const [reviewingPaymentId, setReviewingPaymentId] = useState("");
+  const [executionBusyId, setExecutionBusyId] = useState("");
   const [reviewMessage, setReviewMessage] = useState("");
 
   const latestApprovalByPayment = useMemo(() => {
@@ -147,6 +150,34 @@ export default function AdminPaymentsPage() {
       `已记录 ${payment.paymentNo} 的退款审核：${refundReviewDisplayLabel(
         decision,
       )}；未触发真实退款，也未改写支付状态。`,
+    );
+    await load({
+      q: query.trim(),
+      status: status.trim(),
+      provider: provider.trim(),
+    });
+  }
+
+  async function submitRefundExecution(
+    payment: AdminPaymentItem,
+    action: "start_manual_refund" | "complete_manual_refund",
+  ) {
+    setExecutionBusyId(payment.id);
+    setReviewMessage("");
+    const response = await api.recordAdminRefundExecution(payment.id, {
+      action,
+      reason: `Admin console ${action}`,
+      providerReference: "",
+    });
+    setExecutionBusyId("");
+    if (!response.success || !response.data) {
+      setReviewMessage(response.error?.message || "Refund execution failed.");
+      return;
+    }
+    setReviewMessage(
+      `Refund execution recorded: ${action}; providerRefundAction=${String(
+        response.data.execution.providerRefundAction,
+      )}`,
     );
     await load({
       q: query.trim(),
@@ -363,7 +394,9 @@ export default function AdminPaymentsPage() {
                         {latestApproval ? (
                           <div className="grid gap-1">
                             <Badge variant="outline" className="w-fit">
-                              {refundReviewDisplayLabel(latestApproval.decision)}
+                              {refundReviewDisplayLabel(
+                                latestApproval.decision,
+                              )}
                             </Badge>
                             <span>{formatDate(latestApproval.createdAt)}</span>
                             <span className="text-xs">
@@ -381,8 +414,7 @@ export default function AdminPaymentsPage() {
                                   next:{" "}
                                   {lifecycle.terminal
                                     ? "terminal"
-                                    : lifecycle.nextAllowed?.join(" / ") ||
-                                      "-"}
+                                    : lifecycle.nextAllowed?.join(" / ") || "-"}
                                 </span>
                               </div>
                             ) : null}
@@ -393,6 +425,40 @@ export default function AdminPaymentsPage() {
                               >
                                 audit trail
                               </Link>
+                            ) : null}
+                            {latestApproval.decision ===
+                            "approved_for_manual_refund" ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void submitRefundExecution(
+                                    payment,
+                                    "start_manual_refund",
+                                  )
+                                }
+                                disabled={executionBusyId === payment.id}
+                              >
+                                start manual refund
+                              </Button>
+                            ) : null}
+                            {latestApproval.decision ===
+                            "manual_refund_processing" ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void submitRefundExecution(
+                                    payment,
+                                    "complete_manual_refund",
+                                  )
+                                }
+                                disabled={executionBusyId === payment.id}
+                              >
+                                complete manual refund
+                              </Button>
                             ) : null}
                           </div>
                         ) : (

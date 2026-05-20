@@ -199,6 +199,8 @@ export default function AdminSupportPage() {
   const [copiedJobId, setCopiedJobId] = useState("");
   const [lifecycleStatus, setLifecycleStatus] = useState("");
   const [lifecycleNote, setLifecycleNote] = useState("");
+  const [assignedAdminId, setAssignedAdminId] = useState("");
+  const [slaDueAt, setSlaDueAt] = useState("");
   const [lifecycleLoading, setLifecycleLoading] = useState(false);
   const selectedTicketIdRef = useRef("");
   const reviewRequestSeq = useRef(0);
@@ -266,6 +268,8 @@ export default function AdminSupportPage() {
     setDraftMessage("");
     setLifecycleStatus("");
     setLifecycleNote("");
+    setAssignedAdminId("");
+    setSlaDueAt("");
   }, []);
 
   const loadSupportTickets = useCallback(async () => {
@@ -408,6 +412,8 @@ export default function AdminSupportPage() {
     const response = await api.updateSupportTicketLifecycle(selectedTicketId, {
       status: lifecycleStatus as typeof selectedTicket.status,
       adminNote: lifecycleNote.trim() || null,
+      assignedAdminId: assignedAdminId.trim() || null,
+      slaDueAt: slaDueAt ? new Date(slaDueAt).toISOString() : null,
     });
     setLifecycleLoading(false);
     if (!response.success || !response.data) {
@@ -714,9 +720,7 @@ export default function AdminSupportPage() {
                       <div className="rounded-lg border p-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <div className="font-medium">
-                              Ticket lifecycle
-                            </div>
+                            <div className="font-medium">Ticket lifecycle</div>
                             <div className="mt-1 text-xs text-muted-foreground">
                               Saves admin handling state, writes audit log, and
                               sends no customer message.
@@ -726,7 +730,7 @@ export default function AdminSupportPage() {
                             {selectedTicket.status}
                           </Badge>
                         </div>
-                        <div className="mt-3 grid gap-2 md:grid-cols-[180px_1fr_auto]">
+                        <div className="mt-3 grid gap-2 md:grid-cols-[180px_1fr_180px_220px_auto]">
                           <select
                             className="h-9 rounded-md border bg-background px-2 text-sm"
                             value={lifecycleStatus || selectedTicket.status}
@@ -747,6 +751,22 @@ export default function AdminSupportPage() {
                             }
                             placeholder="Internal handling note"
                             aria-label="support ticket internal handling note"
+                          />
+                          <Input
+                            value={assignedAdminId}
+                            onChange={(event) =>
+                              setAssignedAdminId(event.target.value)
+                            }
+                            placeholder="Assigned admin id"
+                            aria-label="support ticket assigned admin"
+                          />
+                          <Input
+                            value={slaDueAt}
+                            onChange={(event) =>
+                              setSlaDueAt(event.target.value)
+                            }
+                            type="datetime-local"
+                            aria-label="support ticket SLA due at"
                           />
                           <Button
                             type="button"

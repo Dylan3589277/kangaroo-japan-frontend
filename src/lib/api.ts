@@ -143,6 +143,9 @@ export interface SupportTicket {
   conversationId?: string | null;
   status: SupportTicketStatus;
   adminNote?: string | null;
+  assignedAdminId?: string | null;
+  assignedAdminEmailHash?: string | null;
+  slaDueAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -345,6 +348,8 @@ export interface AdminOrderItem {
     support_lookup_path: string;
     audit_lookup_path?: string | null;
     refund_approval_path?: string | null;
+    operation_workflow_path?: string | null;
+    operation_candidates?: string[];
     refund_review_candidate: boolean;
     product_sources: {
       platforms: string[];
@@ -439,6 +444,22 @@ export interface AdminRefundReviewResponse {
   };
 }
 
+export interface AdminRefundExecutionResponse {
+  payment: AdminPaymentItem;
+  approval: AdminRefundApprovalItem;
+  lifecycle?: AdminRefundReviewResponse["lifecycle"];
+  execution: {
+    action: string;
+    providerReference?: string | null;
+    providerRefundAction: boolean;
+    paymentStateChanged: boolean;
+    requiresManualProviderConsole: boolean;
+    auditAction: string;
+  };
+  auditRecorded: boolean;
+  safety: Record<string, unknown>;
+}
+
 export interface AdminRefundApprovalItem {
   id: string;
   paymentId: string;
@@ -473,6 +494,8 @@ export interface SupportTicketLifecycleResponse {
     currentStatus: SupportTicketStatus;
     statusChanged: boolean;
     adminNoteChanged: boolean;
+    assignmentChanged: boolean;
+    slaChanged: boolean;
     terminal: boolean;
     noCustomerMessageSent: boolean;
   };
@@ -1239,7 +1262,12 @@ class ApiClient {
 
   async updateSupportTicketLifecycle(
     ticketId: string,
-    data: { status?: SupportTicketStatus; adminNote?: string | null },
+    data: {
+      status?: SupportTicketStatus;
+      adminNote?: string | null;
+      assignedAdminId?: string | null;
+      slaDueAt?: string | null;
+    },
   ) {
     return this.request<SupportTicketLifecycleResponse>(
       `/support/admin/tickets/${ticketId}/lifecycle`,
@@ -1421,6 +1449,30 @@ class ApiClient {
     );
   }
 
+  async recordAdminOrderOperation(
+    orderId: string,
+    data: {
+      operation:
+        | "cancel_request"
+        | "refund_request"
+        | "compensation_request"
+        | "shipping_request";
+      reason?: string | null;
+      note?: string | null;
+      requestedAmount?: number | null;
+      currency?: string | null;
+    },
+  ) {
+    return this.request<{
+      order: AdminOrderItem;
+      workflow: Record<string, unknown>;
+      auditRecorded: boolean;
+    }>(`/orders/admin/${orderId}/operations`, {
+      method: "POST",
+      body: data,
+    });
+  }
+
   async listAdminPayments(params?: {
     status?: string;
     provider?: string;
@@ -1476,6 +1528,26 @@ class ApiClient {
   ) {
     return this.request<AdminRefundReviewResponse>(
       `/payments/admin/${paymentId}/refund-review`,
+      {
+        method: "POST",
+        body: data,
+      },
+    );
+  }
+
+  async recordAdminRefundExecution(
+    paymentId: string,
+    data: {
+      action:
+        | "start_manual_refund"
+        | "complete_manual_refund"
+        | "mark_provider_blocked";
+      reason?: string | null;
+      providerReference?: string | null;
+    },
+  ) {
+    return this.request<AdminRefundExecutionResponse>(
+      `/payments/admin/${paymentId}/refund-execution`,
       {
         method: "POST",
         body: data,
