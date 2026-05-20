@@ -14,7 +14,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { api, type AdminOrderItem } from "@/lib/api";
+import {
+  api,
+  type AdminOrderItem,
+  type AdminOrderOperationState,
+} from "@/lib/api";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -28,23 +32,36 @@ export default function AdminOrdersPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [operations, setOperations] = useState<AdminOrderOperationState[]>([]);
+  const [operationStatus, setOperationStatus] = useState("");
   const [operationBusyId, setOperationBusyId] = useState("");
   const [operationMessage, setOperationMessage] = useState("");
 
   async function load(params?: { q?: string; status?: string }) {
     setLoading(true);
     setError("");
-    const response = await api.listAdminOrders({
-      q: params?.q || undefined,
-      status: params?.status || undefined,
-      limit: 20,
-    });
+    const [response, operationResponse] = await Promise.all([
+      api.listAdminOrders({
+        q: params?.q || undefined,
+        status: params?.status || undefined,
+        limit: 20,
+      }),
+      api.listAdminOrderOperations({
+        status: operationStatus
+          ? (operationStatus as AdminOrderOperationState["status"])
+          : undefined,
+        limit: 30,
+      }),
+    ]);
     setLoading(false);
     if (!response.success || !response.data) {
       setError(response.error?.message || "订单读取失败");
       setOrders([]);
       setTotal(0);
       return;
+    }
+    if (operationResponse.success && operationResponse.data) {
+      setOperations(operationResponse.data.data || []);
     }
     setOrders(response.data.data || []);
     setTotal(response.data.pagination?.total || 0);
@@ -73,9 +90,9 @@ export default function AdminOrdersPage() {
       return;
     }
     setOperationMessage(
-      `Order workflow recorded: ${operation}; audit=${String(
-        response.data.auditRecorded,
-      )}`,
+      `Order workflow recorded: ${operation}; state=${
+        response.data.operationState?.status || "none"
+      }; audit=${String(response.data.auditRecorded)}`,
     );
     await load({ q: query.trim(), status: status.trim() });
   }
@@ -117,7 +134,7 @@ export default function AdminOrdersPage() {
         </CardHeader>
         <CardContent>
           <form
-            className="grid gap-3 md:grid-cols-[1fr_220px_auto]"
+            className="grid gap-3 md:grid-cols-[1fr_220px_220px_auto]"
             onSubmit={handleSubmit}
           >
             <Input
@@ -130,6 +147,19 @@ export default function AdminOrdersPage() {
               onChange={(event) => setStatus(event.target.value)}
               placeholder="状态，逗号分隔"
             />
+            <select
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+              value={operationStatus}
+              aria-label="order operation status filter"
+              onChange={(event) => setOperationStatus(event.target.value)}
+            >
+              <option value="">All workflow states</option>
+              <option value="recorded">Recorded</option>
+              <option value="in_review">In review</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="completed">Completed</option>
+            </select>
             <Button type="submit" disabled={loading}>
               <Search className="h-4 w-4" />
               查询
@@ -289,6 +319,76 @@ export default function AdminOrdersPage() {
                             .join(" / ")}
                         </div>
                       ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Order workflow states</CardTitle>
+          <CardDescription>
+            Read-only state table for cancel, refund, compensation and shipping
+            handling.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[960px] text-left text-sm">
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Order</th>
+                  <th className="px-3 py-2 font-medium">Operation</th>
+                  <th className="px-3 py-2 font-medium">State</th>
+                  <th className="px-3 py-2 font-medium">Amount</th>
+                  <th className="px-3 py-2 font-medium">Audit</th>
+                  <th className="px-3 py-2 font-medium">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {operations.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-3 py-6 text-center text-muted-foreground"
+                    >
+                      No workflow states yet.
+                    </td>
+                  </tr>
+                ) : null}
+                {operations.map((operation) => (
+                  <tr key={operation.id} className="border-t">
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {operation.order_id}
+                    </td>
+                    <td className="px-3 py-2">{operation.operation}</td>
+                    <td className="px-3 py-2">
+                      <Badge variant="outline">{operation.status}</Badge>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {operation.requested_amount ?? "-"}{" "}
+                      {operation.currency || ""}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {operation.audit_log_id ? (
+                        <Link
+                          className="text-primary hover:underline"
+                          href={`/zh/admin/audit?q=${encodeURIComponent(
+                            operation.audit_log_id,
+                          )}`}
+                        >
+                          audit log
+                        </Link>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {formatDate(operation.created_at)}
                     </td>
                   </tr>
                 ))}

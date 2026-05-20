@@ -23,6 +23,7 @@ const e2eAdminEmail = process.env.E2E_ADMIN_EMAIL;
 const e2eAdminPassword = process.env.E2E_ADMIN_PASSWORD;
 const e2eAdminSeedSecret = process.env.E2E_ADMIN_SEED_SECRET;
 const livePlatformSamples = {
+  "yahoo-shopping": process.env.YAHOO_SHOPPING_SAMPLE_ITEM_CODE || "7031980048",
   rakuten: process.env.RAKUTEN_SAMPLE_ITEM_CODE || "alpen:10431509",
   amazon: process.env.AMAZON_SAMPLE_ASIN || "B0DWZJBXNZ",
   mercari: process.env.MERCARI_SAMPLE_ITEM_ID || "m97035025426",
@@ -69,10 +70,7 @@ async function seedE2EAdminIfConfigured(request: APIRequestContext) {
   expect(response.ok()).toBe(true);
 }
 
-async function injectAdminSession(
-  page: Page,
-  request: APIRequestContext,
-) {
+async function injectAdminSession(page: Page, request: APIRequestContext) {
   await seedE2EAdminIfConfigured(request);
   const loginResponse = await request.post(`${backendUrl}/api/v1/auth/login`, {
     data: {
@@ -268,6 +266,10 @@ test.describe("kangaroo-japan production smoke", () => {
     expect(yahooImageResponse.ok()).toBe(true);
 
     const rakutenDetail = await auditPlatformDetail(request, "rakuten");
+    const yahooShoppingDetail = await auditPlatformDetail(
+      request,
+      "yahoo-shopping",
+    );
     const amazonDetail = await auditPlatformDetail(request, "amazon");
     const mercariDetail = await auditPlatformDetail(request, "mercari");
 
@@ -278,15 +280,31 @@ test.describe("kangaroo-japan production smoke", () => {
         liveSearchImageOk: yahooImageResponse.ok(),
       },
       rakuten: {
-        ...(byPlatform.get("rakuten") || { configured: false, totalProducts: 0 }),
+        ...(byPlatform.get("rakuten") || {
+          configured: false,
+          totalProducts: 0,
+        }),
         liveDetail: rakutenDetail,
       },
+      yahooShopping: {
+        ...(byPlatform.get("yahoo-shopping") || {
+          configured: false,
+          totalProducts: 0,
+        }),
+        liveDetail: yahooShoppingDetail,
+      },
       amazon: {
-        ...(byPlatform.get("amazon") || { configured: false, totalProducts: 0 }),
+        ...(byPlatform.get("amazon") || {
+          configured: false,
+          totalProducts: 0,
+        }),
         liveDetail: amazonDetail,
       },
       mercari: {
-        ...(byPlatform.get("mercari") || { configured: false, totalProducts: 0 }),
+        ...(byPlatform.get("mercari") || {
+          configured: false,
+          totalProducts: 0,
+        }),
         liveDetail: mercariDetail,
       },
     };
@@ -303,6 +321,8 @@ test.describe("kangaroo-japan production smoke", () => {
 
     expect(audit.yahoo.configured).toBe(true);
     expect(audit.yahoo.liveSearchImageOk).toBe(true);
+    expect(audit.yahooShopping.liveDetail.detailOk).toBe(true);
+    expect(audit.yahooShopping.liveDetail.imageOk).toBe(true);
     expect(audit.rakuten.liveDetail.detailOk).toBe(true);
     expect(audit.rakuten.liveDetail.imageOk).toBe(true);
     expect(audit.amazon.liveDetail.detailOk).toBe(true);
@@ -311,6 +331,7 @@ test.describe("kangaroo-japan production smoke", () => {
     expect(audit.mercari.liveDetail.imageOk).toBe(true);
 
     if (strictPlatformSmoke) {
+      expect(audit.yahooShopping.configured).toBe(true);
       expect(audit.rakuten.configured).toBe(true);
       expect(audit.amazon.configured).toBe(true);
       expect(audit.mercari.configured).toBe(true);
@@ -351,7 +372,12 @@ test.describe("kangaroo-japan production smoke", () => {
     expect(healthSmokeBody.data?.safety?.writesHealthHistory).toBe(true);
     expect(healthSmokeBody.data?.persistence?.tableReady).toBe(true);
     const healthItems = healthSmokeBody.data?.data || [];
-    for (const platform of ["rakuten", "amazon", "mercari"] as const) {
+    for (const platform of [
+      "yahoo-shopping",
+      "rakuten",
+      "amazon",
+      "mercari",
+    ] as const) {
       const item = healthItems.find(
         (candidate: { platform?: string }) => candidate.platform === platform,
       );
@@ -384,6 +410,33 @@ test.describe("kangaroo-japan production smoke", () => {
     const migrationStatusBody = await migrationStatusResponse.json();
     expect(migrationStatusBody.success).toBe(true);
     expect(migrationStatusBody.data?.schema?.allRequiredReady).toBe(true);
+    const orderOperationsSchema =
+      migrationStatusBody.data?.schema?.tables?.find(
+        (table: { key?: string }) => table.key === "orderOperations",
+      );
+    expect(orderOperationsSchema).toMatchObject({
+      tableReady: true,
+      migrationRecorded: true,
+    });
+
+    const yahooShoppingHistoryResponse = await request.get(
+      `${backendUrl}/api/v1/integrations/admin/health/history?platform=yahoo-shopping&limit=5`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    expect(yahooShoppingHistoryResponse.ok()).toBe(true);
+    const yahooShoppingHistoryBody = await yahooShoppingHistoryResponse.json();
+    expect(yahooShoppingHistoryBody.success).toBe(true);
+    expect(
+      (yahooShoppingHistoryBody.data?.data || []).some(
+        (item: { platform?: string }) => item.platform === "yahoo-shopping",
+      ),
+    ).toBe(true);
+
+    await expect(
+      page
+        .locator('select[aria-label="platform health history platform filter"]')
+        .locator('option[value="yahoo-shopping"]'),
+    ).toHaveCount(1);
 
     const initialAlertStatesResponse = await request.get(
       `${backendUrl}/api/v1/integrations/admin/health/alert-states?limit=20`,

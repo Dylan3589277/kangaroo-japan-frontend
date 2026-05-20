@@ -359,6 +359,26 @@ export interface AdminOrderItem {
   };
 }
 
+export interface AdminOrderOperationState {
+  id: string;
+  order_id: string;
+  operation:
+    | "cancel_request"
+    | "refund_request"
+    | "compensation_request"
+    | "shipping_request";
+  status: "recorded" | "in_review" | "approved" | "rejected" | "completed";
+  reason?: string | null;
+  note?: string | null;
+  requested_amount?: number | null;
+  currency?: string | null;
+  actor_id?: string | null;
+  audit_log_id?: string | null;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AdminPaymentItem {
   id: string;
   paymentNo: string;
@@ -1449,6 +1469,25 @@ class ApiClient {
     );
   }
 
+  async listAdminOrderOperations(params?: {
+    orderId?: string;
+    operation?: AdminOrderOperationState["operation"];
+    status?: AdminOrderOperationState["status"];
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.orderId) searchParams.set("orderId", params.orderId);
+    if (params?.operation) searchParams.set("operation", params.operation);
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminListResponse<AdminOrderOperationState>>(
+      `/orders/admin/operations${query ? `?${query}` : ""}`,
+    );
+  }
+
   async recordAdminOrderOperation(
     orderId: string,
     data: {
@@ -1466,6 +1505,7 @@ class ApiClient {
     return this.request<{
       order: AdminOrderItem;
       workflow: Record<string, unknown>;
+      operationState: AdminOrderOperationState | null;
       auditRecorded: boolean;
     }>(`/orders/admin/${orderId}/operations`, {
       method: "POST",
