@@ -321,7 +321,7 @@ test.describe("kangaroo-japan production smoke", () => {
     page,
     request,
     baseURL,
-  }) => {
+  }, testInfo) => {
     test.skip(
       !e2eAdminEmail || !e2eAdminPassword,
       "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run authenticated admin smoke.",
@@ -384,5 +384,124 @@ test.describe("kangaroo-japan production smoke", () => {
     const migrationStatusBody = await migrationStatusResponse.json();
     expect(migrationStatusBody.success).toBe(true);
     expect(migrationStatusBody.data?.schema?.allRequiredReady).toBe(true);
+
+    const initialAlertStatesResponse = await request.get(
+      `${backendUrl}/api/v1/integrations/admin/health/alert-states?limit=20`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    expect(initialAlertStatesResponse.ok()).toBe(true);
+    const initialAlertStatesBody = await initialAlertStatesResponse.json();
+    expect(initialAlertStatesBody.success).toBe(true);
+    expect(initialAlertStatesBody.data?.safety).toMatchObject({
+      adminOnly: true,
+      mutableStateSource: "platform_health_alert_states",
+      healthHistoryUnchanged: true,
+    });
+
+    const activeAlerts = healthItems.flatMap(
+      (item: {
+        platform?: string;
+        alerts?: Array<{ code?: string; severity?: string }>;
+      }) =>
+        (item.alerts || []).map((alert) => ({
+          platform: item.platform,
+          code: alert.code,
+          severity: alert.severity,
+        })),
+    );
+    expect(activeAlerts.length).toBeGreaterThan(0);
+    const targetAlert = activeAlerts.find(
+      (alert) => alert.platform && alert.code,
+    );
+    expect(targetAlert).toBeTruthy();
+
+    const acknowledgeResponse = await request.post(
+      `${backendUrl}/api/v1/integrations/admin/health/alerts/acknowledge`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        data: {
+          platform: targetAlert?.platform,
+          code: targetAlert?.code,
+          note: "production smoke acknowledge",
+        },
+      },
+    );
+    expect(acknowledgeResponse.ok()).toBe(true);
+    const acknowledgeBody = await acknowledgeResponse.json();
+    expect(acknowledgeBody.success).toBe(true);
+    expect(acknowledgeBody.data?.state).toMatchObject({
+      status: "in_progress",
+      lastAction: "acknowledged",
+    });
+
+    const inProgressResponse = await request.get(
+      `${backendUrl}/api/v1/integrations/admin/health/alert-states?status=in_progress&limit=20`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    expect(inProgressResponse.ok()).toBe(true);
+    const inProgressBody = await inProgressResponse.json();
+    expect(inProgressBody.success).toBe(true);
+    expect(
+      (inProgressBody.data?.data || []).some(
+        (state: { platform?: string; code?: string; status?: string }) =>
+          state.platform === targetAlert?.platform &&
+          state.code === targetAlert?.code &&
+          state.status === "in_progress",
+      ),
+    ).toBe(true);
+
+    const handleResponse = await request.post(
+      `${backendUrl}/api/v1/integrations/admin/health/alerts/handle`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        data: {
+          platform: targetAlert?.platform,
+          code: targetAlert?.code,
+          outcome: "resolved",
+          note: "production smoke resolved",
+          nextAction: "no-op smoke verification",
+        },
+      },
+    );
+    expect(handleResponse.ok()).toBe(true);
+    const handleBody = await handleResponse.json();
+    expect(handleBody.success).toBe(true);
+    expect(handleBody.data?.state).toMatchObject({
+      status: "resolved",
+      lastOutcome: "resolved",
+    });
+
+    const resolvedResponse = await request.get(
+      `${backendUrl}/api/v1/integrations/admin/health/alert-states?status=resolved&limit=20`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    expect(resolvedResponse.ok()).toBe(true);
+    const resolvedBody = await resolvedResponse.json();
+    expect(resolvedBody.success).toBe(true);
+    expect(
+      (resolvedBody.data?.data || []).some(
+        (state: { platform?: string; code?: string; status?: string }) =>
+          state.platform === targetAlert?.platform &&
+          state.code === targetAlert?.code &&
+          state.status === "resolved",
+      ),
+    ).toBe(true);
+
+    await testInfo.attach("platform-alert-state-smoke", {
+      body: JSON.stringify(
+        {
+          targetAlert,
+          initialSummary: initialAlertStatesBody.data?.summary,
+          acknowledge: acknowledgeBody.data?.state,
+          inProgressSummary: inProgressBody.data?.summary,
+          handle: handleBody.data?.state,
+          resolvedSummary: resolvedBody.data?.summary,
+          safety: initialAlertStatesBody.data?.safety,
+        },
+        null,
+        2,
+      ),
+      contentType: "application/json",
+    });
   });
 });

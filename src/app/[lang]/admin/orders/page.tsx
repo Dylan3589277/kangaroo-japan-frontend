@@ -158,6 +158,14 @@ export default function AdminOrdersPage() {
                           <span>
                             support: {order.linked_context.support_lookup_path}
                           </span>
+                          {order.linked_context.audit_lookup_path ? (
+                            <Link
+                              className="text-primary hover:underline"
+                              href={order.linked_context.audit_lookup_path}
+                            >
+                              order audit trail
+                            </Link>
+                          ) : null}
                           {order.linked_context.refund_review_candidate ? (
                             <Badge variant="outline" className="w-fit">
                               refund candidate

@@ -343,6 +343,8 @@ export interface AdminOrderItem {
     order_admin_path: string;
     payment_admin_path?: string | null;
     support_lookup_path: string;
+    audit_lookup_path?: string | null;
+    refund_approval_path?: string | null;
     refund_review_candidate: boolean;
     product_sources: {
       platforms: string[];
@@ -451,7 +453,31 @@ export interface AdminRefundApprovalItem {
   providerRefundAction: boolean;
   paymentStateChanged: boolean;
   metadata?: Record<string, unknown> | null;
+  lifecycle?: {
+    previousDecision?: string | null;
+    currentDecision?: string;
+    nextAllowed?: string[];
+    terminal?: boolean;
+    providerRefundAction?: boolean;
+    paymentStateChanged?: boolean;
+  } | null;
+  auditLookupPath?: string | null;
+  orderAdminPath?: string | null;
   createdAt: string;
+}
+
+export interface SupportTicketLifecycleResponse {
+  ticket: SupportTicket;
+  lifecycle: {
+    previousStatus: SupportTicketStatus;
+    currentStatus: SupportTicketStatus;
+    statusChanged: boolean;
+    adminNoteChanged: boolean;
+    terminal: boolean;
+    noCustomerMessageSent: boolean;
+  };
+  auditRecorded: boolean;
+  auditLookupPath: string;
 }
 
 export interface AdminPlatformHealthHistoryItem {
@@ -1215,7 +1241,7 @@ class ApiClient {
     ticketId: string,
     data: { status?: SupportTicketStatus; adminNote?: string | null },
   ) {
-    return this.request<SupportTicket>(
+    return this.request<SupportTicketLifecycleResponse>(
       `/support/admin/tickets/${ticketId}/lifecycle`,
       {
         method: "POST",
@@ -1350,6 +1376,7 @@ class ApiClient {
       action: "acknowledged";
       alert: Record<string, unknown>;
       audit: { id?: string; action?: string } | null;
+      state?: AdminPlatformHealthAlertState | null;
       safety: Record<string, unknown>;
     }>("/integrations/admin/health/alerts/acknowledge", {
       method: "POST",
@@ -1369,6 +1396,7 @@ class ApiClient {
       action: "handling_recorded";
       alert: Record<string, unknown>;
       audit: { id?: string; action?: string } | null;
+      state?: AdminPlatformHealthAlertState | null;
       safety: Record<string, unknown>;
     }>("/integrations/admin/health/alerts/handle", {
       method: "POST",

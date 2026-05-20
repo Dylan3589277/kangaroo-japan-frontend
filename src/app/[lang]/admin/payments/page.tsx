@@ -33,13 +33,8 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
-function refundReviewLabel(decision: RefundReviewDecision | string) {
-  if (decision === "approved_for_manual_refund") return "批准人工退款";
-  if (decision === "rejected") return "驳回退款";
-  return "需要复核";
-}
-
 function refundLifecycle(approval?: AdminRefundApprovalItem) {
+  if (approval?.lifecycle) return approval.lifecycle;
   return (approval?.metadata as {
     lifecycle?: {
       previousDecision?: string | null;
@@ -390,6 +385,14 @@ export default function AdminPaymentsPage() {
                                       "-"}
                                 </span>
                               </div>
+                            ) : null}
+                            {latestApproval.auditLookupPath ? (
+                              <Link
+                                className="text-xs text-primary hover:underline"
+                                href={latestApproval.auditLookupPath}
+                              >
+                                audit trail
+                              </Link>
                             ) : null}
                           </div>
                         ) : (

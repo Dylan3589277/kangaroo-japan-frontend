@@ -197,6 +197,9 @@ export default function AdminSupportPage() {
   const [refreshLoading, setRefreshLoading] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
   const [copiedJobId, setCopiedJobId] = useState("");
+  const [lifecycleStatus, setLifecycleStatus] = useState("");
+  const [lifecycleNote, setLifecycleNote] = useState("");
+  const [lifecycleLoading, setLifecycleLoading] = useState(false);
   const selectedTicketIdRef = useRef("");
   const reviewRequestSeq = useRef(0);
 
@@ -261,6 +264,8 @@ export default function AdminSupportPage() {
     setDrafts([]);
     setSelectedDraftJobId("");
     setDraftMessage("");
+    setLifecycleStatus("");
+    setLifecycleNote("");
   }, []);
 
   const loadSupportTickets = useCallback(async () => {
@@ -394,6 +399,34 @@ export default function AdminSupportPage() {
     setRefreshLoading(true);
     await loadTicketReviewData(selectedTicketId);
     setRefreshLoading(false);
+  }
+
+  async function handleUpdateTicketLifecycle() {
+    if (!selectedTicketId || !selectedTicket) return;
+    setLifecycleLoading(true);
+    setDraftMessage("");
+    const response = await api.updateSupportTicketLifecycle(selectedTicketId, {
+      status: lifecycleStatus as typeof selectedTicket.status,
+      adminNote: lifecycleNote.trim() || null,
+    });
+    setLifecycleLoading(false);
+    if (!response.success || !response.data) {
+      setDraftMessage(
+        response.error?.message || "Ticket lifecycle update failed.",
+      );
+      return;
+    }
+    setDraftMessage(
+      `Ticket lifecycle saved: ${response.data.lifecycle.previousStatus} -> ${response.data.lifecycle.currentStatus}; audit=${String(
+        response.data.auditRecorded,
+      )}`,
+    );
+    setSupportTickets((current) =>
+      current.map((ticket) =>
+        ticket.id === selectedTicketId ? response.data!.ticket : ticket,
+      ),
+    );
+    await loadTicketReviewData(selectedTicketId);
   }
 
   async function handleTriggerDraft() {
@@ -676,6 +709,56 @@ export default function AdminSupportPage() {
                           {ticketContext?.orders?.items?.length
                             ? `匹配 ${ticketContext.orders.total} 条脱敏订单，草稿只能引用这些订单。`
                             : "未匹配到本账号订单；Hermes 必须只按知识库或边界回复。"}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="font-medium">
+                              Ticket lifecycle
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Saves admin handling state, writes audit log, and
+                              sends no customer message.
+                            </div>
+                          </div>
+                          <Badge variant="outline">
+                            {selectedTicket.status}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 grid gap-2 md:grid-cols-[180px_1fr_auto]">
+                          <select
+                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                            value={lifecycleStatus || selectedTicket.status}
+                            onChange={(event) =>
+                              setLifecycleStatus(event.target.value)
+                            }
+                            aria-label="support ticket lifecycle status"
+                          >
+                            <option value="open">open</option>
+                            <option value="in_progress">in_progress</option>
+                            <option value="resolved">resolved</option>
+                            <option value="closed">closed</option>
+                          </select>
+                          <Input
+                            value={lifecycleNote}
+                            onChange={(event) =>
+                              setLifecycleNote(event.target.value)
+                            }
+                            placeholder="Internal handling note"
+                            aria-label="support ticket internal handling note"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleUpdateTicketLifecycle}
+                            disabled={lifecycleLoading}
+                          >
+                            {lifecycleLoading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : null}
+                            Save
+                          </Button>
                         </div>
                       </div>
                     </div>
