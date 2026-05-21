@@ -59,6 +59,11 @@ function refundReviewDisplayLabel(decision: RefundReviewDecision | string) {
   return labels[decision] || decision;
 }
 
+function adminHref(path?: string | null) {
+  if (!path) return null;
+  return path.startsWith("/zh/") ? path : `/zh${path}`;
+}
+
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<AdminPaymentItem[]>([]);
   const [approvals, setApprovals] = useState<AdminRefundApprovalItem[]>([]);
@@ -359,12 +364,32 @@ export default function AdminPaymentsPage() {
                     <tr key={payment.id} className="border-t align-top">
                       <td className="px-3 py-2 font-medium">
                         {payment.paymentNo}
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs font-normal">
+                          {payment.orderNo ? (
+                            <Link
+                              className="text-primary hover:underline"
+                              href={`/zh/admin/support?q=${encodeURIComponent(
+                                payment.orderNo,
+                              )}`}
+                            >
+                              support context
+                            </Link>
+                          ) : null}
+                          {latestApproval?.auditLookupPath ? (
+                            <Link
+                              className="text-primary hover:underline"
+                              href={adminHref(latestApproval.auditLookupPath)!}
+                            >
+                              refund audit
+                            </Link>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">
                         {payment.orderLink?.adminPath ? (
                           <Link
                             className="text-primary hover:underline"
-                            href={payment.orderLink.adminPath}
+                            href={adminHref(payment.orderLink.adminPath)!}
                           >
                             {payment.orderNo || payment.orderId}
                           </Link>
@@ -421,7 +446,9 @@ export default function AdminPaymentsPage() {
                             {latestApproval.auditLookupPath ? (
                               <Link
                                 className="text-xs text-primary hover:underline"
-                                href={latestApproval.auditLookupPath}
+                                href={adminHref(
+                                  latestApproval.auditLookupPath,
+                                )!}
                               >
                                 audit trail
                               </Link>

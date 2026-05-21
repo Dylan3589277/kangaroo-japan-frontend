@@ -25,6 +25,11 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
 }
 
+function adminHref(path?: string | null) {
+  if (!path) return null;
+  return path.startsWith("/zh/") ? path : `/zh${path}`;
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrderItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -218,13 +223,42 @@ export default function AdminOrdersPage() {
                       {order.order_no}
                       {order.linked_context ? (
                         <div className="mt-2 grid gap-1 text-xs font-normal text-muted-foreground">
-                          <span>
-                            support: {order.linked_context.support_lookup_path}
-                          </span>
+                          {adminHref(
+                            order.linked_context.support_lookup_path,
+                          ) ? (
+                            <Link
+                              className="text-primary hover:underline"
+                              href={
+                                adminHref(
+                                  order.linked_context.support_lookup_path,
+                                )!
+                              }
+                            >
+                              support context
+                            </Link>
+                          ) : null}
+                          {adminHref(
+                            order.linked_context.refund_approval_path,
+                          ) ? (
+                            <Link
+                              className="text-primary hover:underline"
+                              href={
+                                adminHref(
+                                  order.linked_context.refund_approval_path,
+                                )!
+                              }
+                            >
+                              refund lifecycle
+                            </Link>
+                          ) : null}
                           {order.linked_context.audit_lookup_path ? (
                             <Link
                               className="text-primary hover:underline"
-                              href={order.linked_context.audit_lookup_path}
+                              href={
+                                adminHref(
+                                  order.linked_context.audit_lookup_path,
+                                )!
+                              }
                             >
                               order audit trail
                             </Link>
@@ -344,6 +378,7 @@ export default function AdminOrdersPage() {
                   <th className="px-3 py-2 font-medium">Order</th>
                   <th className="px-3 py-2 font-medium">Operation</th>
                   <th className="px-3 py-2 font-medium">State</th>
+                  <th className="px-3 py-2 font-medium">Lifecycle links</th>
                   <th className="px-3 py-2 font-medium">Amount</th>
                   <th className="px-3 py-2 font-medium">Audit</th>
                   <th className="px-3 py-2 font-medium">Created</th>
@@ -353,7 +388,7 @@ export default function AdminOrdersPage() {
                 {operations.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-3 py-6 text-center text-muted-foreground"
                     >
                       No workflow states yet.
@@ -363,11 +398,74 @@ export default function AdminOrdersPage() {
                 {operations.map((operation) => (
                   <tr key={operation.id} className="border-t">
                     <td className="px-3 py-2 font-mono text-xs">
-                      {operation.order_id}
+                      {adminHref(
+                        operation.linked_context?.order_admin_path,
+                      ) ? (
+                        <Link
+                          className="text-primary hover:underline"
+                          href={
+                            adminHref(
+                              operation.linked_context?.order_admin_path,
+                            )!
+                          }
+                        >
+                          {operation.linked_context?.order_no ||
+                            operation.order_id}
+                        </Link>
+                      ) : (
+                        operation.linked_context?.order_no ||
+                        operation.order_id
+                      )}
                     </td>
                     <td className="px-3 py-2">{operation.operation}</td>
                     <td className="px-3 py-2">
                       <Badge variant="outline">{operation.status}</Badge>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {adminHref(
+                          operation.linked_context?.support_lookup_path,
+                        ) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={
+                              adminHref(
+                                operation.linked_context?.support_lookup_path,
+                              )!
+                            }
+                          >
+                            support
+                          </Link>
+                        ) : null}
+                        {adminHref(
+                          operation.linked_context?.payment_admin_path,
+                        ) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={
+                              adminHref(
+                                operation.linked_context?.payment_admin_path,
+                              )!
+                            }
+                          >
+                            payment
+                          </Link>
+                        ) : null}
+                        {adminHref(
+                          operation.linked_context?.refund_approval_path,
+                        ) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={
+                              adminHref(
+                                operation.linked_context?.refund_approval_path,
+                              )!
+                            }
+                          >
+                            refund
+                          </Link>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {operation.requested_amount ?? "-"}{" "}
@@ -377,9 +475,14 @@ export default function AdminOrdersPage() {
                       {operation.audit_log_id ? (
                         <Link
                           className="text-primary hover:underline"
-                          href={`/zh/admin/audit?q=${encodeURIComponent(
-                            operation.audit_log_id,
-                          )}`}
+                          href={
+                            adminHref(
+                              operation.linked_context?.audit_lookup_path,
+                            ) ||
+                            `/zh/admin/audit?q=${encodeURIComponent(
+                              operation.audit_log_id,
+                            )}`
+                          }
                         >
                           audit log
                         </Link>

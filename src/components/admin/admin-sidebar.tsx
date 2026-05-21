@@ -15,6 +15,7 @@ import {
   ShoppingCartOutlined,
   CloudServerOutlined,
   FileSearchOutlined,
+  PartitionOutlined,
 } from "@ant-design/icons";
 const menuItems = [
   {
@@ -64,6 +65,12 @@ const menuItems = [
     icon: <CloudServerOutlined />,
     label: "平台健康",
     href: "/admin/platforms",
+  },
+  {
+    key: "/admin/workflows",
+    icon: <PartitionOutlined />,
+    label: "宸ヤ綔娴绘€昏",
+    href: "/admin/workflows",
   },
   {
     key: "/admin/orders",

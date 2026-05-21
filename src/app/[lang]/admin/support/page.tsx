@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   Bot,
@@ -138,6 +139,11 @@ function downloadCsvTemplate() {
 function compactDate(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
+}
+
+function adminHref(path?: string | null) {
+  if (!path) return null;
+  return path.startsWith("/zh/") ? path : `/zh${path}`;
 }
 
 function getDraftEvidence(draft: HermesDraft | null) {
@@ -717,6 +723,74 @@ export default function AdminSupportPage() {
                             : "未匹配到本账号订单；Hermes 必须只按知识库或边界回复。"}
                         </div>
                       </div>
+                      {ticketContext?.orders?.items?.length ? (
+                        <div className="rounded-lg border p-3">
+                          <div className="font-medium">Linked order workflows</div>
+                          <div className="mt-3 grid gap-2">
+                            {ticketContext.orders.items
+                              .slice(0, 3)
+                              .map((order) => (
+                                <div
+                                  key={order.id}
+                                  className="rounded-md bg-muted p-3 text-xs"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="font-medium">
+                                      {order.orderNo}
+                                    </span>
+                                    <Badge variant="outline">
+                                      {order.status}
+                                    </Badge>
+                                  </div>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {adminHref(
+                                      order.adminLinks?.orderAdminPath,
+                                    ) ? (
+                                      <Link
+                                        className="text-primary hover:underline"
+                                        href={
+                                          adminHref(
+                                            order.adminLinks?.orderAdminPath,
+                                          )!
+                                        }
+                                      >
+                                        order workflow
+                                      </Link>
+                                    ) : null}
+                                    {adminHref(
+                                      order.adminLinks?.paymentAdminPath,
+                                    ) ? (
+                                      <Link
+                                        className="text-primary hover:underline"
+                                        href={
+                                          adminHref(
+                                            order.adminLinks?.paymentAdminPath,
+                                          )!
+                                        }
+                                      >
+                                        payment/refund
+                                      </Link>
+                                    ) : null}
+                                    {adminHref(
+                                      order.adminLinks?.auditLookupPath,
+                                    ) ? (
+                                      <Link
+                                        className="text-primary hover:underline"
+                                        href={
+                                          adminHref(
+                                            order.adminLinks?.auditLookupPath,
+                                          )!
+                                        }
+                                      >
+                                        audit
+                                      </Link>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="rounded-lg border p-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>

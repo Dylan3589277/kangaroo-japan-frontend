@@ -64,6 +64,13 @@ export interface SupportOrderLookupItem {
   updatedAt: string;
   paidAt?: string | null;
   total: { amount: number; currency?: string | null };
+  adminLinks?: {
+    orderAdminPath?: string | null;
+    paymentAdminPath?: string | null;
+    refundApprovalPath?: string | null;
+    auditLookupPath?: string | null;
+    orderWorkflowPath?: string | null;
+  };
   customer: {
     name?: string | null;
     email?: string | null;
@@ -375,6 +382,16 @@ export interface AdminOrderOperationState {
   actor_id?: string | null;
   audit_log_id?: string | null;
   metadata?: Record<string, unknown> | null;
+  linked_context?: {
+    readonly: boolean;
+    order_no?: string | null;
+    payment_id?: string | null;
+    order_admin_path?: string | null;
+    payment_admin_path?: string | null;
+    refund_approval_path?: string | null;
+    support_lookup_path?: string | null;
+    audit_lookup_path?: string | null;
+  };
   created_at: string;
   updated_at: string;
 }
@@ -418,6 +435,81 @@ export interface AdminAuditLogItem {
   ipHash?: string | null;
   userAgentHash?: string | null;
   createdAt: string;
+}
+
+export interface AdminWorkflowSummary {
+  query: string;
+  generatedAt: string;
+  orders: Array<{
+    id: string;
+    orderNo: string;
+    status: string;
+    paymentId?: string | null;
+    totalAmount: number;
+    totalCurrency: string;
+    createdAt: string;
+    updatedAt: string;
+    adminPath: string;
+  }>;
+  payments: Array<{
+    id: string;
+    paymentNo: string;
+    orderId: string;
+    status: string;
+    amount: number;
+    currency: string;
+    provider: string;
+    method: string;
+    createdAt: string;
+    adminPath: string;
+  }>;
+  orderOperations: Array<{
+    id: string;
+    orderId: string;
+    orderNo?: string | null;
+    operation: string;
+    status: string;
+    reason?: string | null;
+    auditLogId?: string | null;
+    createdAt: string;
+    adminPath: string;
+  }>;
+  refundApprovals: Array<{
+    id: string;
+    paymentId: string;
+    orderId?: string | null;
+    decision: string;
+    reason?: string | null;
+    provider: string;
+    amount: number;
+    currency: string;
+    providerRefundAction: boolean;
+    paymentStateChanged: boolean;
+    createdAt: string;
+    adminPath: string;
+  }>;
+  supportTickets: Array<{
+    id: string;
+    ticketNumber: string;
+    status: string;
+    category: string;
+    subject: string;
+    site: string;
+    language: string;
+    updatedAt: string;
+    adminPath: string;
+  }>;
+  auditLogs: Array<{
+    id: string;
+    action: string;
+    resourceType: string;
+    resourceId?: string | null;
+    summary?: string | null;
+    createdAt: string;
+    adminPath: string;
+  }>;
+  links: Record<string, string>;
+  safety: Record<string, unknown>;
 }
 
 export interface AdminListResponse<T> {
@@ -1614,6 +1706,16 @@ class ApiClient {
     const query = searchParams.toString();
     return this.request<AdminListResponse<AdminAuditLogItem>>(
       `/admin/audit-logs${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async getAdminWorkflowOrderSummary(params?: { q?: string; limit?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params?.q) searchParams.set("q", params.q);
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminWorkflowSummary>(
+      `/admin/workflows/order-summary${query ? `?${query}` : ""}`,
     );
   }
 
