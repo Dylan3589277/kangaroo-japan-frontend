@@ -2,21 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 import {
-  DashboardOutlined,
-  UserOutlined,
   AccountBookOutlined,
-  InboxOutlined,
-  SettingOutlined,
-  StarOutlined,
   BellOutlined,
-  DollarOutlined,
-  ShoppingCartOutlined,
   CloudServerOutlined,
+  DashboardOutlined,
+  DatabaseOutlined,
+  DollarOutlined,
   FileSearchOutlined,
+  InboxOutlined,
   PartitionOutlined,
+  SettingOutlined,
+  ShoppingCartOutlined,
+  StarOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
+
+import { cn } from "@/lib/utils";
+
 const menuItems = [
   {
     key: "/admin",
@@ -69,7 +72,7 @@ const menuItems = [
   {
     key: "/admin/workflows",
     icon: <PartitionOutlined />,
-    label: "宸ヤ綔娴绘€昏",
+    label: "工作流总览",
     href: "/admin/workflows",
   },
   {
@@ -77,6 +80,12 @@ const menuItems = [
     icon: <ShoppingCartOutlined />,
     label: "订单只读",
     href: "/admin/orders",
+  },
+  {
+    key: "/admin/warehouse",
+    icon: <DatabaseOutlined />,
+    label: "仓库后台",
+    href: "/admin/warehouse",
   },
   {
     key: "/admin/payments",

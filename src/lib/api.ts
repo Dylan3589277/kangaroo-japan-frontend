@@ -124,6 +124,7 @@ export type SupportTicketStatus =
   | "in_progress"
   | "resolved"
   | "closed";
+export type ManualHandlingStatus = "unhandled" | "in_progress" | "resolved";
 export type SupportTicketCategory =
   | "order"
   | "shipping"
@@ -149,6 +150,7 @@ export interface SupportTicket {
   conversationSnapshot?: Array<Record<string, unknown>> | null;
   conversationId?: string | null;
   status: SupportTicketStatus;
+  handlingStatus?: ManualHandlingStatus | null;
   adminNote?: string | null;
   assignedAdminId?: string | null;
   assignedAdminEmailHash?: string | null;
@@ -352,6 +354,7 @@ export interface AdminOrderItem {
     readonly: boolean;
     order_admin_path: string;
     payment_admin_path?: string | null;
+    warehouse_admin_path?: string | null;
     support_lookup_path: string;
     audit_lookup_path?: string | null;
     refund_approval_path?: string | null;
@@ -387,6 +390,9 @@ export interface AdminOrderOperationState {
     order_no?: string | null;
     payment_id?: string | null;
     order_admin_path?: string | null;
+    warehouse_admin_path?: string | null;
+    primary_admin_path?: string | null;
+    warehouse_stage?: string | null;
     payment_admin_path?: string | null;
     refund_approval_path?: string | null;
     support_lookup_path?: string | null;
@@ -394,6 +400,38 @@ export interface AdminOrderOperationState {
   };
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminWarehouseOperationHistoryItem {
+  id: string;
+  action: string;
+  order_id?: string | null;
+  shipment_order_id?: string | null;
+  order_ids: string[];
+  actor_id?: string | null;
+  area?: string | null;
+  weight?: number | null;
+  after_post_fee?: number | null;
+  post_fee?: number | null;
+  pack_fee?: number | null;
+  amount?: number | null;
+  tracking_number?: string | null;
+  photo_count: number;
+  audit_log_id?: string | null;
+  is_exception: boolean;
+  handling_status?: "unhandled" | "in_progress" | "resolved" | null;
+  handling_note?: string | null;
+  handled_by?: string | null;
+  handled_at?: string | null;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+  linked_context?: {
+    readonly: boolean;
+    warehouse_admin_path?: string | null;
+    order_admin_path?: string | null;
+    workflow_admin_path?: string | null;
+    audit_lookup_path?: string | null;
+  };
 }
 
 export interface AdminPaymentItem {
@@ -450,6 +488,7 @@ export interface AdminWorkflowSummary {
     createdAt: string;
     updatedAt: string;
     adminPath: string;
+    warehouseAdminPath?: string | null;
   }>;
   payments: Array<{
     id: string;
@@ -473,6 +512,35 @@ export interface AdminWorkflowSummary {
     auditLogId?: string | null;
     createdAt: string;
     adminPath: string;
+    warehouseAdminPath?: string | null;
+    primaryAdminPath?: string | null;
+    warehouseStage?: string | null;
+  }>;
+  warehouseOperations: Array<{
+    id: string;
+    action: string;
+    orderId?: string | null;
+    shipmentOrderId?: string | null;
+    orderIds: string[];
+    actorId?: string | null;
+    area?: string | null;
+    weight?: number | null;
+    afterPostFee?: number | null;
+    postFee?: number | null;
+    packFee?: number | null;
+    amount?: number | null;
+    trackingNumber?: string | null;
+    photoCount: number;
+    auditLogId?: string | null;
+    isException: boolean;
+    handlingStatus?: "unhandled" | "in_progress" | "resolved" | null;
+    handlingNote?: string | null;
+    handledBy?: string | null;
+    handledAt?: string | null;
+    metadata?: Record<string, unknown> | null;
+    createdAt: string;
+    adminPath: string;
+    orderAdminPath?: string | null;
   }>;
   refundApprovals: Array<{
     id: string;
@@ -485,6 +553,10 @@ export interface AdminWorkflowSummary {
     currency: string;
     providerRefundAction: boolean;
     paymentStateChanged: boolean;
+    handlingStatus?: ManualHandlingStatus | null;
+    handlingNote?: string | null;
+    handledBy?: string | null;
+    handledAt?: string | null;
     createdAt: string;
     adminPath: string;
   }>;
@@ -496,6 +568,10 @@ export interface AdminWorkflowSummary {
     subject: string;
     site: string;
     language: string;
+    handlingStatus?: ManualHandlingStatus | null;
+    handlingNote?: string | null;
+    handledBy?: string | null;
+    handledAt?: string | null;
     updatedAt: string;
     adminPath: string;
   }>;
@@ -585,6 +661,10 @@ export interface AdminRefundApprovalItem {
   currency: string;
   providerRefundAction: boolean;
   paymentStateChanged: boolean;
+  handlingStatus?: ManualHandlingStatus | null;
+  handlingNote?: string | null;
+  handledBy?: string | null;
+  handledAt?: string | null;
   metadata?: Record<string, unknown> | null;
   lifecycle?: {
     previousDecision?: string | null;
@@ -1357,6 +1437,7 @@ class ApiClient {
     site?: string;
     category?: SupportTicketCategory;
     status?: SupportTicketStatus;
+    handlingStatus?: ManualHandlingStatus;
     page?: number;
     limit?: number;
   }) {
@@ -1364,6 +1445,8 @@ class ApiClient {
     if (params?.site) searchParams.set("site", params.site);
     if (params?.category) searchParams.set("category", params.category);
     if (params?.status) searchParams.set("status", params.status);
+    if (params?.handlingStatus)
+      searchParams.set("handlingStatus", params.handlingStatus);
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
@@ -1580,6 +1663,55 @@ class ApiClient {
     );
   }
 
+  async listAdminWarehouseOperationHistory(params?: {
+    q?: string;
+    orderId?: string;
+    shipmentOrderId?: string;
+    action?: string;
+    actorId?: string;
+    startDate?: string;
+    endDate?: string;
+    exceptionOnly?: boolean;
+    handlingStatus?: "unhandled" | "in_progress" | "resolved" | string;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.q) searchParams.set("q", params.q);
+    if (params?.orderId) searchParams.set("orderId", params.orderId);
+    if (params?.shipmentOrderId)
+      searchParams.set("shipmentOrderId", params.shipmentOrderId);
+    if (params?.action) searchParams.set("action", params.action);
+    if (params?.actorId) searchParams.set("actorId", params.actorId);
+    if (params?.startDate) searchParams.set("startDate", params.startDate);
+    if (params?.endDate) searchParams.set("endDate", params.endDate);
+    if (params?.exceptionOnly) searchParams.set("exceptionOnly", "true");
+    if (params?.handlingStatus)
+      searchParams.set("handlingStatus", params.handlingStatus);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminListResponse<AdminWarehouseOperationHistoryItem>>(
+      `/warehouse/history${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async updateAdminWarehouseOperationHandling(
+    id: string,
+    data: {
+      status: "unhandled" | "in_progress" | "resolved";
+      note?: string | null;
+    },
+  ) {
+    return this.request<AdminWarehouseOperationHistoryItem>(
+      `/warehouse/history/${encodeURIComponent(id)}/handling`,
+      {
+        method: "PATCH",
+        body: data,
+      },
+    );
+  }
+
   async recordAdminOrderOperation(
     orderId: string,
     data: {
@@ -1601,6 +1733,23 @@ class ApiClient {
       auditRecorded: boolean;
     }>(`/orders/admin/${orderId}/operations`, {
       method: "POST",
+      body: data,
+    });
+  }
+
+  async updateAdminOrderOperationStatus(
+    operationId: string,
+    data: {
+      status: AdminOrderOperationState["status"];
+      note?: string | null;
+    },
+  ) {
+    return this.request<{
+      operationState: AdminOrderOperationState;
+      workflow: Record<string, unknown>;
+      auditRecorded: boolean;
+    }>(`/orders/admin/operations/${operationId}/status`, {
+      method: "PATCH",
       body: data,
     });
   }
@@ -1632,17 +1781,37 @@ class ApiClient {
 
   async listAdminRefundApprovals(params?: {
     paymentId?: string;
+    handlingStatus?: ManualHandlingStatus;
     page?: number;
     limit?: number;
   }) {
     const searchParams = new URLSearchParams();
     if (params?.paymentId) searchParams.set("paymentId", params.paymentId);
+    if (params?.handlingStatus)
+      searchParams.set("handlingStatus", params.handlingStatus);
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
     return this.request<AdminListResponse<AdminRefundApprovalItem>>(
       `/payments/admin/refund-approvals${query ? `?${query}` : ""}`,
     );
+  }
+
+  async updateAdminRefundApprovalHandling(
+    approvalId: string,
+    data: {
+      status: ManualHandlingStatus;
+      note?: string | null;
+    },
+  ) {
+    return this.request<{
+      approval: AdminRefundApprovalItem;
+      auditRecorded: boolean;
+      safety: Record<string, unknown>;
+    }>(`/payments/admin/refund-approvals/${approvalId}/handling`, {
+      method: "PATCH",
+      body: data,
+    });
   }
 
   async recordAdminRefundReview(

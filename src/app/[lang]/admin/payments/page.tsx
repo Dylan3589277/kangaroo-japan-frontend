@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CreditCard, RefreshCw, Search, ShieldCheck } from "lucide-react";
 
@@ -18,6 +18,7 @@ import { api, type AdminPaymentItem } from "@/lib/api";
 import type {
   AdminPaymentReconciliation,
   AdminRefundApprovalItem,
+  ManualHandlingStatus,
 } from "@/lib/api";
 
 type RefundReviewDecision =
@@ -59,6 +60,12 @@ function refundReviewDisplayLabel(decision: RefundReviewDecision | string) {
   return labels[decision] || decision;
 }
 
+const manualHandlingLabels: Record<ManualHandlingStatus, string> = {
+  unhandled: "未处理",
+  in_progress: "处理中",
+  resolved: "已解决",
+};
+
 function adminHref(path?: string | null) {
   if (!path) return null;
   return path.startsWith("/zh/") ? path : `/zh${path}`;
@@ -81,6 +88,10 @@ export default function AdminPaymentsPage() {
   const [reviewReason, setReviewReason] = useState<Record<string, string>>({});
   const [reviewingPaymentId, setReviewingPaymentId] = useState("");
   const [executionBusyId, setExecutionBusyId] = useState("");
+  const [handlingBusyId, setHandlingBusyId] = useState("");
+  const [refundHandlingFilter, setRefundHandlingFilter] = useState<
+    "all" | ManualHandlingStatus
+  >("all");
   const [reviewMessage, setReviewMessage] = useState("");
 
   const latestApprovalByPayment = useMemo(() => {
@@ -93,41 +104,53 @@ export default function AdminPaymentsPage() {
     return next;
   }, [approvals]);
 
-  async function load(params?: {
-    q?: string;
-    status?: string;
-    provider?: string;
-  }) {
-    setLoading(true);
-    setError("");
-    const response = await api.listAdminPayments({
-      q: params?.q || undefined,
-      status: params?.status || undefined,
-      provider: params?.provider || undefined,
-      limit: 20,
-    });
-    setLoading(false);
-    if (!response.success || !response.data) {
-      setError(response.error?.message || "支付流水读取失败");
-      setPayments([]);
-      setApprovals([]);
-      setTotal(0);
-      return;
-    }
-    setPayments(response.data.data || []);
-    setTotal(response.data.pagination?.total || 0);
+  const load = useCallback(
+    async (params?: {
+      q?: string;
+      status?: string;
+      provider?: string;
+      refundHandling?: "all" | ManualHandlingStatus;
+    }) => {
+      setLoading(true);
+      setError("");
+      const response = await api.listAdminPayments({
+        q: params?.q || undefined,
+        status: params?.status || undefined,
+        provider: params?.provider || undefined,
+        limit: 20,
+      });
+      setLoading(false);
+      if (!response.success || !response.data) {
+        setError(response.error?.message || "支付流水读取失败");
+        setPayments([]);
+        setApprovals([]);
+        setTotal(0);
+        return;
+      }
+      setPayments(response.data.data || []);
+      setTotal(response.data.pagination?.total || 0);
 
-    const [reconciliationResponse, approvalsResponse] = await Promise.all([
-      api.getAdminPaymentReconciliation(),
-      api.listAdminRefundApprovals({ limit: 50 }),
-    ]);
-    if (reconciliationResponse.success && reconciliationResponse.data) {
-      setReconciliation(reconciliationResponse.data);
-    }
-    if (approvalsResponse.success && approvalsResponse.data) {
-      setApprovals(approvalsResponse.data.data || []);
-    }
-  }
+      const selectedRefundHandling =
+        params?.refundHandling ?? refundHandlingFilter;
+      const [reconciliationResponse, approvalsResponse] = await Promise.all([
+        api.getAdminPaymentReconciliation(),
+        api.listAdminRefundApprovals({
+          handlingStatus:
+            selectedRefundHandling === "all"
+              ? undefined
+              : selectedRefundHandling,
+          limit: 50,
+        }),
+      ]);
+      if (reconciliationResponse.success && reconciliationResponse.data) {
+        setReconciliation(reconciliationResponse.data);
+      }
+      if (approvalsResponse.success && approvalsResponse.data) {
+        setApprovals(approvalsResponse.data.data || []);
+      }
+    },
+    [refundHandlingFilter],
+  );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -135,6 +158,7 @@ export default function AdminPaymentsPage() {
       q: query.trim(),
       status: status.trim(),
       provider: provider.trim(),
+      refundHandling: refundHandlingFilter,
     });
   }
 
@@ -160,6 +184,7 @@ export default function AdminPaymentsPage() {
       q: query.trim(),
       status: status.trim(),
       provider: provider.trim(),
+      refundHandling: refundHandlingFilter,
     });
   }
 
@@ -188,6 +213,34 @@ export default function AdminPaymentsPage() {
       q: query.trim(),
       status: status.trim(),
       provider: provider.trim(),
+      refundHandling: refundHandlingFilter,
+    });
+  }
+
+  async function updateRefundHandling(
+    approval: AdminRefundApprovalItem,
+    nextHandlingStatus: ManualHandlingStatus,
+  ) {
+    setHandlingBusyId(approval.id);
+    setReviewMessage("");
+    const response = await api.updateAdminRefundApprovalHandling(approval.id, {
+      status: nextHandlingStatus,
+      note: `Admin marked refund approval as ${nextHandlingStatus}.`,
+    });
+    setHandlingBusyId("");
+    if (!response.success || !response.data) {
+      setReviewMessage(
+        response.error?.message || "Refund handling state update failed.",
+      );
+      return;
+    }
+    setReviewMessage(
+      `退款处理状态已更新为 ${manualHandlingLabels[nextHandlingStatus]}。`,
+    );
+    await load({
+      q: query.trim(),
+      status: status.trim(),
+      provider: provider.trim(),
     });
   }
 
@@ -196,7 +249,7 @@ export default function AdminPaymentsPage() {
       void load();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [load]);
 
   return (
     <div className="space-y-6">
@@ -287,6 +340,47 @@ export default function AdminPaymentsPage() {
               {state}
             </Badge>
           ))}
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={refundHandlingFilter === "all" ? "default" : "outline"}
+              onClick={() => {
+                setRefundHandlingFilter("all");
+                void load({
+                  q: query.trim(),
+                  status: status.trim(),
+                  provider: provider.trim(),
+                  refundHandling: "all",
+                });
+              }}
+            >
+              全部
+            </Button>
+            {(["unhandled", "in_progress", "resolved"] as const).map(
+              (handling) => (
+                <Button
+                  key={handling}
+                  type="button"
+                  size="sm"
+                  variant={
+                    refundHandlingFilter === handling ? "default" : "outline"
+                  }
+                  onClick={() => {
+                    setRefundHandlingFilter(handling);
+                    void load({
+                      q: query.trim(),
+                      status: status.trim(),
+                      provider: provider.trim(),
+                      refundHandling: handling,
+                    });
+                  }}
+                >
+                  {manualHandlingLabels[handling]}
+                </Button>
+              ),
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -443,12 +537,83 @@ export default function AdminPaymentsPage() {
                                 </span>
                               </div>
                             ) : null}
+                            <div className="flex flex-wrap items-center gap-1 text-xs">
+                              <Badge variant="outline">
+                                {
+                                  manualHandlingLabels[
+                                    latestApproval.handlingStatus || "unhandled"
+                                  ]
+                                }
+                              </Badge>
+                              {latestApproval.handledBy ? (
+                                <span className="text-muted-foreground">
+                                  {latestApproval.handledBy}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {latestApproval.handlingStatus !==
+                              "in_progress" ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={
+                                    handlingBusyId === latestApproval.id
+                                  }
+                                  onClick={() =>
+                                    void updateRefundHandling(
+                                      latestApproval,
+                                      "in_progress",
+                                    )
+                                  }
+                                >
+                                  接手
+                                </Button>
+                              ) : null}
+                              {latestApproval.handlingStatus !== "resolved" ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={
+                                    handlingBusyId === latestApproval.id
+                                  }
+                                  onClick={() =>
+                                    void updateRefundHandling(
+                                      latestApproval,
+                                      "resolved",
+                                    )
+                                  }
+                                >
+                                  关闭
+                                </Button>
+                              ) : null}
+                              {latestApproval.handlingStatus === "resolved" ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={
+                                    handlingBusyId === latestApproval.id
+                                  }
+                                  onClick={() =>
+                                    void updateRefundHandling(
+                                      latestApproval,
+                                      "in_progress",
+                                    )
+                                  }
+                                >
+                                  重开
+                                </Button>
+                              ) : null}
+                            </div>
                             {latestApproval.auditLookupPath ? (
                               <Link
                                 className="text-xs text-primary hover:underline"
-                                href={adminHref(
-                                  latestApproval.auditLookupPath,
-                                )!}
+                                href={
+                                  adminHref(latestApproval.auditLookupPath)!
+                                }
                               >
                                 audit trail
                               </Link>

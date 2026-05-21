@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import {
   api,
   type HermesDraft,
+  type ManualHandlingStatus,
   type SupportOrderLookupItem,
   type SupportTicket,
   type SupportTicketContextResponse,
@@ -54,6 +55,19 @@ const supportTicketStatusLabel: Record<string, string> = {
   resolved: "已解决",
   closed: "已关闭",
 };
+
+const manualHandlingLabels: Record<ManualHandlingStatus, string> = {
+  unhandled: "未处理",
+  in_progress: "处理中",
+  resolved: "已解决",
+};
+
+function supportHandlingStatus(ticket: SupportTicket): ManualHandlingStatus {
+  if (ticket.handlingStatus) return ticket.handlingStatus;
+  if (ticket.status === "open") return "unhandled";
+  if (ticket.status === "in_progress") return "in_progress";
+  return "resolved";
+}
 
 const supportTicketCategoryLabel: Record<string, string> = {
   order: "订单问题",
@@ -189,6 +203,9 @@ export default function AdminSupportPage() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [supportTotal, setSupportTotal] = useState(0);
+  const [supportHandlingFilter, setSupportHandlingFilter] = useState<
+    "all" | ManualHandlingStatus
+  >("all");
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportError, setSupportError] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState("");
@@ -283,6 +300,8 @@ export default function AdminSupportPage() {
     setSupportError("");
     const response = await api.listSupportTickets({
       site: "kangaroo-japan",
+      handlingStatus:
+        supportHandlingFilter === "all" ? undefined : supportHandlingFilter,
       limit: 20,
     });
     setSupportLoading(false);
@@ -301,7 +320,7 @@ export default function AdminSupportPage() {
     if (!rows.some((ticket) => ticket.id === selectedTicketIdRef.current)) {
       selectSupportTicket(rows[0]?.id || "");
     }
-  }, [selectSupportTicket]);
+  }, [selectSupportTicket, supportHandlingFilter]);
 
   const loadTicketReviewData = useCallback(async (ticketId: string) => {
     if (!ticketId) return;
@@ -657,6 +676,9 @@ export default function AdminSupportPage() {
                         {supportTicketStatusLabel[ticket.status] ||
                           ticket.status}
                       </Badge>
+                      <Badge variant="outline">
+                        {manualHandlingLabels[supportHandlingStatus(ticket)]}
+                      </Badge>
                     </div>
                     <div className="mt-2 line-clamp-2 text-muted-foreground">
                       {ticket.subject}
@@ -725,7 +747,9 @@ export default function AdminSupportPage() {
                       </div>
                       {ticketContext?.orders?.items?.length ? (
                         <div className="rounded-lg border p-3">
-                          <div className="font-medium">Linked order workflows</div>
+                          <div className="font-medium">
+                            Linked order workflows
+                          </div>
                           <div className="mt-3 grid gap-2">
                             {ticketContext.orders.items
                               .slice(0, 3)
@@ -1199,6 +1223,31 @@ export default function AdminSupportPage() {
           />
         </CardHeader>
         <CardContent>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={supportHandlingFilter === "all" ? "default" : "outline"}
+              onClick={() => setSupportHandlingFilter("all")}
+            >
+              全部
+            </Button>
+            {(["unhandled", "in_progress", "resolved"] as const).map(
+              (status) => (
+                <Button
+                  key={status}
+                  type="button"
+                  size="sm"
+                  variant={
+                    supportHandlingFilter === status ? "default" : "outline"
+                  }
+                  onClick={() => setSupportHandlingFilter(status)}
+                >
+                  {manualHandlingLabels[status]}
+                </Button>
+              ),
+            )}
+          </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-muted text-muted-foreground">
@@ -1243,6 +1292,9 @@ export default function AdminSupportPage() {
                       >
                         {supportTicketStatusLabel[ticket.status] ||
                           ticket.status}
+                      </Badge>
+                      <Badge className="mt-1 block w-fit" variant="outline">
+                        {manualHandlingLabels[supportHandlingStatus(ticket)]}
                       </Badge>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">

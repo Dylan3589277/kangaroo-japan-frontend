@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { RefreshCw, Search, ShoppingCart } from "lucide-react";
 
@@ -18,6 +18,7 @@ import {
   api,
   type AdminOrderItem,
   type AdminOrderOperationState,
+  type AdminWarehouseOperationHistoryItem,
 } from "@/lib/api";
 
 function formatDate(value?: string | null) {
@@ -30,6 +31,22 @@ function adminHref(path?: string | null) {
   return path.startsWith("/zh/") ? path : `/zh${path}`;
 }
 
+function nextOperationStatuses(
+  status: AdminOrderOperationState["status"],
+): AdminOrderOperationState["status"][] {
+  const transitions: Record<
+    AdminOrderOperationState["status"],
+    AdminOrderOperationState["status"][]
+  > = {
+    recorded: ["in_review", "rejected"],
+    in_review: ["approved", "rejected"],
+    approved: ["completed", "rejected"],
+    rejected: [],
+    completed: [],
+  };
+  return transitions[status] || [];
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrderItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -40,37 +57,53 @@ export default function AdminOrdersPage() {
   const [operations, setOperations] = useState<AdminOrderOperationState[]>([]);
   const [operationStatus, setOperationStatus] = useState("");
   const [operationBusyId, setOperationBusyId] = useState("");
+  const [operationTransitionBusyId, setOperationTransitionBusyId] =
+    useState("");
   const [operationMessage, setOperationMessage] = useState("");
+  const [warehouseHistory, setWarehouseHistory] = useState<
+    AdminWarehouseOperationHistoryItem[]
+  >([]);
 
-  async function load(params?: { q?: string; status?: string }) {
-    setLoading(true);
-    setError("");
-    const [response, operationResponse] = await Promise.all([
-      api.listAdminOrders({
-        q: params?.q || undefined,
-        status: params?.status || undefined,
-        limit: 20,
-      }),
-      api.listAdminOrderOperations({
-        status: operationStatus
-          ? (operationStatus as AdminOrderOperationState["status"])
-          : undefined,
-        limit: 30,
-      }),
-    ]);
-    setLoading(false);
-    if (!response.success || !response.data) {
-      setError(response.error?.message || "订单读取失败");
-      setOrders([]);
-      setTotal(0);
-      return;
-    }
-    if (operationResponse.success && operationResponse.data) {
-      setOperations(operationResponse.data.data || []);
-    }
-    setOrders(response.data.data || []);
-    setTotal(response.data.pagination?.total || 0);
-  }
+  const load = useCallback(
+    async (params?: { q?: string; status?: string }) => {
+      setLoading(true);
+      setError("");
+      const [response, operationResponse, warehouseHistoryResponse] =
+        await Promise.all([
+          api.listAdminOrders({
+            q: params?.q || undefined,
+            status: params?.status || undefined,
+            limit: 20,
+          }),
+          api.listAdminOrderOperations({
+            status: operationStatus
+              ? (operationStatus as AdminOrderOperationState["status"])
+              : undefined,
+            limit: 30,
+          }),
+          api.listAdminWarehouseOperationHistory({
+            q: params?.q || undefined,
+            limit: 30,
+          }),
+        ]);
+      setLoading(false);
+      if (!response.success || !response.data) {
+        setError(response.error?.message || "订单读取失败");
+        setOrders([]);
+        setTotal(0);
+        return;
+      }
+      if (operationResponse.success && operationResponse.data) {
+        setOperations(operationResponse.data.data || []);
+      }
+      if (warehouseHistoryResponse.success && warehouseHistoryResponse.data) {
+        setWarehouseHistory(warehouseHistoryResponse.data.data || []);
+      }
+      setOrders(response.data.data || []);
+      setTotal(response.data.pagination?.total || 0);
+    },
+    [operationStatus],
+  );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,12 +135,37 @@ export default function AdminOrdersPage() {
     await load({ q: query.trim(), status: status.trim() });
   }
 
+  async function updateOperationStatus(
+    operation: AdminOrderOperationState,
+    nextStatus: AdminOrderOperationState["status"],
+  ) {
+    setOperationTransitionBusyId(operation.id);
+    setOperationMessage("");
+    const response = await api.updateAdminOrderOperationStatus(operation.id, {
+      status: nextStatus,
+      note: `Admin console moved operation to ${nextStatus}`,
+    });
+    setOperationTransitionBusyId("");
+    if (!response.success || !response.data) {
+      setOperationMessage(
+        response.error?.message || "Order workflow state update failed.",
+      );
+      return;
+    }
+    setOperationMessage(
+      `Order workflow state updated: ${operation.operation}; state=${
+        response.data.operationState.status
+      }; audit=${String(response.data.auditRecorded)}`,
+    );
+    await load({ q: query.trim(), status: status.trim() });
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void load();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [load]);
 
   return (
     <div className="space-y-6">
@@ -263,6 +321,20 @@ export default function AdminOrdersPage() {
                               order audit trail
                             </Link>
                           ) : null}
+                          {adminHref(
+                            order.linked_context.warehouse_admin_path,
+                          ) ? (
+                            <Link
+                              className="text-primary hover:underline"
+                              href={
+                                adminHref(
+                                  order.linked_context.warehouse_admin_path,
+                                )!
+                              }
+                            >
+                              warehouse flow
+                            </Link>
+                          ) : null}
                           {order.linked_context.refund_review_candidate ? (
                             <Badge variant="outline" className="w-fit">
                               refund candidate
@@ -364,6 +436,132 @@ export default function AdminOrdersPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Warehouse operation timeline</CardTitle>
+          <CardDescription>
+            Replayable warehouse facts linked to this order search: storage,
+            weighing, dispatch, print, and inspection photo actions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[1040px] text-left text-sm">
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Created</th>
+                  <th className="px-3 py-2 font-medium">Action</th>
+                  <th className="px-3 py-2 font-medium">Order</th>
+                  <th className="px-3 py-2 font-medium">Warehouse facts</th>
+                  <th className="px-3 py-2 font-medium">Actor</th>
+                  <th className="px-3 py-2 font-medium">Links</th>
+                </tr>
+              </thead>
+              <tbody>
+                {warehouseHistory.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-3 py-6 text-center text-muted-foreground"
+                    >
+                      No warehouse operation history.
+                    </td>
+                  </tr>
+                ) : null}
+                {warehouseHistory.map((item) => (
+                  <tr key={item.id} className="border-t">
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {formatDate(item.created_at)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant="outline">{item.action}</Badge>
+                      {item.is_exception ? (
+                        <Badge
+                          className="mt-1 block w-fit"
+                          variant="destructive"
+                        >
+                          exception
+                        </Badge>
+                      ) : null}
+                      {item.is_exception ? (
+                        <Badge className="mt-1 block w-fit" variant="outline">
+                          {item.handling_status === "resolved"
+                            ? "已解决"
+                            : item.handling_status === "in_progress"
+                              ? "处理中"
+                              : "未处理"}
+                        </Badge>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {item.order_id || item.order_ids[0] || "-"}
+                      <div className="mt-1 text-muted-foreground">
+                        shipment {item.shipment_order_id || "-"}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      area {item.area || "-"} / weight {item.weight ?? "-"}
+                      <div className="mt-1 text-xs">
+                        after {item.after_post_fee ?? "-"} / post{" "}
+                        {item.post_fee ?? "-"} / pack {item.pack_fee ?? "-"}
+                      </div>
+                      {item.tracking_number ? (
+                        <div className="mt-1 text-xs">
+                          tracking {item.tracking_number}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {item.actor_id || "-"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {adminHref(
+                          item.linked_context?.warehouse_admin_path,
+                        ) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={
+                              adminHref(
+                                item.linked_context?.warehouse_admin_path,
+                              )!
+                            }
+                          >
+                            warehouse
+                          </Link>
+                        ) : null}
+                        {adminHref(item.linked_context?.workflow_admin_path) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={
+                              adminHref(
+                                item.linked_context?.workflow_admin_path,
+                              )!
+                            }
+                          >
+                            workflow
+                          </Link>
+                        ) : null}
+                        {adminHref(item.linked_context?.audit_lookup_path) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={
+                              adminHref(item.linked_context?.audit_lookup_path)!
+                            }
+                          >
+                            audit
+                          </Link>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Order workflow states</CardTitle>
           <CardDescription>
             Read-only state table for cancel, refund, compensation and shipping
@@ -398,9 +596,7 @@ export default function AdminOrdersPage() {
                 {operations.map((operation) => (
                   <tr key={operation.id} className="border-t">
                     <td className="px-3 py-2 font-mono text-xs">
-                      {adminHref(
-                        operation.linked_context?.order_admin_path,
-                      ) ? (
+                      {adminHref(operation.linked_context?.order_admin_path) ? (
                         <Link
                           className="text-primary hover:underline"
                           href={
@@ -413,13 +609,35 @@ export default function AdminOrdersPage() {
                             operation.order_id}
                         </Link>
                       ) : (
-                        operation.linked_context?.order_no ||
-                        operation.order_id
+                        operation.linked_context?.order_no || operation.order_id
                       )}
                     </td>
                     <td className="px-3 py-2">{operation.operation}</td>
                     <td className="px-3 py-2">
                       <Badge variant="outline">{operation.status}</Badge>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {nextOperationStatuses(operation.status).map(
+                          (nextStatus) => (
+                            <Button
+                              key={nextStatus}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                void updateOperationStatus(
+                                  operation,
+                                  nextStatus,
+                                )
+                              }
+                              disabled={
+                                operationTransitionBusyId === operation.id
+                              }
+                            >
+                              {nextStatus}
+                            </Button>
+                          ),
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-2 text-xs">
@@ -464,6 +682,25 @@ export default function AdminOrdersPage() {
                           >
                             refund
                           </Link>
+                        ) : null}
+                        {adminHref(
+                          operation.linked_context?.warehouse_admin_path,
+                        ) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={
+                              adminHref(
+                                operation.linked_context?.warehouse_admin_path,
+                              )!
+                            }
+                          >
+                            warehouse
+                          </Link>
+                        ) : null}
+                        {operation.linked_context?.warehouse_stage ? (
+                          <Badge variant="outline">
+                            {operation.linked_context.warehouse_stage}
+                          </Badge>
                         ) : null}
                       </div>
                     </td>

@@ -11,6 +11,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  Warehouse,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ export default function AdminWorkflowsPage() {
     () => ({
       orders: summary?.orders.length || 0,
       operations: summary?.orderOperations.length || 0,
+      warehouse: summary?.warehouseOperations.length || 0,
       refunds: summary?.refundApprovals.length || 0,
       tickets: summary?.supportTickets.length || 0,
       audits: summary?.auditLogs.length || 0,
@@ -116,7 +118,10 @@ export default function AdminWorkflowsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-3 md:grid-cols-[1fr_auto]" onSubmit={handleSubmit}>
+          <form
+            className="grid gap-3 md:grid-cols-[1fr_auto]"
+            onSubmit={handleSubmit}
+          >
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -137,10 +142,15 @@ export default function AdminWorkflowsPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-6">
         {[
           { label: "Orders", value: counts.orders, icon: ShoppingCart },
-          { label: "Operations", value: counts.operations, icon: ClipboardList },
+          {
+            label: "Operations",
+            value: counts.operations,
+            icon: ClipboardList,
+          },
+          { label: "Warehouse", value: counts.warehouse, icon: Warehouse },
           { label: "Refunds", value: counts.refunds, icon: CreditCard },
           { label: "Tickets", value: counts.tickets, icon: MessageSquare },
           { label: "Audit", value: counts.audits, icon: FileSearch },
@@ -186,6 +196,14 @@ export default function AdminWorkflowsPage() {
                       {order.totalAmount} {order.totalCurrency} /{" "}
                       {formatDate(order.createdAt)}
                     </div>
+                    {adminHref(order.warehouseAdminPath) ? (
+                      <Link
+                        className="mt-2 inline-block text-xs text-primary hover:underline"
+                        href={adminHref(order.warehouseAdminPath)!}
+                      >
+                        warehouse flow
+                      </Link>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -211,13 +229,103 @@ export default function AdminWorkflowsPage() {
                         <Badge variant="outline">{operation.status}</Badge>
                       </div>
                       <div className="mt-1 text-muted-foreground">
-                        {operation.operation} / {formatDate(operation.createdAt)}
+                        {operation.operation} /{" "}
+                        {formatDate(operation.createdAt)}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                        {adminHref(operation.primaryAdminPath) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={adminHref(operation.primaryAdminPath)!}
+                          >
+                            primary action
+                          </Link>
+                        ) : null}
+                        {adminHref(operation.warehouseAdminPath) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={adminHref(operation.warehouseAdminPath)!}
+                          >
+                            warehouse
+                          </Link>
+                        ) : null}
+                        {operation.warehouseStage ? (
+                          <Badge variant="outline">
+                            {operation.warehouseStage}
+                          </Badge>
+                        ) : null}
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="p-3 text-sm text-muted-foreground">
                     No operation states.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border">
+              <div className="border-b px-3 py-2 text-sm font-medium">
+                Warehouse operation timeline
+              </div>
+              <div className="divide-y">
+                {summary?.warehouseOperations.length ? (
+                  summary.warehouseOperations.map((history) => (
+                    <div key={history.id} className="p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Link
+                          className="text-primary hover:underline"
+                          href={adminHref(history.adminPath)!}
+                        >
+                          {history.orderId ||
+                            history.orderIds[0] ||
+                            history.shipmentOrderId ||
+                            "warehouse history"}
+                        </Link>
+                        <Badge variant="outline">{history.action}</Badge>
+                        {history.isException ? (
+                          <Badge variant="destructive">exception</Badge>
+                        ) : null}
+                        {history.isException ? (
+                          <Badge variant="outline">
+                            {history.handlingStatus === "resolved"
+                              ? "已解决"
+                              : history.handlingStatus === "in_progress"
+                                ? "处理中"
+                                : "未处理"}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <div className="mt-1 text-muted-foreground">
+                        {formatDate(history.createdAt)} / area{" "}
+                        {history.area || "-"} / weight {history.weight ?? "-"}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                        {adminHref(history.orderAdminPath) ? (
+                          <Link
+                            className="text-primary hover:underline"
+                            href={adminHref(history.orderAdminPath)!}
+                          >
+                            order detail
+                          </Link>
+                        ) : null}
+                        {history.trackingNumber ? (
+                          <Badge variant="outline">
+                            {history.trackingNumber}
+                          </Badge>
+                        ) : null}
+                        {history.photoCount ? (
+                          <Badge variant="outline">
+                            photos {history.photoCount}
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 text-sm text-muted-foreground">
+                    No warehouse operation history.
                   </div>
                 )}
               </div>
@@ -236,7 +344,10 @@ export default function AdminWorkflowsPage() {
             <div className="space-y-3">
               {summary?.payments.length ? (
                 summary.payments.map((payment) => (
-                  <div key={payment.id} className="rounded-lg border p-3 text-sm">
+                  <div
+                    key={payment.id}
+                    className="rounded-lg border p-3 text-sm"
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Link
                         className="font-medium text-primary hover:underline"
@@ -252,7 +363,9 @@ export default function AdminWorkflowsPage() {
                   </div>
                 ))
               ) : (
-                <div className="text-sm text-muted-foreground">No payments.</div>
+                <div className="text-sm text-muted-foreground">
+                  No payments.
+                </div>
               )}
             </div>
 
@@ -272,6 +385,13 @@ export default function AdminWorkflowsPage() {
                           {refund.paymentId}
                         </Link>
                         <Badge variant="outline">{refund.decision}</Badge>
+                        <Badge variant="outline">
+                          {refund.handlingStatus === "resolved"
+                            ? "已解决"
+                            : refund.handlingStatus === "in_progress"
+                              ? "处理中"
+                              : "未处理"}
+                        </Badge>
                       </div>
                       <div className="mt-1 text-muted-foreground">
                         {refund.amount} {refund.currency} / provider action:{" "}
@@ -311,6 +431,13 @@ export default function AdminWorkflowsPage() {
                       {ticket.ticketNumber}
                     </Link>
                     <Badge variant="outline">{ticket.status}</Badge>
+                    <Badge variant="outline">
+                      {ticket.handlingStatus === "resolved"
+                        ? "已解决"
+                        : ticket.handlingStatus === "in_progress"
+                          ? "处理中"
+                          : "未处理"}
+                    </Badge>
                   </div>
                   <div className="mt-1">{ticket.subject}</div>
                   <div className="mt-1 text-muted-foreground">
