@@ -24,8 +24,10 @@ const e2eAdminPassword = process.env.E2E_ADMIN_PASSWORD;
 const e2eAdminSeedSecret = process.env.E2E_ADMIN_SEED_SECRET;
 const livePlatformSamples = {
   "yahoo-shopping": process.env.YAHOO_SHOPPING_SAMPLE_ITEM_CODE || "7031980048",
-  rakuten: process.env.RAKUTEN_SAMPLE_ITEM_CODE || "book:21000123",
-  amazon: process.env.AMAZON_SAMPLE_ASIN || "B0DWZJBXNZ",
+  rakuten:
+    process.env.RAKUTEN_SAMPLE_ITEM_CODE ||
+    "alpen:10431509,rakutenkobo-ebooks:23115770,amiami:12770380",
+  amazon: process.env.AMAZON_SAMPLE_ASIN || "B07HCSQ48P,B08XY8H9D5",
   mercari: process.env.MERCARI_SAMPLE_ITEM_ID || "m97035025426",
 } as const;
 
@@ -45,6 +47,7 @@ type PlatformDetailAudit = {
   detailOk: boolean;
   imageUrl: string | null;
   imageOk: boolean;
+  triedSampleIds?: string[];
   blocked?: boolean;
   error?: string;
   notice?: string;
@@ -115,23 +118,43 @@ async function auditPlatformDetail(
   request: APIRequestContext,
   platform: PlatformKey,
 ): Promise<PlatformDetailAudit> {
-  const sampleId = livePlatformSamples[platform];
-  const detailResponse = await request.get(
-    `${backendUrl}/api/v1/integrations/${platform}/detail?id=${encodeURIComponent(sampleId)}`,
+  const sampleIds = livePlatformSamples[platform]
+    .split(",")
+    .map((sampleId) => sampleId.trim())
+    .filter(Boolean);
+  let lastAudit: PlatformDetailAudit | null = null;
+  for (const sampleId of sampleIds) {
+    const detailResponse = await request.get(
+      `${backendUrl}/api/v1/integrations/${platform}/detail?id=${encodeURIComponent(sampleId)}`,
+    );
+    const body = await detailResponse.json();
+    const imageUrl = body.data?.imgurls?.[0] || null;
+    const imageOk = await probeImage(request, imageUrl);
+    const audit = {
+      configured: Boolean(body.success || body.data?.blocked === false),
+      sampleId,
+      triedSampleIds: sampleIds,
+      detailOk: detailResponse.ok() && body.success === true,
+      imageUrl,
+      imageOk,
+      blocked: body.data?.blocked,
+      error: body.error,
+      notice: body.notice,
+    };
+    if (audit.detailOk && audit.imageOk) return audit;
+    lastAudit = audit;
+  }
+  return (
+    lastAudit || {
+      configured: false,
+      sampleId: "",
+      triedSampleIds: sampleIds,
+      detailOk: false,
+      imageUrl: null,
+      imageOk: false,
+      error: "No sample ids configured",
+    }
   );
-  const body = await detailResponse.json();
-  const imageUrl = body.data?.imgurls?.[0] || null;
-  const imageOk = await probeImage(request, imageUrl);
-  return {
-    configured: Boolean(body.success || body.data?.blocked === false),
-    sampleId,
-    detailOk: detailResponse.ok() && body.success === true,
-    imageUrl,
-    imageOk,
-    blocked: body.data?.blocked,
-    error: body.error,
-    notice: body.notice,
-  };
 }
 
 test.describe("kangaroo-japan production smoke", () => {
