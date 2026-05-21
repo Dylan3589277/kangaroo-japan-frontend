@@ -89,9 +89,12 @@ export default function AdminPaymentsPage() {
   const [reviewingPaymentId, setReviewingPaymentId] = useState("");
   const [executionBusyId, setExecutionBusyId] = useState("");
   const [handlingBusyId, setHandlingBusyId] = useState("");
+  const [refundBatchLoading, setRefundBatchLoading] = useState(false);
   const [refundHandlingFilter, setRefundHandlingFilter] = useState<
     "all" | ManualHandlingStatus
   >("all");
+  const [refundHandledByFilter, setRefundHandledByFilter] = useState("");
+  const [refundOverdueOnly, setRefundOverdueOnly] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
 
   const latestApprovalByPayment = useMemo(() => {
@@ -110,6 +113,8 @@ export default function AdminPaymentsPage() {
       status?: string;
       provider?: string;
       refundHandling?: "all" | ManualHandlingStatus;
+      handledBy?: string;
+      overdueOnly?: boolean;
     }) => {
       setLoading(true);
       setError("");
@@ -139,6 +144,9 @@ export default function AdminPaymentsPage() {
             selectedRefundHandling === "all"
               ? undefined
               : selectedRefundHandling,
+          handledBy:
+            (params?.handledBy ?? refundHandledByFilter.trim()) || undefined,
+          overdueOnly: params?.overdueOnly ?? refundOverdueOnly,
           limit: 50,
         }),
       ]);
@@ -149,7 +157,7 @@ export default function AdminPaymentsPage() {
         setApprovals(approvalsResponse.data.data || []);
       }
     },
-    [refundHandlingFilter],
+    [refundHandledByFilter, refundHandlingFilter, refundOverdueOnly],
   );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -159,6 +167,8 @@ export default function AdminPaymentsPage() {
       status: status.trim(),
       provider: provider.trim(),
       refundHandling: refundHandlingFilter,
+      handledBy: refundHandledByFilter.trim(),
+      overdueOnly: refundOverdueOnly,
     });
   }
 
@@ -185,6 +195,8 @@ export default function AdminPaymentsPage() {
       status: status.trim(),
       provider: provider.trim(),
       refundHandling: refundHandlingFilter,
+      handledBy: refundHandledByFilter.trim(),
+      overdueOnly: refundOverdueOnly,
     });
   }
 
@@ -241,6 +253,40 @@ export default function AdminPaymentsPage() {
       q: query.trim(),
       status: status.trim(),
       provider: provider.trim(),
+      refundHandling: refundHandlingFilter,
+      handledBy: refundHandledByFilter.trim(),
+      overdueOnly: refundOverdueOnly,
+    });
+  }
+
+  async function bulkClaimRefundApprovals() {
+    const approvalIds = Array.from(latestApprovalByPayment.values()).map(
+      (approval) => approval.id,
+    );
+    if (approvalIds.length === 0) return;
+    setRefundBatchLoading(true);
+    setReviewMessage("");
+    const response = await api.bulkClaimAdminRefundApprovals({
+      approvalIds,
+      note: "Bulk claimed from payments console.",
+    });
+    setRefundBatchLoading(false);
+    if (!response.success || !response.data) {
+      setReviewMessage(response.error?.message || "Bulk refund claim failed.");
+      return;
+    }
+    setReviewMessage(
+      `已批量接手 ${response.data.approvals.length} 条退款审批；audit=${String(
+        response.data.auditRecorded,
+      )}`,
+    );
+    await load({
+      q: query.trim(),
+      status: status.trim(),
+      provider: provider.trim(),
+      refundHandling: refundHandlingFilter,
+      handledBy: refundHandledByFilter.trim(),
+      overdueOnly: refundOverdueOnly,
     });
   }
 
@@ -352,6 +398,8 @@ export default function AdminPaymentsPage() {
                   status: status.trim(),
                   provider: provider.trim(),
                   refundHandling: "all",
+                  handledBy: refundHandledByFilter.trim(),
+                  overdueOnly: refundOverdueOnly,
                 });
               }}
             >
@@ -373,6 +421,8 @@ export default function AdminPaymentsPage() {
                       status: status.trim(),
                       provider: provider.trim(),
                       refundHandling: handling,
+                      handledBy: refundHandledByFilter.trim(),
+                      overdueOnly: refundOverdueOnly,
                     });
                   }}
                 >
@@ -380,6 +430,43 @@ export default function AdminPaymentsPage() {
                 </Button>
               ),
             )}
+            <Input
+              className="h-8 max-w-[170px]"
+              value={refundHandledByFilter}
+              onChange={(event) => setRefundHandledByFilter(event.target.value)}
+              placeholder="handler id"
+              aria-label="refund handler filter"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant={refundOverdueOnly ? "default" : "outline"}
+              onClick={() => {
+                const next = !refundOverdueOnly;
+                setRefundOverdueOnly(next);
+                void load({
+                  q: query.trim(),
+                  status: status.trim(),
+                  provider: provider.trim(),
+                  refundHandling: refundHandlingFilter,
+                  handledBy: refundHandledByFilter.trim(),
+                  overdueOnly: next,
+                });
+              }}
+            >
+              超时
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                latestApprovalByPayment.size === 0 || refundBatchLoading
+              }
+              onClick={() => void bulkClaimRefundApprovals()}
+            >
+              批量接手 {latestApprovalByPayment.size || ""}
+            </Button>
           </div>
         </CardContent>
       </Card>

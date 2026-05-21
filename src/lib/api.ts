@@ -1438,6 +1438,8 @@ class ApiClient {
     category?: SupportTicketCategory;
     status?: SupportTicketStatus;
     handlingStatus?: ManualHandlingStatus;
+    assignedAdminId?: string;
+    overdueOnly?: boolean;
     page?: number;
     limit?: number;
   }) {
@@ -1447,6 +1449,9 @@ class ApiClient {
     if (params?.status) searchParams.set("status", params.status);
     if (params?.handlingStatus)
       searchParams.set("handlingStatus", params.handlingStatus);
+    if (params?.assignedAdminId)
+      searchParams.set("assignedAdminId", params.assignedAdminId);
+    if (params?.overdueOnly) searchParams.set("overdueOnly", "true");
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
@@ -1471,6 +1476,22 @@ class ApiClient {
         body: data,
       },
     );
+  }
+
+  async bulkClaimSupportTickets(data: {
+    ticketIds: string[];
+    assignedAdminId?: string | null;
+    adminNote?: string | null;
+    slaDueAt?: string | null;
+  }) {
+    return this.request<{
+      tickets: SupportTicket[];
+      claimedCount: number;
+      auditRecorded: boolean;
+    }>("/support/admin/tickets/bulk-claim", {
+      method: "POST",
+      body: data,
+    });
   }
 
   async getSupportTicketContext(ticketId: string) {
@@ -1782,6 +1803,8 @@ class ApiClient {
   async listAdminRefundApprovals(params?: {
     paymentId?: string;
     handlingStatus?: ManualHandlingStatus;
+    handledBy?: string;
+    overdueOnly?: boolean;
     page?: number;
     limit?: number;
   }) {
@@ -1789,6 +1812,8 @@ class ApiClient {
     if (params?.paymentId) searchParams.set("paymentId", params.paymentId);
     if (params?.handlingStatus)
       searchParams.set("handlingStatus", params.handlingStatus);
+    if (params?.handledBy) searchParams.set("handledBy", params.handledBy);
+    if (params?.overdueOnly) searchParams.set("overdueOnly", "true");
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.limit) searchParams.set("limit", String(params.limit));
     const query = searchParams.toString();
@@ -1810,6 +1835,20 @@ class ApiClient {
       safety: Record<string, unknown>;
     }>(`/payments/admin/refund-approvals/${approvalId}/handling`, {
       method: "PATCH",
+      body: data,
+    });
+  }
+
+  async bulkClaimAdminRefundApprovals(data: {
+    approvalIds: string[];
+    note?: string | null;
+  }) {
+    return this.request<{
+      approvals: AdminRefundApprovalItem[];
+      auditRecorded: boolean;
+      safety: Record<string, unknown>;
+    }>("/payments/admin/refund-approvals/bulk-claim", {
+      method: "POST",
       body: data,
     });
   }

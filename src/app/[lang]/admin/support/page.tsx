@@ -206,6 +206,12 @@ export default function AdminSupportPage() {
   const [supportHandlingFilter, setSupportHandlingFilter] = useState<
     "all" | ManualHandlingStatus
   >("all");
+  const [supportAssigneeFilter, setSupportAssigneeFilter] = useState("");
+  const [supportOverdueOnly, setSupportOverdueOnly] = useState(false);
+  const [selectedSupportTicketIds, setSelectedSupportTicketIds] = useState<
+    string[]
+  >([]);
+  const [supportBatchLoading, setSupportBatchLoading] = useState(false);
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportError, setSupportError] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState("");
@@ -302,6 +308,8 @@ export default function AdminSupportPage() {
       site: "kangaroo-japan",
       handlingStatus:
         supportHandlingFilter === "all" ? undefined : supportHandlingFilter,
+      assignedAdminId: supportAssigneeFilter.trim() || undefined,
+      overdueOnly: supportOverdueOnly,
       limit: 20,
     });
     setSupportLoading(false);
@@ -316,11 +324,19 @@ export default function AdminSupportPage() {
 
     const rows = response.data.data || [];
     setSupportTickets(rows);
+    setSelectedSupportTicketIds((current) =>
+      current.filter((id) => rows.some((ticket) => ticket.id === id)),
+    );
     setSupportTotal(response.data.total || 0);
     if (!rows.some((ticket) => ticket.id === selectedTicketIdRef.current)) {
       selectSupportTicket(rows[0]?.id || "");
     }
-  }, [selectSupportTicket, supportHandlingFilter]);
+  }, [
+    selectSupportTicket,
+    supportAssigneeFilter,
+    supportHandlingFilter,
+    supportOverdueOnly,
+  ]);
 
   const loadTicketReviewData = useCallback(async (ticketId: string) => {
     if (!ticketId) return;
@@ -458,6 +474,33 @@ export default function AdminSupportPage() {
       ),
     );
     await loadTicketReviewData(selectedTicketId);
+  }
+
+  async function handleBulkClaimTickets() {
+    const targetIds = selectedSupportTicketIds.length
+      ? selectedSupportTicketIds
+      : filteredSupportTickets.map((ticket) => ticket.id);
+    if (targetIds.length === 0) return;
+    setSupportBatchLoading(true);
+    setDraftMessage("");
+    const response = await api.bulkClaimSupportTickets({
+      ticketIds: targetIds,
+      assignedAdminId: assignedAdminId.trim() || undefined,
+      adminNote: lifecycleNote.trim() || "Bulk claimed from support console.",
+      slaDueAt: slaDueAt ? new Date(slaDueAt).toISOString() : undefined,
+    });
+    setSupportBatchLoading(false);
+    if (!response.success || !response.data) {
+      setDraftMessage(response.error?.message || "Bulk claim failed.");
+      return;
+    }
+    setDraftMessage(
+      `已批量接手 ${response.data.claimedCount} 个客服工单；audit=${String(
+        response.data.auditRecorded,
+      )}`,
+    );
+    setSelectedSupportTicketIds([]);
+    await loadSupportTickets();
   }
 
   async function handleTriggerDraft() {
@@ -1247,6 +1290,32 @@ export default function AdminSupportPage() {
                 </Button>
               ),
             )}
+            <Input
+              className="h-8 max-w-[180px]"
+              value={supportAssigneeFilter}
+              onChange={(event) => setSupportAssigneeFilter(event.target.value)}
+              placeholder="assignee id"
+              aria-label="support assignee filter"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant={supportOverdueOnly ? "default" : "outline"}
+              onClick={() => setSupportOverdueOnly((value) => !value)}
+            >
+              超时
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={
+                filteredSupportTickets.length === 0 || supportBatchLoading
+              }
+              onClick={() => void handleBulkClaimTickets()}
+            >
+              批量接手 {selectedSupportTicketIds.length || "当前筛选"}
+            </Button>
           </div>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[980px] text-left text-sm">
