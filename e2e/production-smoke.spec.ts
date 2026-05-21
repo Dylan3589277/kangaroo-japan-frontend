@@ -24,7 +24,7 @@ const e2eAdminPassword = process.env.E2E_ADMIN_PASSWORD;
 const e2eAdminSeedSecret = process.env.E2E_ADMIN_SEED_SECRET;
 const livePlatformSamples = {
   "yahoo-shopping": process.env.YAHOO_SHOPPING_SAMPLE_ITEM_CODE || "7031980048",
-  rakuten: process.env.RAKUTEN_SAMPLE_ITEM_CODE || "alpen:10431509",
+  rakuten: process.env.RAKUTEN_SAMPLE_ITEM_CODE || "book:21000123",
   amazon: process.env.AMAZON_SAMPLE_ASIN || "B0DWZJBXNZ",
   mercari: process.env.MERCARI_SAMPLE_ITEM_ID || "m97035025426",
 } as const;
