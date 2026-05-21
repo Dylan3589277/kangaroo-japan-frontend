@@ -1318,9 +1318,10 @@ export default function AdminSupportPage() {
             </Button>
           </div>
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[980px] text-left text-sm">
+            <table className="w-full min-w-[1060px] text-left text-sm">
               <thead className="bg-muted text-muted-foreground">
                 <tr>
+                  <th className="px-3 py-2 font-medium">Select</th>
                   <th className="px-3 py-2 font-medium">工单编号</th>
                   <th className="px-3 py-2 font-medium">站点/语言</th>
                   <th className="px-3 py-2 font-medium">分类</th>
@@ -1335,7 +1336,7 @@ export default function AdminSupportPage() {
                   <tr className="border-t">
                     <td
                       className="px-3 py-6 text-center text-muted-foreground"
-                      colSpan={7}
+                      colSpan={8}
                     >
                       暂无匹配工单
                     </td>
@@ -1343,8 +1344,32 @@ export default function AdminSupportPage() {
                 ) : null}
                 {filteredSupportTickets.map((ticket) => (
                   <tr key={ticket.id} className="border-t">
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        aria-label={`select ${ticket.ticketNumber}`}
+                        checked={selectedSupportTicketIds.includes(ticket.id)}
+                        onChange={(event) =>
+                          setSelectedSupportTicketIds((current) =>
+                            event.target.checked
+                              ? [...current, ticket.id]
+                              : current.filter((id) => id !== ticket.id),
+                          )
+                        }
+                      />
+                    </td>
                     <td className="px-3 py-2 font-medium">
                       {ticket.ticketNumber}
+                      {ticket.assignedAdminId ? (
+                        <div className="mt-1 text-xs font-normal text-muted-foreground">
+                          owner {ticket.assignedAdminId}
+                        </div>
+                      ) : null}
+                      {ticket.slaDueAt ? (
+                        <div className="mt-1 text-xs font-normal text-muted-foreground">
+                          due {compactDate(ticket.slaDueAt)}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {ticket.site} / {ticket.language}

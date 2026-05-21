@@ -93,6 +93,9 @@ export default function AdminPaymentsPage() {
   const [refundHandlingFilter, setRefundHandlingFilter] = useState<
     "all" | ManualHandlingStatus
   >("all");
+  const [selectedRefundApprovalIds, setSelectedRefundApprovalIds] = useState<
+    string[]
+  >([]);
   const [refundHandledByFilter, setRefundHandledByFilter] = useState("");
   const [refundOverdueOnly, setRefundOverdueOnly] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
@@ -154,7 +157,13 @@ export default function AdminPaymentsPage() {
         setReconciliation(reconciliationResponse.data);
       }
       if (approvalsResponse.success && approvalsResponse.data) {
-        setApprovals(approvalsResponse.data.data || []);
+        const nextApprovals = approvalsResponse.data.data || [];
+        setApprovals(nextApprovals);
+        setSelectedRefundApprovalIds((current) =>
+          current.filter((id) =>
+            nextApprovals.some((approval) => approval.id === id),
+          ),
+        );
       }
     },
     [refundHandledByFilter, refundHandlingFilter, refundOverdueOnly],
@@ -260,9 +269,11 @@ export default function AdminPaymentsPage() {
   }
 
   async function bulkClaimRefundApprovals() {
-    const approvalIds = Array.from(latestApprovalByPayment.values()).map(
-      (approval) => approval.id,
-    );
+    const approvalIds = selectedRefundApprovalIds.length
+      ? selectedRefundApprovalIds
+      : Array.from(latestApprovalByPayment.values()).map(
+          (approval) => approval.id,
+        );
     if (approvalIds.length === 0) return;
     setRefundBatchLoading(true);
     setReviewMessage("");
@@ -280,6 +291,7 @@ export default function AdminPaymentsPage() {
         response.data.auditRecorded,
       )}`,
     );
+    setSelectedRefundApprovalIds([]);
     await load({
       q: query.trim(),
       status: status.trim(),
@@ -465,7 +477,10 @@ export default function AdminPaymentsPage() {
               }
               onClick={() => void bulkClaimRefundApprovals()}
             >
-              批量接手 {latestApprovalByPayment.size || ""}
+              批量接手{" "}
+              {selectedRefundApprovalIds.length ||
+                latestApprovalByPayment.size ||
+                ""}
             </Button>
           </div>
         </CardContent>
@@ -511,9 +526,10 @@ export default function AdminPaymentsPage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[1520px] text-left text-sm">
+            <table className="w-full min-w-[1600px] text-left text-sm">
               <thead className="bg-muted text-muted-foreground">
                 <tr>
+                  <th className="px-3 py-2 font-medium">Select</th>
                   <th className="px-3 py-2 font-medium">支付号</th>
                   <th className="px-3 py-2 font-medium">订单号</th>
                   <th className="px-3 py-2 font-medium">金额</th>
@@ -529,7 +545,7 @@ export default function AdminPaymentsPage() {
                 {payments.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-3 py-8 text-center text-muted-foreground"
                     >
                       {loading ? "正在读取支付流水" : "暂无支付流水"}
@@ -543,6 +559,31 @@ export default function AdminPaymentsPage() {
                   const lifecycle = refundLifecycle(latestApproval);
                   return (
                     <tr key={payment.id} className="border-t align-top">
+                      <td className="px-3 py-2">
+                        {latestApproval ? (
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-muted-foreground"
+                            aria-label={`select refund approval ${latestApproval.id}`}
+                            checked={selectedRefundApprovalIds.includes(
+                              latestApproval.id,
+                            )}
+                            onChange={(event) => {
+                              setSelectedRefundApprovalIds((current) =>
+                                event.target.checked
+                                  ? Array.from(
+                                      new Set([...current, latestApproval.id]),
+                                    )
+                                  : current.filter(
+                                      (id) => id !== latestApproval.id,
+                                    ),
+                              );
+                            }}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 font-medium">
                         {payment.paymentNo}
                         <div className="mt-2 flex flex-wrap gap-2 text-xs font-normal">

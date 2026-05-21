@@ -478,6 +478,11 @@ export interface AdminAuditLogItem {
 export interface AdminWorkflowSummary {
   query: string;
   generatedAt: string;
+  queueFilters?: {
+    handlingStatus?: ManualHandlingStatus | null;
+    ownerId?: string | null;
+    overdueOnly?: boolean;
+  };
   orders: Array<{
     id: string;
     orderNo: string;
@@ -1917,10 +1922,20 @@ class ApiClient {
     );
   }
 
-  async getAdminWorkflowOrderSummary(params?: { q?: string; limit?: number }) {
+  async getAdminWorkflowOrderSummary(params?: {
+    q?: string;
+    limit?: number;
+    handlingStatus?: ManualHandlingStatus;
+    ownerId?: string;
+    overdueOnly?: boolean;
+  }) {
     const searchParams = new URLSearchParams();
     if (params?.q) searchParams.set("q", params.q);
     if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.handlingStatus)
+      searchParams.set("handlingStatus", params.handlingStatus);
+    if (params?.ownerId) searchParams.set("ownerId", params.ownerId);
+    if (params?.overdueOnly) searchParams.set("overdueOnly", "true");
     const query = searchParams.toString();
     return this.request<AdminWorkflowSummary>(
       `/admin/workflows/order-summary${query ? `?${query}` : ""}`,

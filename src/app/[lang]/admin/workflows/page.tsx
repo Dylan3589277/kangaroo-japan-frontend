@@ -24,7 +24,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { api, type AdminWorkflowSummary } from "@/lib/api";
+import {
+  api,
+  type AdminWorkflowSummary,
+  type ManualHandlingStatus,
+} from "@/lib/api";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -41,6 +45,11 @@ export default function AdminWorkflowsPage() {
   const [summary, setSummary] = useState<AdminWorkflowSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [workflowHandlingStatus, setWorkflowHandlingStatus] = useState<
+    "all" | ManualHandlingStatus
+  >("all");
+  const [workflowOwnerId, setWorkflowOwnerId] = useState("");
+  const [workflowOverdueOnly, setWorkflowOverdueOnly] = useState(false);
 
   const counts = useMemo(
     () => ({
@@ -54,21 +63,28 @@ export default function AdminWorkflowsPage() {
     [summary],
   );
 
-  const load = useCallback(async (nextQuery: string) => {
-    setLoading(true);
-    setError("");
-    const response = await api.getAdminWorkflowOrderSummary({
-      q: nextQuery || undefined,
-      limit: 10,
-    });
-    setLoading(false);
-    if (!response.success || !response.data) {
-      setError(response.error?.message || "Workflow summary failed.");
-      setSummary(null);
-      return;
-    }
-    setSummary(response.data);
-  }, []);
+  const load = useCallback(
+    async (nextQuery: string) => {
+      setLoading(true);
+      setError("");
+      const response = await api.getAdminWorkflowOrderSummary({
+        q: nextQuery || undefined,
+        limit: 10,
+        handlingStatus:
+          workflowHandlingStatus === "all" ? undefined : workflowHandlingStatus,
+        ownerId: workflowOwnerId.trim() || undefined,
+        overdueOnly: workflowOverdueOnly,
+      });
+      setLoading(false);
+      if (!response.success || !response.data) {
+        setError(response.error?.message || "Workflow summary failed.");
+        setSummary(null);
+        return;
+      }
+      setSummary(response.data);
+    },
+    [workflowHandlingStatus, workflowOwnerId, workflowOverdueOnly],
+  );
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,6 +149,62 @@ export default function AdminWorkflowsPage() {
               Search
             </Button>
           </form>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {[
+              { label: "All queues", value: "all" },
+              { label: "Unhandled", value: "unhandled" },
+              { label: "In progress", value: "in_progress" },
+              { label: "Resolved", value: "resolved" },
+            ].map((item) => (
+              <Button
+                key={item.value}
+                type="button"
+                size="sm"
+                variant={
+                  workflowHandlingStatus === item.value ? "default" : "outline"
+                }
+                onClick={() =>
+                  setWorkflowHandlingStatus(
+                    item.value as "all" | ManualHandlingStatus,
+                  )
+                }
+              >
+                {item.label}
+              </Button>
+            ))}
+            <Input
+              className="w-full max-w-[220px]"
+              value={workflowOwnerId}
+              onChange={(event) => setWorkflowOwnerId(event.target.value)}
+              placeholder="Owner admin id"
+              aria-label="workflow owner admin id"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant={workflowOverdueOnly ? "default" : "outline"}
+              onClick={() => setWorkflowOverdueOnly((value) => !value)}
+            >
+              Overdue only
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void load(query.trim())}
+              disabled={loading}
+            >
+              Apply filters
+            </Button>
+          </div>
+          {summary?.queueFilters ? (
+            <div className="mt-3 text-xs text-muted-foreground">
+              Active queue filter:{" "}
+              {summary.queueFilters.handlingStatus || "all"} / owner{" "}
+              {summary.queueFilters.ownerId || "any"} / overdue{" "}
+              {summary.queueFilters.overdueOnly ? "yes" : "no"}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
