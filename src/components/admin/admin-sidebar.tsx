@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   AccountBookOutlined,
+  AppstoreOutlined,
   BellOutlined,
   CloudServerOutlined,
   DashboardOutlined,
@@ -74,6 +75,12 @@ const menuItems = [
     icon: <PartitionOutlined />,
     label: "工作流总览",
     href: "/admin/workflows",
+  },
+  {
+    key: "/admin/legacy",
+    icon: <AppstoreOutlined />,
+    label: "小程序矩阵",
+    href: "/admin/legacy",
   },
   {
     key: "/admin/orders",

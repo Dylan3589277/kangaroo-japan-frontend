@@ -5,7 +5,6 @@ import { useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
-import { isDevelopmentRuntime } from "@/lib/runtime";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -135,14 +134,6 @@ export default function DaipayPage() {
         throw new Error(res.error?.message || "Payment link generation failed");
       }
     } catch (error) {
-      if (isDevelopmentRuntime) {
-        const link = `${window.location.origin}/${lang}/pay/daipay?order=${orderNo.trim()}&demo=1`;
-        setPaymentLink(link);
-        setShowDialog(true);
-        toast.warning("Demo payment link generated for local development only.");
-        return;
-      }
-
       console.error("Failed to generate daipay link:", error);
       setPaymentLink(null);
       setShowDialog(false);

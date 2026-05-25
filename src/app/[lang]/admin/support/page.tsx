@@ -84,6 +84,7 @@ const hermesDraftStatusLabel: Record<string, string> = {
   PENDING: "生成中",
   READY: "待审阅",
   DISMISSED: "已驳回",
+  SENT: "已发送",
 };
 
 const csvHeaders = [
@@ -560,6 +561,33 @@ export default function AdminSupportPage() {
     );
     setDismissReason("");
     setDraftMessage("草稿已驳回，未发送给客户。");
+  }
+
+  async function handleSendDraft() {
+    if (!selectedDraft || selectedDraft.status !== "READY") return;
+    setDraftLoading(true);
+    setDraftMessage("");
+    const response = await api.sendHermesDraft(selectedDraft.jobId);
+    setDraftLoading(false);
+
+    if (!response.success || !response.data) {
+      setDraftMessage(response.error?.message || "草稿发送失败。");
+      return;
+    }
+
+    setDrafts((current) =>
+      current.map((draft) =>
+        draft.jobId === response.data?.draft.jobId
+          ? response.data.draft
+          : draft,
+      ),
+    );
+    setDraftMessage(
+      `草稿已发送到客户可见会话；审计记录=${String(
+        response.data.auditRecorded,
+      )}。`,
+    );
+    await refreshSelectedTicket();
   }
 
   async function handleCopyDraft() {
@@ -1053,6 +1081,18 @@ export default function AdminSupportPage() {
 
                   {selectedDraft?.status === "READY" ? (
                     <div className="space-y-3 border-t pt-4">
+                      <Button
+                        type="button"
+                        onClick={handleSendDraft}
+                        disabled={draftLoading}
+                      >
+                        {draftLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <MessageSquare className="h-4 w-4" />
+                        )}
+                        审阅通过并发送
+                      </Button>
                       <Input
                         value={dismissReason}
                         onChange={(event) =>

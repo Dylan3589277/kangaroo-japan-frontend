@@ -3,14 +3,18 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ClipboardList,
+  Clock,
   CreditCard,
   FileSearch,
+  KeyRound,
   MessageSquare,
   RefreshCw,
   Search,
   ShieldCheck,
   ShoppingCart,
+  Users,
   Warehouse,
 } from "lucide-react";
 
@@ -25,8 +29,18 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   api,
   type AdminWorkflowSummary,
+  type LegacyDsrReadonlyApiResponse,
+  type LegacyDsrReadonlyParams,
+  type LegacyDsrReadonlyRoute,
   type ManualHandlingStatus,
 } from "@/lib/api";
 
@@ -40,6 +54,90 @@ function adminHref(path?: string | null) {
   return path.startsWith("/zh/") ? path : `/zh${path}`;
 }
 
+function handlingLabel(value?: string | null) {
+  if (value === "resolved") return "Resolved";
+  if (value === "in_progress") return "In progress";
+  return "Unhandled";
+}
+
+function queueTypeLabel(value: string) {
+  if (value === "refund") return "Refund";
+  if (value === "support") return "Support";
+  return "Warehouse";
+}
+
+const LEGACY_DSR_ROUTES: Array<{
+  value: LegacyDsrReadonlyRoute;
+  label: string;
+  sourceRoute: string;
+  placeholder: string;
+}> = [
+  {
+    value: "orders.mine",
+    label: "Orders.mine",
+    sourceRoute: "api/orders/mine",
+    placeholder: "status / keyword / order no",
+  },
+  {
+    value: "orders.detail",
+    label: "Orders.detail",
+    sourceRoute: "api/orders/detail",
+    placeholder: "legacy order id",
+  },
+  {
+    value: "warehouse.orders",
+    label: "Stores.orders",
+    sourceRoute: "api/stores/orders",
+    placeholder: "warehouse order keyword",
+  },
+  {
+    value: "warehouse.ships",
+    label: "Stores.ships",
+    sourceRoute: "api/stores/ships",
+    placeholder: "shipment keyword",
+  },
+  {
+    value: "warehouse.photos",
+    label: "Stores.photos",
+    sourceRoute: "api/stores/photos",
+    placeholder: "order id / photo status",
+  },
+];
+
+function selectedLegacyRoute(route: LegacyDsrReadonlyRoute) {
+  return (
+    LEGACY_DSR_ROUTES.find((item) => item.value === route) ||
+    LEGACY_DSR_ROUTES[0]
+  );
+}
+
+function buildLegacyDsrParams(
+  route: LegacyDsrReadonlyRoute,
+  value: string,
+): LegacyDsrReadonlyParams {
+  const trimmed = value.trim();
+  if (!trimmed) return { page: 1 };
+  if (route === "orders.detail") return { id: trimmed };
+  if (route === "warehouse.photos") return { id: trimmed, orderId: trimmed };
+  return { kw: trimmed, q: trimmed, page: 1 };
+}
+
+function isSensitiveKey(key: string) {
+  return /token|authorization|password|secret|cookie/i.test(key);
+}
+
+function formatLegacyJson(value: unknown) {
+  try {
+    return JSON.stringify(
+      value,
+      (key, nestedValue) => (isSensitiveKey(key) ? "[hidden]" : nestedValue),
+      2,
+    );
+  } catch {
+    return String(value);
+  }
+}
+
 export default function AdminWorkflowsPage() {
   const [query, setQuery] = useState("");
   const [summary, setSummary] = useState<AdminWorkflowSummary | null>(null);
@@ -50,6 +148,14 @@ export default function AdminWorkflowsPage() {
   >("all");
   const [workflowOwnerId, setWorkflowOwnerId] = useState("");
   const [workflowOverdueOnly, setWorkflowOverdueOnly] = useState(false);
+  const [legacyDsrToken, setLegacyDsrToken] = useState("");
+  const [legacyDsrRoute, setLegacyDsrRoute] =
+    useState<LegacyDsrReadonlyRoute>("orders.mine");
+  const [legacyDsrQuery, setLegacyDsrQuery] = useState("");
+  const [legacyDsrLoading, setLegacyDsrLoading] = useState(false);
+  const [legacyDsrError, setLegacyDsrError] = useState("");
+  const [legacyDsrResult, setLegacyDsrResult] =
+    useState<LegacyDsrReadonlyApiResponse | null>(null);
 
   const counts = useMemo(
     () => ({
@@ -62,6 +168,12 @@ export default function AdminWorkflowsPage() {
     }),
     [summary],
   );
+  const queueItems = summary?.operationQueue || [];
+  const ownerOptions = summary?.ownerOptions?.length
+    ? summary.ownerOptions
+    : [{ id: "__unassigned", label: "Unassigned", count: 0 }];
+  const legacyRoute = selectedLegacyRoute(legacyDsrRoute);
+  const legacyTimeline = legacyDsrResult?.timeline || [];
 
   const load = useCallback(
     async (nextQuery: string) => {
@@ -89,6 +201,40 @@ export default function AdminWorkflowsPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void load(query.trim());
+  }
+
+  async function handleLegacyDsrSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const token = legacyDsrToken.trim();
+    setLegacyDsrError("");
+    if (!token) {
+      setLegacyDsrResult(null);
+      setLegacyDsrError(
+        "Admin-only readonly DSR token is required before requesting legacy snapshots.",
+      );
+      return;
+    }
+
+    setLegacyDsrLoading(true);
+    const params = buildLegacyDsrParams(legacyDsrRoute, legacyDsrQuery);
+    let response: LegacyDsrReadonlyApiResponse;
+    if (legacyDsrRoute === "orders.detail") {
+      response = await api.getAdminLegacyDsrOrdersDetail(params, token);
+    } else if (legacyDsrRoute === "warehouse.orders") {
+      response = await api.getAdminLegacyDsrWarehouseOrders(params, token);
+    } else if (legacyDsrRoute === "warehouse.ships") {
+      response = await api.getAdminLegacyDsrWarehouseShips(params, token);
+    } else if (legacyDsrRoute === "warehouse.photos") {
+      response = await api.getAdminLegacyDsrWarehousePhotos(params, token);
+    } else {
+      response = await api.getAdminLegacyDsrOrdersMine(params, token);
+    }
+    setLegacyDsrLoading(false);
+    setLegacyDsrResult(response);
+    if (!response.success) {
+      setLegacyDsrError(response.error?.message || "Legacy DSR read failed.");
+      return;
+    }
   }
 
   useEffect(() => {
@@ -172,13 +318,26 @@ export default function AdminWorkflowsPage() {
                 {item.label}
               </Button>
             ))}
-            <Input
-              className="w-full max-w-[220px]"
-              value={workflowOwnerId}
-              onChange={(event) => setWorkflowOwnerId(event.target.value)}
-              placeholder="Owner admin id"
-              aria-label="workflow owner admin id"
-            />
+            <Select
+              value={workflowOwnerId || "all"}
+              onValueChange={(value) =>
+                setWorkflowOwnerId(value === "all" ? "" : value || "")
+              }
+            >
+              <SelectTrigger className="w-full max-w-[240px]">
+                <Users className="h-4 w-4" />
+                <SelectValue placeholder="Owner" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any owner</SelectItem>
+                {ownerOptions.map((owner) => (
+                  <SelectItem key={owner.id} value={owner.id}>
+                    {owner.label} ({owner.count})
+                    {owner.source === "legacy_queue_owner" ? " legacy" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               type="button"
               size="sm"
@@ -214,6 +373,129 @@ export default function AdminWorkflowsPage() {
         </div>
       ) : null}
 
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Legacy DSR readonly
+              </CardTitle>
+              <CardDescription>
+                Pull Ali/DSR order and warehouse snapshots into this workbench.
+                The legacy token stays in this tab state only.
+              </CardDescription>
+            </div>
+            <Badge variant="outline">No write actions</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form
+            className="grid gap-3 xl:grid-cols-[minmax(180px,240px)_minmax(180px,260px)_minmax(180px,1fr)_auto]"
+            onSubmit={handleLegacyDsrSubmit}
+          >
+            <Input
+              type="password"
+              value={legacyDsrToken}
+              onChange={(event) => setLegacyDsrToken(event.target.value)}
+              placeholder="x-dsr-legacy-token"
+              aria-label="legacy DSR readonly token"
+              autoComplete="off"
+            />
+            <Select
+              value={legacyDsrRoute}
+              onValueChange={(value) =>
+                setLegacyDsrRoute(value as LegacyDsrReadonlyRoute)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Legacy route" />
+              </SelectTrigger>
+              <SelectContent>
+                {LEGACY_DSR_ROUTES.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              value={legacyDsrQuery}
+              onChange={(event) => setLegacyDsrQuery(event.target.value)}
+              placeholder={legacyRoute.placeholder}
+              aria-label="legacy DSR query or order id"
+            />
+            <Button type="submit" disabled={legacyDsrLoading}>
+              <Search className="h-4 w-4" />
+              {legacyDsrLoading ? "Fetching" : "Fetch"}
+            </Button>
+          </form>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">{legacyRoute.sourceRoute}</Badge>
+            <span>
+              Modern admin JWT is kept as Authorization; legacy identity is sent
+              only as x-dsr-legacy-token for this request.
+            </span>
+          </div>
+          {legacyDsrError ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              {legacyDsrError}
+            </div>
+          ) : null}
+          {legacyDsrResult?.success ? (
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="rounded-lg border">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+                  <div className="text-sm font-medium">Snapshot data</div>
+                  <Badge variant="outline">
+                    {legacyDsrResult.safety?.upstream_status
+                      ? `upstream ${legacyDsrResult.safety.upstream_status}`
+                      : "readonly"}
+                  </Badge>
+                </div>
+                <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words p-3 text-xs text-muted-foreground">
+                  {formatLegacyJson(legacyDsrResult.data)}
+                </pre>
+              </div>
+              <div className="rounded-lg border">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+                  <div className="text-sm font-medium">Workflow timeline</div>
+                  <Badge variant="outline">{legacyTimeline.length} items</Badge>
+                </div>
+                <div className="max-h-72 overflow-auto">
+                  {legacyTimeline.length ? (
+                    <div className="divide-y">
+                      {legacyTimeline.map((item) => (
+                        <div key={item.id} className="p-3 text-sm">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium">
+                              {item.orderId || "Legacy warehouse row"}
+                            </span>
+                            <Badge variant="outline">
+                              {item.originalAction}
+                            </Badge>
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {formatDate(item.createdAt)} / {item.sourceRoute}
+                          </div>
+                          <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs text-muted-foreground">
+                            {formatLegacyJson(item.metadata)}
+                          </pre>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 text-sm text-muted-foreground">
+                      No mapped timeline entries returned for this source.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-6">
         {[
           { label: "Orders", value: counts.orders, icon: ShoppingCart },
@@ -240,6 +522,143 @@ export default function AdminWorkflowsPage() {
           </Card>
         ))}
       </div>
+
+      {summary?.queueStats?.overdue ? (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4" />
+          <span>
+            {summary.queueStats.overdue} queue items are past SLA. Apply Overdue
+            only and assign an owner before continuing lower priority work.
+          </span>
+        </div>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Operations queue</CardTitle>
+          <CardDescription>
+            Refund approvals, customer-service tickets, and warehouse exceptions
+            in one dispatch view. SLA: refund{" "}
+            {summary?.queueSla?.refundApprovalHours ?? 24}h / support{" "}
+            {summary?.queueSla?.supportTicketHours ?? 24}h / warehouse{" "}
+            {summary?.queueSla?.warehouseExceptionHours ?? 24}h.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-6">
+            {[
+              { label: "Total", value: summary?.queueStats?.total ?? 0 },
+              {
+                label: "Unhandled",
+                value: summary?.queueStats?.unhandled ?? 0,
+              },
+              {
+                label: "In progress",
+                value: summary?.queueStats?.inProgress ?? 0,
+              },
+              { label: "Overdue", value: summary?.queueStats?.overdue ?? 0 },
+              {
+                label: "Unassigned",
+                value: summary?.queueStats?.unassigned ?? 0,
+              },
+              {
+                label: "RBAC blocked",
+                value: summary?.queueStats?.permissionBlocked ?? 0,
+              },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg border p-3">
+                <div className="text-xs text-muted-foreground">
+                  {item.label}
+                </div>
+                <div className="mt-1 text-2xl font-semibold">{item.value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="divide-y rounded-lg border">
+            {queueItems.length ? (
+              queueItems.map((item) => (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  className={`grid gap-3 p-3 text-sm md:grid-cols-[140px_minmax(0,1fr)_220px] ${
+                    item.isOverdue ? "bg-amber-50" : ""
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{queueTypeLabel(item.type)}</Badge>
+                    {item.isOverdue ? (
+                      <Badge variant="destructive">SLA overdue</Badge>
+                    ) : null}
+                    {item.ownerCanHandle === false && item.ownerId ? (
+                      <Badge variant="destructive">RBAC blocked</Badge>
+                    ) : null}
+                  </div>
+                  <div>
+                    <Link
+                      className="font-medium text-primary hover:underline"
+                      href={adminHref(item.adminPath)!}
+                    >
+                      {item.label}
+                    </Link>
+                    <div className="mt-1 text-muted-foreground">
+                      {item.summary}
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      {item.ownerId || "Unassigned"}
+                    </div>
+                    <div>permission {item.requiredPermission || "-"}</div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      due {formatDate(item.dueAt)}
+                    </div>
+                    <Badge variant="outline">
+                      {handlingLabel(item.handlingStatus)}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-sm text-muted-foreground">
+                No queue items match the current filters.
+              </div>
+            )}
+          </div>
+          {ownerOptions.length ? (
+            <div className="rounded-lg border p-3">
+              <div className="text-sm font-medium">Owner permissions</div>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {ownerOptions.map((owner) => (
+                  <div key={owner.id} className="rounded-md border p-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium">{owner.label}</span>
+                      <Badge variant="outline">{owner.source || "owner"}</Badge>
+                    </div>
+                    <div className="mt-1 text-muted-foreground">
+                      role {owner.roleId ?? "default"} / legacy uid{" "}
+                      {owner.legacyMemberUid ?? "-"}
+                    </div>
+                    <div className="mt-1 text-muted-foreground">
+                      order cats{" "}
+                      {owner.orderCategoryIds?.length
+                        ? owner.orderCategoryIds.join(", ")
+                        : "all"}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {(owner.canHandle || []).map((item) => (
+                        <Badge key={item} variant="outline">
+                          {queueTypeLabel(item)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>

@@ -8,7 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isDevelopmentRuntime } from "@/lib/runtime";
+import {
+  Bell,
+  CreditCard,
+  Megaphone,
+  MessageCircle,
+  Package,
+  type LucideIcon,
+} from "lucide-react";
 
 interface Message {
   id: number;
@@ -19,46 +26,33 @@ interface Message {
   is_read: number;
 }
 
-const MESSAGE_ICONS: Record<string, string> = {
-  order: "📦",
-  system: "🔔",
-  promotion: "🎉",
-  payment: "💰",
-  default: "💬",
+const MESSAGE_ICONS: Record<string, LucideIcon> = {
+  order: Package,
+  system: Bell,
+  promotion: Megaphone,
+  payment: CreditCard,
+  default: MessageCircle,
 };
 
-const STATUS_LABELS: Record<string, Record<string, string>> = {
-  order: {
-    zh: "订单通知",
-    en: "Order",
-    ja: "注文通知",
-  },
-  system: {
-    zh: "系统通知",
-    en: "System",
-    ja: "システム通知",
-  },
-  promotion: {
-    zh: "活动通知",
-    en: "Promotion",
-    ja: "プロモーション",
-  },
-  payment: {
-    zh: "支付通知",
-    en: "Payment",
-    ja: "支払通知",
-  },
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  order: "orderUpdate",
+  system: "systemNotice",
+  promotion: "promotion",
+  payment: "paymentNotice",
 };
 
-function getTypeLabel(type: string, lang: string): string {
-  return STATUS_LABELS[type]?.[lang] || type;
+type MessageTranslator = ReturnType<typeof useTranslations>;
+
+function getTypeLabel(type: string, t: MessageTranslator): string {
+  const key = STATUS_LABEL_KEYS[type];
+  return key ? t(key) : type;
 }
 
-function getIcon(type: string): string {
+function getIcon(type: string): LucideIcon {
   return MESSAGE_ICONS[type] || MESSAGE_ICONS.default;
 }
 
-function formatDateTime(dateStr: string): string {
+function formatDateTime(dateStr: string, t: MessageTranslator): string {
   const d = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
@@ -66,10 +60,10 @@ function formatDateTime(dateStr: string): string {
   const diffHour = Math.floor(diffMs / 3600000);
   const diffDay = Math.floor(diffMs / 86400000);
 
-  if (diffMin < 1) return "刚刚";
-  if (diffMin < 60) return `${diffMin}分钟前`;
-  if (diffHour < 24) return `${diffHour}小时前`;
-  if (diffDay < 7) return `${diffDay}天前`;
+  if (diffMin < 1) return t("justNow");
+  if (diffMin < 60) return t("minutesAgo", { minutes: diffMin });
+  if (diffHour < 24) return t("hoursAgo", { hours: diffHour });
+  if (diffDay < 7) return t("daysAgo", { days: diffDay });
 
   return d.toLocaleDateString("zh-CN", {
     month: "2-digit",
@@ -127,26 +121,10 @@ export default function MessagesPage() {
         }
       } catch (error) {
         console.error("Failed to fetch messages:", error);
-        if (!isDevelopmentRuntime) {
-          setTotalCount(0);
-          if (!append) {
-            setMessages([]);
-          }
-          return;
+        setTotalCount(0);
+        if (!append) {
+          setMessages([]);
         }
-
-        const mockMessages: Message[] = Array.from({ length: 8 }).map((_, i) => ({
-          id: i + 1,
-          type: ["order", "system", "promotion", "payment"][i % 4],
-          title: `消息标题 ${i + 1}`,
-          content: `这是消息 ${i + 1} 的详细内容，用于展示消息中心的功能。`,
-          add_time: new Date(
-            Date.now() - i * 3600000 * 2
-          ).toISOString(),
-          is_read: i > 3 ? 1 : 0,
-        }));
-        setTotalCount(mockMessages.length);
-        setMessages(mockMessages.slice(0, pageNum * PAGE_SIZE));
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -189,7 +167,7 @@ export default function MessagesPage() {
   if (!isAuthenticated) {
     return (
       <div className="container mx-auto py-16 px-4 text-center">
-        <div className="text-6xl mb-4">🔐</div>
+        <div className="text-6xl mb-4">!</div>
         <h1 className="text-2xl font-bold mb-2">{t('needLogin')}</h1>
         <p className="text-muted-foreground mb-6">{t('needLoginDesc')}</p>
         <Button
@@ -219,7 +197,7 @@ export default function MessagesPage() {
         </div>
       ) : messages.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-6xl mb-4">📭</div>
+          <div className="text-6xl mb-4">--</div>
           <h2 className="text-xl font-bold mb-2">{t('noMessages')}</h2>
           <p className="text-muted-foreground">{t('noMessagesDesc')}</p>
         </div>
@@ -236,8 +214,11 @@ export default function MessagesPage() {
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <div className="text-2xl flex-shrink-0 mt-1">
-                    {getIcon(msg.type)}
+                  <div className="flex-shrink-0 mt-1">
+                    {(() => {
+                      const Icon = getIcon(msg.type);
+                      return <Icon className="size-5 text-muted-foreground" aria-hidden="true" />;
+                    })()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
@@ -249,14 +230,14 @@ export default function MessagesPage() {
                           variant="secondary"
                           className="text-xs flex-shrink-0"
                         >
-                          {getTypeLabel(msg.type, lang)}
+                          {getTypeLabel(msg.type, t)}
                         </Badge>
                         {msg.is_read === 0 && (
                           <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" />
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground flex-shrink-0">
-                        {formatDateTime(msg.add_time)}
+                        {formatDateTime(msg.add_time, t)}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">

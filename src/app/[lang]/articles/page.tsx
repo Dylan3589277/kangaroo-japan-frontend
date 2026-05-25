@@ -10,7 +10,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
-import { isDevelopmentRuntime } from "@/lib/runtime";
 import Image from "next/image";
 import { Calendar, Eye } from "lucide-react";
 
@@ -31,50 +30,14 @@ interface ArticleData {
 }
 
 const CATEGORIES = [
-  { id: 0, name: { zh: "全部", ja: "すべて", en: "All" } },
-  { id: 1, name: { zh: "购物攻略", ja: "買い物ガイド", en: "Shopping Guide" } },
-  { id: 2, name: { zh: "日本旅游", ja: "日本旅行", en: "Japan Travel" } },
-  { id: 3, name: { zh: "好物推荐", ja: "おすすめ商品", en: "Recommendations" } },
-  { id: 4, name: { zh: "代购资讯", ja: "代購情報", en: "Agent News" } },
-  { id: 5, name: { zh: "日本文化", ja: "日本文化", en: "Japanese Culture" } },
+  { id: 0, labelKey: "all" },
+  { id: 1, labelKey: "shoppingGuide" },
+  { id: 2, labelKey: "japanTravel" },
+  { id: 3, labelKey: "recommendations" },
+  { id: 4, labelKey: "proxyNews" },
+  { id: 5, labelKey: "japanCulture" },
 ];
 
-const MOCK_ARTICLES: ArticleItem[] = Array.from({ length: 12 }).map((_, i) => ({
-  id: i + 1,
-  title: [
-    "2024年日本药妆店必买清单TOP20",
-    "日本中古店购物攻略：如何淘到高性价比好物",
-    "东京最值得逛的10家买手店推荐",
-    "日本小众护肤品牌盘点：不输大牌的宝藏好物",
-    "代购必看：日本海关最新政策解读",
-    "日本京都和服体验全攻略",
-    "北海道白色恋人工厂参观记",
-    "日本限定版球鞋购买指南",
-    "日本药妆店和商场购物退税攻略",
-    "大阪心斋桥购物全攻略",
-    "日本二手奢侈品市场深度调研",
-    "2024年日本最新人气零食排行榜",
-  ][i],
-  summary: [
-    "每年都有无数新品上架，到底哪些是真正值得买的？本文为你整理了2024年日本药妆店最值得购买的20款产品...",
-    "日本中古店藏着无数宝藏，但新手往往不知道怎么逛。这篇攻略教你如何从中古店淘到高性价比的好物...",
-    "东京不仅是购物天堂，更是潮流文化的中心。本文精选了10家最值得逛的买手店，每一家都独具特色...",
-    "日本除了知名大牌，还有很多低调但品质出众的小众护肤品牌。本文为你一一盘点这些宝藏品牌...",
-    "日本海关政策经常变动，作为代购必须及时了解最新规定。本文详细解读当前日本海关的各项政策...",
-    "京都的和服体验是日本旅游不可错过的项目。本文从和服选择、穿戴流程、拍照地点等方面全面介绍...",
-    "白色恋人是日本最知名的伴手礼之一，但你知道它的制作过程吗？本文带你参观白色恋人工厂...",
-    "日本是球鞋爱好者的天堂，很多限量版球鞋在日本更容易买到。本文教你如何在日本购买限定版球鞋...",
-    "在日本购物如何退税？药妆店和商场的退税政策有什么区别？本文为你详细解答...",
-    "大阪心斋桥是大阪最繁华的购物区，从药妆到奢侈品应有尽有。本文带你逛遍心斋桥...",
-    "日本二手奢侈品市场规模巨大，性价比极高。本文深入分析了日本中古奢侈品市场的现状...",
-    "日本的零食种类繁多，每年都有新口味上市。本文为你整理了2024年最受欢迎的日本零食...",
-  ][i],
-  category_id: (i % 5) + 1,
-  category_name: ["购物攻略", "日本旅游", "好物推荐", "代购资讯", "日本文化"][i % 5],
-  cover_image: `https://picsum.photos/seed/article${i + 1}/800/400`,
-  add_time: new Date(Date.now() - i * 86400000 * 3).toISOString(),
-  view_count: Math.floor(Math.random() * 5000) + 500,
-}));
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -127,33 +90,13 @@ export default function ArticlesPage() {
           return;
         }
       } catch {
-        // Demo data is development-only.
+        // Production must show only backend article data.
       }
 
-      if (!isDevelopmentRuntime) {
-        if (!append) {
-          setArticles([]);
-        }
-        setTotalPages(1);
-        return;
+      if (!append) {
+        setArticles([]);
       }
-
-      const pageSize = 10;
-      const filtered =
-        categoryId > 0
-          ? MOCK_ARTICLES.filter((a) => a.category_id === categoryId)
-          : MOCK_ARTICLES;
-      const start = (pageNum - 1) * pageSize;
-      const end = start + pageSize;
-      const items = filtered.slice(start, end);
-      const mockPages = Math.ceil(filtered.length / pageSize);
-
-      if (append) {
-        setArticles((prev) => [...prev, ...items]);
-      } else {
-        setArticles(items);
-      }
-      setTotalPages(mockPages || 1);
+      setTotalPages(1);
     },
     []
   );
@@ -229,7 +172,7 @@ export default function ArticlesPage() {
                 value={String(cat.id)}
                 className="flex-shrink-0"
               >
-                {cat.name[lang as keyof typeof cat.name] || cat.name.zh}
+                {t(cat.labelKey)}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -260,7 +203,7 @@ export default function ArticlesPage() {
         {/* Empty */}
         {!loading && articles.length === 0 && (
           <div className="text-center py-16">
-            <div className="text-6xl mb-4">📄</div>
+            <div className="text-6xl mb-4">--</div>
             <h2 className="text-xl font-bold mb-2">
               {t('noArticles')}
             </h2>

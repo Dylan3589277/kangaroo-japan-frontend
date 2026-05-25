@@ -134,7 +134,7 @@ export type SupportTicketCategory =
   | "compensation"
   | "complaint"
   | "general";
-export type HermesDraftStatus = "PENDING" | "READY" | "DISMISSED";
+export type HermesDraftStatus = "PENDING" | "READY" | "DISMISSED" | "SENT";
 
 export interface SupportTicket {
   id: string;
@@ -176,6 +176,9 @@ export interface HermesDraft {
   status: HermesDraftStatus;
   draftBody: string | null;
   metadata: Record<string, unknown> | null;
+  sentAt?: string | null;
+  sentByAdminId?: string | null;
+  sentMessageId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -483,6 +486,53 @@ export interface AdminWorkflowSummary {
     ownerId?: string | null;
     overdueOnly?: boolean;
   };
+  queueSla?: {
+    refundApprovalHours: number;
+    supportTicketHours: number;
+    warehouseExceptionHours: number;
+  };
+  queueStats?: {
+    total: number;
+    unhandled: number;
+    inProgress: number;
+    resolved: number;
+    overdue: number;
+    unassigned: number;
+    permissionBlocked?: number;
+  };
+  ownerOptions?: Array<{
+    id: string;
+    label: string;
+    count: number;
+    source?: "admin_account" | "legacy_queue_owner" | "unassigned" | string;
+    roleId?: number | null;
+    legacyMemberUid?: number | null;
+    orderCategoryIds?: string[];
+    permissions?: string[];
+    canHandle?: string[];
+  }>;
+  operationQueue?: Array<{
+    id: string;
+    type: "refund" | "support" | "warehouse";
+    requiredPermission?: string;
+    label: string;
+    summary: string;
+    handlingStatus: ManualHandlingStatus;
+    ownerId?: string | null;
+    dueAt?: string | null;
+    createdAt: string;
+    isOverdue: boolean;
+    adminPath: string;
+    ownerCanHandle?: boolean;
+    ownerPermissionSource?: string | null;
+    blockedReason?: string | null;
+  }>;
+  rbac?: {
+    source: string;
+    legacySource: string;
+    defaultAdminPermissions: string[];
+    orderCategoryScope: string;
+  };
   orders: Array<{
     id: string;
     orderNo: string;
@@ -563,6 +613,8 @@ export interface AdminWorkflowSummary {
     handledBy?: string | null;
     handledAt?: string | null;
     createdAt: string;
+    dueAt?: string | null;
+    isOverdue?: boolean;
     adminPath: string;
   }>;
   supportTickets: Array<{
@@ -577,6 +629,8 @@ export interface AdminWorkflowSummary {
     handlingNote?: string | null;
     handledBy?: string | null;
     handledAt?: string | null;
+    slaDueAt?: string | null;
+    isOverdue?: boolean;
     updatedAt: string;
     adminPath: string;
   }>;
@@ -591,6 +645,186 @@ export interface AdminWorkflowSummary {
   }>;
   links: Record<string, string>;
   safety: Record<string, unknown>;
+}
+
+export type LegacyDsrReadonlyRoute =
+  | "orders.mine"
+  | "orders.detail"
+  | "warehouse.orders"
+  | "warehouse.ships"
+  | "warehouse.photos";
+
+export type LegacyDsrReadonlyParams = Record<
+  string,
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Array<string | number | boolean>
+>;
+
+export interface LegacyDsrReadonlySafety {
+  readonly: true;
+  adminOnly: true;
+  source: "legacy-dsr";
+  sourceRoute: string;
+  upstream_status?: number;
+}
+
+export interface LegacyDsrWarehouseTimelineEntry {
+  id: string;
+  readonly: true;
+  source: "legacy-dsr";
+  sourceRoute: "api/stores/orders" | "api/stores/ships" | "api/stores/photos";
+  originalAction: string;
+  orderId: string | null;
+  createdAt: string | null;
+  metadata: {
+    legacyStatus: Record<string, unknown>;
+    legacyCategory: Record<string, unknown>;
+    raw: Record<string, unknown>;
+  };
+}
+
+export interface LegacyDsrReadonlyApiResponse<T = unknown>
+  extends ApiResponse<T> {
+  timeline?: LegacyDsrWarehouseTimelineEntry[];
+  safety?: LegacyDsrReadonlySafety;
+}
+
+export type AdminMiniProgramFeatureStatus =
+  | "migrated_user_side"
+  | "admin_readonly_ready"
+  | "preview_verified"
+  | "legacy_reference_only"
+  | "missing_admin_write";
+
+export interface AdminMiniProgramSummary {
+  source: {
+    principle: string;
+    legacyReference: string;
+  };
+  featureMatrix: Array<{
+    key: string;
+    label: string;
+    legacySource: string[];
+    modernModules: string[];
+    status: AdminMiniProgramFeatureStatus;
+    nextAction: string;
+  }>;
+  summaries: {
+    deposit: {
+      totalDeposits: number;
+      refundingRequests: number;
+      grossDepositAmount: number;
+      userDepositBalance: number;
+    };
+    vip: {
+      levels: number;
+      totalOrders: number;
+      paidOrders: number;
+      unpaidOrders: number;
+    };
+    couponsAndScore: {
+      couponDefinitions: number;
+      enabledCoupons: number;
+      issuedCoupons: number;
+      scoreLogs: number;
+    };
+    sign: {
+      totalLogs: number;
+      todayLogs: number;
+    };
+    articles: {
+      source: string;
+      articles: number;
+      categories: number;
+      helpItems: number;
+    };
+    admins: {
+      admins: number;
+      importedLegacyAdmins: number;
+      source: string;
+    };
+    platformAccountsRobot: {
+      status: AdminMiniProgramFeatureStatus;
+      legacySource: string[];
+      nextAction: string;
+      yahoo?: {
+        total: number;
+        active: number;
+        loggedIn: number;
+        cookieReady: number;
+        latestLoginAt?: string | null;
+        sensitiveFieldsHidden: boolean;
+      };
+      mercari?: {
+        total: number;
+        byType: Array<{
+          type: string;
+          count: number;
+          latestAt?: string | null;
+        }>;
+        missingTypes: string[];
+        sensitiveFieldsHidden: boolean;
+      };
+      robot?: {
+        autoBuyEnabled: boolean;
+        autoStatus?: string | null;
+        autoBuyHeart?: string | null;
+        heartbeatAgeMinutes?: number | null;
+        heartbeatStale?: boolean | null;
+        mercariTokenPresence: Array<{
+          name: string;
+          present: boolean;
+          sensitive: boolean;
+        }>;
+        sensitiveFieldsHidden: boolean;
+      };
+    };
+  };
+  safety: {
+    readonly: boolean;
+    adminOnly: boolean;
+    sharedConsole: boolean;
+    noProviderMutation: boolean;
+  };
+}
+
+export interface AdminLegacyYahooAccountItem {
+  id: number;
+  account: string;
+  email?: string | null;
+  status?: number | null;
+  sort: number;
+  loginStatus: boolean;
+  lastLoginAt?: string | null;
+  legacyUpdatedAt?: string | null;
+  isDeleted: boolean;
+  hasPassword: boolean;
+  hasEmailPassword: boolean;
+  hasCookies: boolean;
+  cookieFingerprint?: string | null;
+  updatedAt: string;
+}
+
+export interface AdminLegacyMercariDpopItem {
+  id: number;
+  type: string;
+  hasDpop: boolean;
+  dpopFingerprint?: string | null;
+  legacyCreatedAt?: string | null;
+  updatedAt: string;
+}
+
+export interface AdminLegacyConfigItem {
+  name: string;
+  valuePreview?: string | null;
+  valueKind: string;
+  isSensitive: boolean;
+  legacyUpdatedAt?: string | null;
+  updatedAt: string;
 }
 
 export interface AdminListResponse<T> {
@@ -1942,6 +2176,133 @@ class ApiClient {
     );
   }
 
+  private legacyDsrHeaders(legacyToken: string) {
+    return { "x-dsr-legacy-token": legacyToken };
+  }
+
+  async getAdminLegacyDsrOrdersMine(
+    params: LegacyDsrReadonlyParams,
+    legacyToken: string,
+  ) {
+    return this.request<unknown>("/orders/admin/legacy-dsr/mine", {
+      method: "POST",
+      body: params,
+      headers: this.legacyDsrHeaders(legacyToken),
+    }) as Promise<LegacyDsrReadonlyApiResponse>;
+  }
+
+  async getAdminLegacyDsrOrdersDetail(
+    params: LegacyDsrReadonlyParams,
+    legacyToken: string,
+  ) {
+    return this.request<unknown>("/orders/admin/legacy-dsr/detail", {
+      method: "POST",
+      body: params,
+      headers: this.legacyDsrHeaders(legacyToken),
+    }) as Promise<LegacyDsrReadonlyApiResponse>;
+  }
+
+  async getAdminLegacyDsrWarehouseOrders(
+    params: LegacyDsrReadonlyParams,
+    legacyToken: string,
+  ) {
+    return this.request<unknown>("/warehouse/legacy-dsr/orders", {
+      method: "POST",
+      body: params,
+      headers: this.legacyDsrHeaders(legacyToken),
+    }) as Promise<LegacyDsrReadonlyApiResponse>;
+  }
+
+  async getAdminLegacyDsrWarehouseShips(
+    params: LegacyDsrReadonlyParams,
+    legacyToken: string,
+  ) {
+    return this.request<unknown>("/warehouse/legacy-dsr/ships", {
+      method: "POST",
+      body: params,
+      headers: this.legacyDsrHeaders(legacyToken),
+    }) as Promise<LegacyDsrReadonlyApiResponse>;
+  }
+
+  async getAdminLegacyDsrWarehousePhotos(
+    params: LegacyDsrReadonlyParams,
+    legacyToken: string,
+  ) {
+    return this.request<unknown>("/warehouse/legacy-dsr/photos", {
+      method: "POST",
+      body: params,
+      headers: this.legacyDsrHeaders(legacyToken),
+    }) as Promise<LegacyDsrReadonlyApiResponse>;
+  }
+
+  async getAdminMiniProgramSummary() {
+    return this.request<AdminMiniProgramSummary>(
+      "/admin/mini-program/summary",
+    );
+  }
+
+  async listAdminLegacyYahooAccounts(params?: {
+    q?: string;
+    loginStatus?: "true" | "false" | "all";
+    hasCookies?: "true" | "false" | "all";
+    isDeleted?: "true" | "false" | "all";
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.q) searchParams.set("q", params.q);
+    if (params?.loginStatus && params.loginStatus !== "all")
+      searchParams.set("loginStatus", params.loginStatus);
+    if (params?.hasCookies && params.hasCookies !== "all")
+      searchParams.set("hasCookies", params.hasCookies);
+    if (params?.isDeleted && params.isDeleted !== "all")
+      searchParams.set("isDeleted", params.isDeleted);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminListResponse<AdminLegacyYahooAccountItem>>(
+      `/admin/mini-program/platform-robot/yahoo-accounts${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async listAdminLegacyMercariDpops(params?: {
+    type?: string;
+    hasDpop?: "true" | "false" | "all";
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.type) searchParams.set("type", params.type);
+    if (params?.hasDpop && params.hasDpop !== "all")
+      searchParams.set("hasDpop", params.hasDpop);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminListResponse<AdminLegacyMercariDpopItem>>(
+      `/admin/mini-program/platform-robot/mercari-dpops${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async listAdminLegacyConfigs(params?: {
+    q?: string;
+    isSensitive?: "true" | "false" | "all";
+    robotOnly?: boolean;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.q) searchParams.set("q", params.q);
+    if (params?.isSensitive && params.isSensitive !== "all")
+      searchParams.set("isSensitive", params.isSensitive);
+    if (params?.robotOnly) searchParams.set("robotOnly", "true");
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminListResponse<AdminLegacyConfigItem>>(
+      `/admin/mini-program/platform-robot/configs${query ? `?${query}` : ""}`,
+    );
+  }
+
   async triggerHermesDraft(data: { ticketId: string; promptContext?: string }) {
     return this.request<{ jobId: string }>("/support/admin/hermes/jobs", {
       method: "POST",
@@ -1961,6 +2322,24 @@ class ApiClient {
         body: { reason },
       },
     );
+  }
+
+  async sendHermesDraft(jobId: string) {
+    return this.request<{
+      draft: HermesDraft;
+      ticket: SupportTicket;
+      message: { id: string; conversationId: string; createdAt: string };
+      auditRecorded: boolean;
+      safety: {
+        reviewedBeforeSend: boolean;
+        knowledgeOnly: boolean;
+        customerScopeOnly: boolean;
+        externalTransport: boolean;
+      };
+    }>(`/support/admin/hermes/drafts/${jobId}/send`, {
+      method: "POST",
+      body: {},
+    });
   }
 
   // Exchange rate admin endpoints

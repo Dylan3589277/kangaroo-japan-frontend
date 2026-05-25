@@ -22,15 +22,15 @@ interface Printer {
 }
 
 const PRINTER_TYPE_LABELS: Record<string, string> = {
-  bluetooth: "蓝牙",
-  network: "网络",
+  bluetooth: "Bluetooth",
+  network: "Network",
   usb: "USB",
 };
 
 const PRINTER_STATUS_LABELS: Record<string, string> = {
-  online: "在线",
-  offline: "离线",
-  busy: "忙碌",
+  online: "Online",
+  offline: "Offline",
+  busy: "Busy",
 };
 
 const PRINTER_STATUS_COLORS: Record<string, string> = {
@@ -40,15 +40,15 @@ const PRINTER_STATUS_COLORS: Record<string, string> = {
 };
 
 const PRINTER_TYPE_ICONS: Record<string, string> = {
-  bluetooth: "🔵",
-  network: "🌐",
-  usb: "🔌",
+  bluetooth: "BT",
+  network: "NET",
+  usb: "USB",
 };
 
-// Development-only demo printer data.
-const MOCK_PRINTERS: Printer[] = [
+// Local-only printer fixtures. Production never treats these as real devices.
+const LOCAL_PRINTER_FIXTURES: Printer[] = [
   {
-    id: "mock-1",
+    id: "local-fixture-1",
     name: "Brother QL-810W",
     address: "192.168.1.100",
     type: "network",
@@ -56,7 +56,7 @@ const MOCK_PRINTERS: Printer[] = [
     connected: false,
   },
   {
-    id: "mock-2",
+    id: "local-fixture-2",
     name: "EPSON TM-T88VII",
     address: "192.168.1.101",
     type: "network",
@@ -64,7 +64,7 @@ const MOCK_PRINTERS: Printer[] = [
     connected: true,
   },
   {
-    id: "mock-3",
+    id: "local-fixture-3",
     name: "XPRINTER 365B",
     address: "00:11:22:33:44:55",
     type: "bluetooth",
@@ -72,7 +72,7 @@ const MOCK_PRINTERS: Printer[] = [
     connected: false,
   },
   {
-    id: "mock-4",
+    id: "local-fixture-4",
     name: "Zebra GK420d",
     address: "USB001",
     type: "usb",
@@ -80,7 +80,7 @@ const MOCK_PRINTERS: Printer[] = [
     connected: false,
   },
   {
-    id: "mock-5",
+    id: "local-fixture-5",
     name: "SATOCL-2xx",
     address: "192.168.1.102",
     type: "network",
@@ -118,13 +118,13 @@ export default function PrintersPage() {
       if (res.success && res.data?.list) {
         setPrinters(res.data.list);
       } else if (isDevelopmentRuntime) {
-        setPrinters(MOCK_PRINTERS);
+        setPrinters(LOCAL_PRINTER_FIXTURES);
       } else {
         setPrinters([]);
       }
     } catch (error) {
       console.error("Failed to fetch printers:", error);
-      setPrinters(isDevelopmentRuntime ? MOCK_PRINTERS : []);
+      setPrinters(isDevelopmentRuntime ? LOCAL_PRINTER_FIXTURES : []);
     } finally {
       setLoading(false);
     }
@@ -139,10 +139,10 @@ export default function PrintersPage() {
       });
       if (res.success && res.data?.list) {
         setPrinters(res.data.list);
-        toast.success(`找到 ${res.data.list.length} 台打印机`);
+        toast.success(`Found ${res.data.list.length} printer(s)`);
       } else if (isDevelopmentRuntime) {
-        setPrinters(MOCK_PRINTERS);
-        toast.warning("Demo printers shown for local development only.");
+        setPrinters(LOCAL_PRINTER_FIXTURES);
+        toast.warning("Local printer fixtures shown for development only.");
       } else {
         setPrinters([]);
         toast.error("Printer search failed. Please try again later.");
@@ -150,8 +150,8 @@ export default function PrintersPage() {
     } catch (error) {
       console.error("Failed to search printers:", error);
       if (isDevelopmentRuntime) {
-        setPrinters(MOCK_PRINTERS);
-        toast.warning("Demo printers shown for local development only.");
+        setPrinters(LOCAL_PRINTER_FIXTURES);
+        toast.warning("Local printer fixtures shown for development only.");
       } else {
         setPrinters([]);
         toast.error("Printer search failed. Please try again later.");
@@ -168,31 +168,31 @@ export default function PrintersPage() {
         body: { printerId: printer.id },
       });
       if (res.success) {
-        toast.success(`已连接 ${printer.name}`);
+        toast.success(`Connected ${printer.name}`);
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: true, status: "online" } : p
           )
         );
-      } else if (isDevelopmentRuntime && printer.id.startsWith("mock-")) {
+      } else if (isDevelopmentRuntime && printer.id.startsWith("local-fixture-")) {
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: true, status: "online" } : p
           )
         );
-        toast.warning("Demo printer connection updated locally.");
+        toast.warning("Local fixture connection updated locally.");
       } else {
         toast.error("Printer connection failed. Please try again later.");
       }
     } catch (error) {
       console.error("Failed to connect printer:", error);
-      if (isDevelopmentRuntime && printer.id.startsWith("mock-")) {
+      if (isDevelopmentRuntime && printer.id.startsWith("local-fixture-")) {
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: true, status: "online" } : p
           )
         );
-        toast.warning("Demo printer connection updated locally.");
+        toast.warning("Local fixture connection updated locally.");
       } else {
         toast.error("Printer connection failed. Please try again later.");
       }
@@ -206,31 +206,31 @@ export default function PrintersPage() {
         body: { printerId: printer.id },
       });
       if (res.success) {
-        toast.success(`已断开 ${printer.name}`);
+        toast.success(`Disconnected ${printer.name}`);
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: false } : p
           )
         );
-      } else if (isDevelopmentRuntime && printer.id.startsWith("mock-")) {
+      } else if (isDevelopmentRuntime && printer.id.startsWith("local-fixture-")) {
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: false } : p
           )
         );
-        toast.warning("Demo printer connection updated locally.");
+        toast.warning("Local fixture connection updated locally.");
       } else {
         toast.error("Printer disconnect failed. Please try again later.");
       }
     } catch (error) {
       console.error("Failed to disconnect printer:", error);
-      if (isDevelopmentRuntime && printer.id.startsWith("mock-")) {
+      if (isDevelopmentRuntime && printer.id.startsWith("local-fixture-")) {
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: false } : p
           )
         );
-        toast.warning("Demo printer connection updated locally.");
+        toast.warning("Local fixture connection updated locally.");
       } else {
         toast.error("Printer disconnect failed. Please try again later.");
       }
@@ -252,10 +252,10 @@ export default function PrintersPage() {
   if (!isAuthenticated) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <div className="text-6xl mb-4">🔐</div>
-        <h1 className="text-2xl font-bold mb-2">请先登录</h1>
+        <div className="text-6xl mb-4">!</div>
+        <h1 className="text-2xl font-bold mb-2">Please log in</h1>
         <Link href={`/${lang}/login`}>
-          <Button className="bg-rose-600 hover:bg-rose-700">去登录</Button>
+          <Button className="bg-rose-600 hover:bg-rose-700">Go to login</Button>
         </Link>
       </div>
     );
@@ -268,13 +268,13 @@ export default function PrintersPage() {
           href={`/${lang}/warehouse`}
           className="text-sm text-muted-foreground hover:text-foreground mb-2 inline-block"
         >
-          ← 返回仓库首页
+          Back to warehouse
         </Link>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">打印机列表</h1>
+            <h1 className="text-2xl font-bold">Printer list</h1>
             <p className="text-sm text-muted-foreground">
-              搜索、连接和管理附近的打印机
+              Search, connect, and manage available warehouse printers.
             </p>
           </div>
           <Button
@@ -282,7 +282,7 @@ export default function PrintersPage() {
             disabled={searching}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            {searching ? "搜索中..." : "🔍 搜索打印机"}
+            {searching ? "Searching..." : "Search printers"}
           </Button>
         </div>
       </div>
@@ -306,17 +306,17 @@ export default function PrintersPage() {
         </div>
       ) : printers.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-5xl mb-4">🖨️</div>
-          <h2 className="text-lg font-semibold mb-1">未发现打印机</h2>
+          <div className="text-5xl mb-4">--</div>
+          <h2 className="text-lg font-semibold mb-1">No printers found</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            点击上方按钮搜索附近的打印机
+            Use search to query available warehouse printers.
           </p>
           <Button
             onClick={handleSearchPrinters}
             disabled={searching}
             variant="outline"
           >
-            {searching ? "搜索中..." : "搜索打印机"}
+            {searching ? "Searching..." : "Search printers"}
           </Button>
         </div>
       ) : (
@@ -327,7 +327,7 @@ export default function PrintersPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg flex-shrink-0">
-                      {PRINTER_TYPE_ICONS[printer.type] || "🖨️"}
+                      {PRINTER_TYPE_ICONS[printer.type] || "PRN"}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -336,7 +336,7 @@ export default function PrintersPage() {
                         </span>
                         {printer.connected && (
                           <Badge className="bg-green-600 text-white text-xs">
-                            已连接
+                            Connected
                           </Badge>
                         )}
                       </div>
@@ -365,7 +365,7 @@ export default function PrintersPage() {
                         onClick={() => handleDisconnect(printer)}
                         className="text-red-600 border-red-200 hover:bg-red-50"
                       >
-                        断开
+                        Disconnect
                       </Button>
                     ) : (
                       <Button
@@ -379,7 +379,7 @@ export default function PrintersPage() {
                             : ""
                         }
                       >
-                        {printer.status === "offline" ? "离线" : "连接"}
+                        {printer.status === "offline" ? "Offline" : "Connect"}
                       </Button>
                     )}
                   </div>
@@ -390,9 +390,9 @@ export default function PrintersPage() {
 
           {/* Summary */}
           <div className="text-center text-xs text-muted-foreground pt-2">
-            共 {printers.length} 台打印机 ·{" "}
-            已连接 {printers.filter((p) => p.connected).length} 台 ·{" "}
-            在线 {printers.filter((p) => p.status === "online").length} 台
+            Total {printers.length} printer(s) ·{" "}
+            Connected {printers.filter((p) => p.connected).length} ·{" "}
+            Online {printers.filter((p) => p.status === "online").length}
           </div>
         </div>
       )}

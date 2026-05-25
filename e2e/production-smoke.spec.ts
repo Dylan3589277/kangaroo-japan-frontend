@@ -40,6 +40,15 @@ type ImageProbe = {
 };
 
 type PlatformKey = keyof typeof livePlatformSamples;
+type PlatformSmokeErrorCode =
+  | "missing_sample"
+  | "missing_credentials"
+  | "detail_adapter_blocked"
+  | "detail_not_found"
+  | "detail_http_error"
+  | "detail_empty_image"
+  | "image_http_error"
+  | "unknown_platform_detail_error";
 
 type PlatformDetailAudit = {
   configured: boolean;
@@ -47,6 +56,7 @@ type PlatformDetailAudit = {
   detailOk: boolean;
   imageUrl: string | null;
   imageOk: boolean;
+  errorCode: PlatformSmokeErrorCode | null;
   triedSampleIds?: string[];
   blocked?: boolean;
   error?: string;
@@ -114,6 +124,49 @@ async function probeImage(request: APIRequestContext, imageUrl: string | null) {
   return response.ok();
 }
 
+function classifyPlatformSmokeError(input: {
+  sampleId: string;
+  detailHttpOk: boolean;
+  detailStatus: number;
+  body: Record<string, any>;
+  detailOk: boolean;
+  imageUrl: string | null;
+  imageOk: boolean;
+}): PlatformSmokeErrorCode | null {
+  if (input.detailOk && input.imageOk) return null;
+  if (!input.sampleId) return "missing_sample";
+
+  const errorText = [
+    input.body?.error,
+    input.body?.message,
+    input.body?.notice,
+    input.body?.data?.reason,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    input.body?.data?.reason === "missing_credentials" ||
+    errorText.includes("missing credential") ||
+    errorText.includes("not configured")
+  ) {
+    return "missing_credentials";
+  }
+  if (input.body?.data?.blocked === true) return "detail_adapter_blocked";
+  if (
+    input.detailStatus === 404 ||
+    errorText.includes("not found") ||
+    errorText.includes("invalid item")
+  ) {
+    return "detail_not_found";
+  }
+  if (!input.detailHttpOk) return "detail_http_error";
+  if (input.detailOk && !input.imageUrl) return "detail_empty_image";
+  if (input.imageUrl && !input.imageOk) return "image_http_error";
+  return "unknown_platform_detail_error";
+}
+
 async function auditPlatformDetail(
   request: APIRequestContext,
   platform: PlatformKey,
@@ -127,16 +180,31 @@ async function auditPlatformDetail(
     const detailResponse = await request.get(
       `${backendUrl}/api/v1/integrations/${platform}/detail?id=${encodeURIComponent(sampleId)}`,
     );
-    const body = await detailResponse.json();
+    let body: Record<string, any> = {};
+    try {
+      body = await detailResponse.json();
+    } catch {
+      body = { error: "detail response was not JSON" };
+    }
     const imageUrl = body.data?.imgurls?.[0] || null;
     const imageOk = await probeImage(request, imageUrl);
+    const detailOk = detailResponse.ok() && body.success === true;
     const audit = {
       configured: Boolean(body.success || body.data?.blocked === false),
       sampleId,
       triedSampleIds: sampleIds,
-      detailOk: detailResponse.ok() && body.success === true,
+      detailOk,
       imageUrl,
       imageOk,
+      errorCode: classifyPlatformSmokeError({
+        sampleId,
+        detailHttpOk: detailResponse.ok(),
+        detailStatus: detailResponse.status(),
+        body,
+        detailOk,
+        imageUrl,
+        imageOk,
+      }),
       blocked: body.data?.blocked,
       error: body.error,
       notice: body.notice,
@@ -152,6 +220,7 @@ async function auditPlatformDetail(
       detailOk: false,
       imageUrl: null,
       imageOk: false,
+      errorCode: "missing_sample",
       error: "No sample ids configured",
     }
   );
@@ -220,13 +289,16 @@ test.describe("kangaroo-japan production smoke", () => {
     const productImages = await page
       .locator("img")
       .evaluateAll((images): ImageProbe[] =>
-        images.map((image) => ({
-          src: image.getAttribute("src"),
-          alt: image.getAttribute("alt"),
-          complete: image.complete,
-          naturalWidth: image.naturalWidth,
-          naturalHeight: image.naturalHeight,
-        })),
+        images.map((image) => {
+          const img = image as HTMLImageElement;
+          return {
+            src: img.getAttribute("src"),
+            alt: img.getAttribute("alt"),
+            complete: img.complete,
+            naturalWidth: img.naturalWidth,
+            naturalHeight: img.naturalHeight,
+          };
+        }),
       );
     const visibleProductImages = productImages.filter(
       (image) =>
@@ -273,11 +345,11 @@ test.describe("kangaroo-japan production smoke", () => {
       });
     }
 
-    const yahooSearch = await request.get(
+    const yahooUnifiedSearch = await request.get(
       `${backendUrl}/api/v1/integrations/search/unified?keyword=iphone&page=1&limit=3&platforms=yahoo,rakuten`,
     );
-    expect(yahooSearch.ok()).toBe(true);
-    const yahooBody = await yahooSearch.json();
+    expect(yahooUnifiedSearch.ok()).toBe(true);
+    const yahooBody = await yahooUnifiedSearch.json();
     const yahooItems = yahooBody.data?.items || [];
     const yahooImage = yahooItems.find(
       (item: { platform?: string; images?: string[] }) =>
@@ -297,8 +369,12 @@ test.describe("kangaroo-japan production smoke", () => {
     const mercariDetail = await auditPlatformDetail(request, "mercari");
 
     const audit = {
-      yahoo: {
+      yahooAuction: {
         configured: byPlatform.get("yahoo")?.configured === true,
+        sourceBoundary: "Yahoo Auction provider; do not mix with Yahoo Shopping client ID",
+      },
+      yahooShoppingUnifiedSearch: {
+        sourceBoundary: "Yahoo Shopping catalog image returned by unified search",
         liveSearchImage: yahooImage,
         liveSearchImageOk: yahooImageResponse.ok(),
       },
@@ -342,16 +418,20 @@ test.describe("kangaroo-japan production smoke", () => {
       contentType: "application/json",
     });
 
-    expect(audit.yahoo.configured).toBe(true);
-    expect(audit.yahoo.liveSearchImageOk).toBe(true);
+    expect(audit.yahooAuction.configured).toBe(true);
+    expect(audit.yahooShoppingUnifiedSearch.liveSearchImageOk).toBe(true);
     expect(audit.yahooShopping.liveDetail.detailOk).toBe(true);
     expect(audit.yahooShopping.liveDetail.imageOk).toBe(true);
+    expect(audit.yahooShopping.liveDetail.errorCode).toBeNull();
     expect(audit.rakuten.liveDetail.detailOk).toBe(true);
     expect(audit.rakuten.liveDetail.imageOk).toBe(true);
+    expect(audit.rakuten.liveDetail.errorCode).toBeNull();
     expect(audit.amazon.liveDetail.detailOk).toBe(true);
     expect(audit.amazon.liveDetail.imageOk).toBe(true);
+    expect(audit.amazon.liveDetail.errorCode).toBeNull();
     expect(audit.mercari.liveDetail.detailOk).toBe(true);
     expect(audit.mercari.liveDetail.imageOk).toBe(true);
+    expect(audit.mercari.liveDetail.errorCode).toBeNull();
 
     if (strictPlatformSmoke) {
       expect(audit.yahooShopping.configured).toBe(true);
@@ -487,7 +567,8 @@ test.describe("kangaroo-japan production smoke", () => {
     );
     expect(activeAlerts.length).toBeGreaterThan(0);
     const targetAlert = activeAlerts.find(
-      (alert) => alert.platform && alert.code,
+      (alert: { platform?: string; code?: string }) =>
+        alert.platform && alert.code,
     );
     expect(targetAlert).toBeTruthy();
 
