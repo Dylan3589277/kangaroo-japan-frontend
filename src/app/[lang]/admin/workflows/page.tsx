@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  CheckSquare,
   ClipboardList,
   Clock,
   CreditCard,
@@ -14,6 +15,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
+  UserCheck,
   Users,
   Warehouse,
 } from "lucide-react";
@@ -35,6 +37,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   api,
   type AdminWorkflowSummary,
@@ -138,9 +148,266 @@ function formatLegacyJson(value: unknown) {
   }
 }
 
+const ALL_FILTER_VALUE = "__all";
+const NO_STATUS_VALUE = "__none";
+const UNASSIGNED_OWNER_ID = "__unassigned";
+const SLA_WARNING_RATIO = 0.25; // TODO: wire real API/config for warning threshold.
+
+type QueueItem = NonNullable<AdminWorkflowSummary["operationQueue"]>[number];
+type OwnerOption = NonNullable<AdminWorkflowSummary["ownerOptions"]>[number];
+type QueueSla = NonNullable<AdminWorkflowSummary["queueSla"]>;
+type OrderSummary = AdminWorkflowSummary["orders"][number];
+type SlaTone = "normal" | "warning" | "overdue";
+type OrderStatusFilterKey =
+  | "orderProcessing"
+  | "support"
+  | "refund"
+  | "warehouse";
+
+type OrderWorkflowRow = {
+  order: OrderSummary;
+  orderProcessingStatus: string;
+  orderProcessingDetail: string;
+  supportStatus: string;
+  supportDetail: string;
+  refundStatus: string;
+  refundDetail: string;
+  warehouseStatus: string;
+  warehouseDetail: string;
+  queueItems: QueueItem[];
+};
+
+function queueKey(item: QueueItem) {
+  return `${item.type}:${item.id}`;
+}
+
+function statusFilterLabel(value: string) {
+  if (value === ALL_FILTER_VALUE) return "All";
+  if (value === NO_STATUS_VALUE) return "None";
+  return value;
+}
+
+function normalizeStatus(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed || NO_STATUS_VALUE;
+}
+
+function ownerDisplayName(
+  ownerId: string | null | undefined,
+  owners: OwnerOption[],
+) {
+  if (!ownerId || ownerId === UNASSIGNED_OWNER_ID) return "Unassigned";
+  return owners.find((owner) => owner.id === ownerId)?.label || ownerId;
+}
+
+function formatDuration(ms: number) {
+  const absMs = Math.abs(ms);
+  const totalMinutes = Math.max(1, Math.round(absMs / 60000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function slaHoursForType(type: QueueItem["type"], queueSla?: QueueSla) {
+  if (!queueSla) return null;
+  if (type === "refund") return queueSla.refundApprovalHours;
+  if (type === "support") return queueSla.supportTicketHours;
+  return queueSla.warehouseExceptionHours;
+}
+
+function getQueueSlaState(
+  item: QueueItem,
+  queueSla: QueueSla | undefined,
+  nowMs: number,
+): { tone: SlaTone; label: string; detail: string } {
+  if (!item.dueAt) {
+    return {
+      tone: "normal",
+      label: "SLA not set",
+      detail: "No due time returned",
+    };
+  }
+
+  const dueMs = Date.parse(item.dueAt);
+  if (Number.isNaN(dueMs)) {
+    return {
+      tone: "warning",
+      label: "SLA unknown",
+      detail: "Invalid due time",
+    };
+  }
+
+  const remainingMs = dueMs - nowMs;
+  if (remainingMs <= 0 || item.isOverdue) {
+    return {
+      tone: "overdue",
+      label: `Overdue ${formatDuration(remainingMs)}`,
+      detail: `Due ${formatDate(item.dueAt)}`,
+    };
+  }
+
+  const slaHours = slaHoursForType(item.type, queueSla);
+  const warningMs = slaHours
+    ? slaHours * 60 * 60 * 1000 * SLA_WARNING_RATIO
+    : 0;
+  const tone: SlaTone =
+    warningMs > 0 && remainingMs <= warningMs ? "warning" : "normal";
+
+  return {
+    tone,
+    label: `Due in ${formatDuration(remainingMs)}`,
+    detail: `Due ${formatDate(item.dueAt)}`,
+  };
+}
+
+function slaClassName(tone: SlaTone) {
+  if (tone === "overdue")
+    return "border-destructive/30 bg-destructive/10 text-destructive";
+  if (tone === "warning") return "border-amber-200 bg-amber-50 text-amber-900";
+  return "border-emerald-200 bg-emerald-50 text-emerald-800";
+}
+
+function orderTokens(order: OrderSummary) {
+  return [order.id, order.orderNo, order.paymentId].filter(Boolean) as string[];
+}
+
+function textMatchesOrder(
+  order: OrderSummary,
+  values: Array<string | null | undefined>,
+) {
+  const text = values.filter(Boolean).join(" ").toLowerCase();
+  if (!text) return false;
+  return orderTokens(order).some((token) => text.includes(token.toLowerCase()));
+}
+
+function latestByCreatedAt<
+  T extends { createdAt?: string; updatedAt?: string },
+>(items: T[]) {
+  return [...items].sort(
+    (left, right) =>
+      Date.parse(right.createdAt || right.updatedAt || "") -
+      Date.parse(left.createdAt || left.updatedAt || ""),
+  )[0];
+}
+
+// TODO: wire real API order-level workflow_status fields when backend exposes
+// explicit order/support/refund/warehouse status columns for this workbench.
+function buildOrderWorkflowRows(
+  summary: AdminWorkflowSummary | null,
+): OrderWorkflowRow[] {
+  if (!summary) return [];
+
+  return summary.orders.map((order) => {
+    const latestOrderOperation = latestByCreatedAt(
+      summary.orderOperations.filter(
+        (operation) =>
+          operation.orderId === order.id ||
+          operation.orderNo === order.orderNo ||
+          textMatchesOrder(order, [
+            operation.adminPath,
+            operation.primaryAdminPath,
+          ]),
+      ),
+    );
+    const latestRefund = latestByCreatedAt(
+      summary.refundApprovals.filter(
+        (refund) =>
+          refund.orderId === order.id ||
+          refund.paymentId === order.paymentId ||
+          textMatchesOrder(order, [refund.adminPath]),
+      ),
+    );
+    const latestWarehouse = latestByCreatedAt(
+      summary.warehouseOperations.filter(
+        (warehouse) =>
+          warehouse.orderId === order.id ||
+          warehouse.orderIds.includes(order.id) ||
+          warehouse.shipmentOrderId === order.id ||
+          textMatchesOrder(order, [
+            warehouse.adminPath,
+            warehouse.orderAdminPath,
+            warehouse.trackingNumber,
+          ]),
+      ),
+    );
+    const latestSupport = latestByCreatedAt(
+      summary.supportTickets.filter((ticket) =>
+        textMatchesOrder(order, [
+          ticket.ticketNumber,
+          ticket.subject,
+          ticket.adminPath,
+        ]),
+      ),
+    );
+    const queueItems = (summary.operationQueue || []).filter((item) =>
+      textMatchesOrder(order, [
+        item.id,
+        item.label,
+        item.summary,
+        item.adminPath,
+      ]),
+    );
+
+    return {
+      order,
+      orderProcessingStatus: normalizeStatus(
+        latestOrderOperation?.status || order.status,
+      ),
+      orderProcessingDetail: latestOrderOperation
+        ? `${latestOrderOperation.operation} / ${formatDate(latestOrderOperation.createdAt)}`
+        : `Order status / ${formatDate(order.updatedAt)}`,
+      supportStatus: normalizeStatus(
+        latestSupport?.handlingStatus || latestSupport?.status,
+      ),
+      supportDetail: latestSupport
+        ? `${latestSupport.ticketNumber} / ${latestSupport.subject}`
+        : "No linked support ticket",
+      refundStatus: normalizeStatus(
+        latestRefund?.handlingStatus || latestRefund?.decision,
+      ),
+      refundDetail: latestRefund
+        ? `${latestRefund.amount} ${latestRefund.currency} / ${formatDate(latestRefund.createdAt)}`
+        : "No linked refund approval",
+      warehouseStatus: normalizeStatus(
+        latestWarehouse?.handlingStatus || latestWarehouse?.action,
+      ),
+      warehouseDetail: latestWarehouse
+        ? `${latestWarehouse.action} / ${formatDate(latestWarehouse.createdAt)}`
+        : order.warehouseAdminPath
+          ? "Warehouse flow available"
+          : "No linked warehouse operation",
+      queueItems,
+    };
+  });
+}
+
+function orderRowSlaState(
+  row: OrderWorkflowRow,
+  queueSla: QueueSla | undefined,
+  nowMs: number,
+) {
+  const states = row.queueItems.map((item) =>
+    getQueueSlaState(item, queueSla, nowMs),
+  );
+  return (
+    states.find((state) => state.tone === "overdue") ||
+    states.find((state) => state.tone === "warning") ||
+    states[0] || {
+      tone: "normal" as SlaTone,
+      label: "No active SLA",
+      detail: "No linked queue item",
+    }
+  );
+}
+
 export default function AdminWorkflowsPage() {
   const [query, setQuery] = useState("");
   const [summary, setSummary] = useState<AdminWorkflowSummary | null>(null);
+  const [nowMs, setNowMs] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [workflowHandlingStatus, setWorkflowHandlingStatus] = useState<
@@ -155,6 +422,20 @@ export default function AdminWorkflowsPage() {
   const [legacyDsrError, setLegacyDsrError] = useState("");
   const [legacyDsrResult, setLegacyDsrResult] =
     useState<LegacyDsrReadonlyApiResponse | null>(null);
+  const [orderStatusFilters, setOrderStatusFilters] = useState<
+    Record<OrderStatusFilterKey, string>
+  >({
+    orderProcessing: ALL_FILTER_VALUE,
+    support: ALL_FILTER_VALUE,
+    refund: ALL_FILTER_VALUE,
+    warehouse: ALL_FILTER_VALUE,
+  });
+  const [localQueueAssignments, setLocalQueueAssignments] = useState<
+    Record<string, string>
+  >({});
+  const [selectedQueueKeys, setSelectedQueueKeys] = useState<string[]>([]);
+  const [takeoverOwnerId, setTakeoverOwnerId] = useState("");
+  const [confirmTakeoverOpen, setConfirmTakeoverOpen] = useState(false);
 
   const counts = useMemo(
     () => ({
@@ -167,12 +448,92 @@ export default function AdminWorkflowsPage() {
     }),
     [summary],
   );
-  const queueItems = summary?.operationQueue || [];
-  const ownerOptions = summary?.ownerOptions?.length
-    ? summary.ownerOptions
-    : [{ id: "__unassigned", label: "Unassigned", count: 0 }];
+  const queueItems = useMemo(() => summary?.operationQueue || [], [summary]);
+  const ownerOptions = useMemo(() => {
+    const baseOptions = summary?.ownerOptions?.length
+      ? summary.ownerOptions
+      : [];
+    const hasUnassigned = baseOptions.some(
+      (owner) => owner.id === UNASSIGNED_OWNER_ID,
+    );
+
+    return hasUnassigned
+      ? baseOptions
+      : [
+          {
+            id: UNASSIGNED_OWNER_ID,
+            label: "Unassigned",
+            count: summary?.queueStats?.unassigned ?? 0,
+            source: "unassigned",
+          },
+          ...baseOptions,
+        ];
+  }, [summary]);
+  const assignableOwnerOptions = ownerOptions.filter(
+    (owner) => owner.id !== UNASSIGNED_OWNER_ID,
+  );
+  const selectedTakeoverOwnerId =
+    takeoverOwnerId || assignableOwnerOptions[0]?.id || "";
   const legacyRoute = selectedLegacyRoute(legacyDsrRoute);
   const legacyTimeline = legacyDsrResult?.timeline || [];
+  const orderWorkflowRows = useMemo(
+    () => buildOrderWorkflowRows(summary),
+    [summary],
+  );
+  const filteredOrderWorkflowRows = useMemo(
+    () =>
+      orderWorkflowRows.filter(
+        (row) =>
+          (orderStatusFilters.orderProcessing === ALL_FILTER_VALUE ||
+            row.orderProcessingStatus === orderStatusFilters.orderProcessing) &&
+          (orderStatusFilters.support === ALL_FILTER_VALUE ||
+            row.supportStatus === orderStatusFilters.support) &&
+          (orderStatusFilters.refund === ALL_FILTER_VALUE ||
+            row.refundStatus === orderStatusFilters.refund) &&
+          (orderStatusFilters.warehouse === ALL_FILTER_VALUE ||
+            row.warehouseStatus === orderStatusFilters.warehouse),
+      ),
+    [orderStatusFilters, orderWorkflowRows],
+  );
+  const orderStatusOptions = useMemo(() => {
+    function optionsFor(key: OrderStatusFilterKey) {
+      const values = new Set<string>();
+      orderWorkflowRows.forEach((row) => {
+        values.add(row[`${key}Status` as const]);
+      });
+      return [ALL_FILTER_VALUE, ...Array.from(values).sort()];
+    }
+
+    return {
+      orderProcessing: optionsFor("orderProcessing"),
+      support: optionsFor("support"),
+      refund: optionsFor("refund"),
+      warehouse: optionsFor("warehouse"),
+    };
+  }, [orderWorkflowRows]);
+  const filteredQueueItems = useMemo(
+    () =>
+      queueItems.filter((item) => {
+        if (!workflowOwnerId) return true;
+        const effectiveOwnerId =
+          localQueueAssignments[queueKey(item)] ||
+          item.ownerId ||
+          UNASSIGNED_OWNER_ID;
+
+        return workflowOwnerId === UNASSIGNED_OWNER_ID
+          ? effectiveOwnerId === UNASSIGNED_OWNER_ID
+          : effectiveOwnerId === workflowOwnerId;
+      }),
+    [localQueueAssignments, queueItems, workflowOwnerId],
+  );
+  const selectedQueueItems = filteredQueueItems.filter((item) =>
+    selectedQueueKeys.includes(queueKey(item)),
+  );
+  const allFilteredQueueSelected =
+    filteredQueueItems.length > 0 &&
+    filteredQueueItems.every((item) =>
+      selectedQueueKeys.includes(queueKey(item)),
+    );
 
   const load = useCallback(
     async (nextQuery: string) => {
@@ -183,16 +544,21 @@ export default function AdminWorkflowsPage() {
         limit: 10,
         handlingStatus:
           workflowHandlingStatus === "all" ? undefined : workflowHandlingStatus,
-        ownerId: workflowOwnerId.trim() || undefined,
+        ownerId:
+          workflowOwnerId && workflowOwnerId !== UNASSIGNED_OWNER_ID
+            ? workflowOwnerId
+            : undefined,
         overdueOnly: workflowOverdueOnly,
       });
       setLoading(false);
       if (!response.success || !response.data) {
         setError(response.error?.message || "Workflow summary failed.");
         setSummary(null);
+        setNowMs(Date.now());
         return;
       }
       setSummary(response.data);
+      setNowMs(Date.now());
     },
     [workflowHandlingStatus, workflowOwnerId, workflowOverdueOnly],
   );
@@ -200,6 +566,54 @@ export default function AdminWorkflowsPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void load(query.trim());
+  }
+
+  function toggleQueueSelection(key: string) {
+    setSelectedQueueKeys((current) =>
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key],
+    );
+  }
+
+  function toggleAllFilteredQueueSelection() {
+    if (allFilteredQueueSelected) {
+      setSelectedQueueKeys((current) =>
+        current.filter(
+          (key) => !filteredQueueItems.some((item) => queueKey(item) === key),
+        ),
+      );
+      return;
+    }
+
+    setSelectedQueueKeys((current) =>
+      Array.from(
+        new Set([
+          ...current,
+          ...filteredQueueItems.map((item) => queueKey(item)),
+        ]),
+      ),
+    );
+  }
+
+  function openTakeoverConfirmation() {
+    if (!selectedQueueItems.length || !selectedTakeoverOwnerId) return;
+    setConfirmTakeoverOpen(true);
+  }
+
+  function confirmBatchTakeover() {
+    if (!selectedTakeoverOwnerId) return;
+
+    // TODO: wire real safe batch assignment API. This is local UI state only.
+    setLocalQueueAssignments((current) => {
+      const next = { ...current };
+      selectedQueueItems.forEach((item) => {
+        next[queueKey(item)] = selectedTakeoverOwnerId;
+      });
+      return next;
+    });
+    setSelectedQueueKeys([]);
+    setConfirmTakeoverOpen(false);
   }
 
   async function handleLegacyDsrSubmit(event: FormEvent<HTMLFormElement>) {
@@ -310,9 +724,11 @@ export default function AdminWorkflowsPage() {
               </Button>
             ))}
             <Select
-              value={workflowOwnerId || "all"}
+              value={workflowOwnerId || ALL_FILTER_VALUE}
               onValueChange={(value) =>
-                setWorkflowOwnerId(value === "all" ? "" : value || "")
+                setWorkflowOwnerId(
+                  value === ALL_FILTER_VALUE ? "" : value || "",
+                )
               }
             >
               <SelectTrigger className="w-full max-w-[240px]">
@@ -320,7 +736,7 @@ export default function AdminWorkflowsPage() {
                 <SelectValue placeholder="Owner" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Any owner</SelectItem>
+                <SelectItem value={ALL_FILTER_VALUE}>Any owner</SelectItem>
                 {ownerOptions.map((owner) => (
                   <SelectItem key={owner.id} value={owner.id}>
                     {owner.label} ({owner.count})
@@ -351,8 +767,10 @@ export default function AdminWorkflowsPage() {
             <div className="mt-3 text-xs text-muted-foreground">
               Active queue filter:{" "}
               {summary.queueFilters.handlingStatus || "all"} / owner{" "}
-              {summary.queueFilters.ownerId || "any"} / overdue{" "}
-              {summary.queueFilters.overdueOnly ? "yes" : "no"}
+              {workflowOwnerId
+                ? ownerDisplayName(workflowOwnerId, ownerOptions)
+                : summary.queueFilters.ownerId || "any"}{" "}
+              / overdue {summary.queueFilters.overdueOnly ? "yes" : "no"}
             </div>
           ) : null}
         </CardContent>
@@ -522,10 +940,10 @@ export default function AdminWorkflowsPage() {
           <CardTitle>Operations queue</CardTitle>
           <CardDescription>
             Refund approvals, customer-service tickets, and warehouse exceptions
-            in one dispatch view. SLA: refund{" "}
-            {summary?.queueSla?.refundApprovalHours ?? 24}h / support{" "}
-            {summary?.queueSla?.supportTicketHours ?? 24}h / warehouse{" "}
-            {summary?.queueSla?.warehouseExceptionHours ?? 24}h.
+            in one dispatch view.{" "}
+            {summary?.queueSla
+              ? `SLA: refund ${summary.queueSla.refundApprovalHours}h / support ${summary.queueSla.supportTicketHours}h / warehouse ${summary.queueSla.warehouseExceptionHours}h.`
+              : "SLA config not returned. TODO: wire real API/config."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -558,51 +976,138 @@ export default function AdminWorkflowsPage() {
               </div>
             ))}
           </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border"
+                  checked={allFilteredQueueSelected}
+                  onChange={toggleAllFilteredQueueSelection}
+                  aria-label="select all visible queue rows"
+                />
+                Select visible ({filteredQueueItems.length})
+              </label>
+              <Badge variant="outline">
+                {selectedQueueItems.length} selected
+              </Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={selectedTakeoverOwnerId || ALL_FILTER_VALUE}
+                onValueChange={(value) => setTakeoverOwnerId(value || "")}
+                disabled={!assignableOwnerOptions.length}
+              >
+                <SelectTrigger className="w-full min-w-[220px] sm:w-[240px]">
+                  <UserCheck className="h-4 w-4" />
+                  <SelectValue placeholder="Takeover owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {assignableOwnerOptions.length ? (
+                    assignableOwnerOptions.map((owner) => (
+                      <SelectItem key={owner.id} value={owner.id}>
+                        {owner.label}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value={ALL_FILTER_VALUE}>
+                      No assignable owner
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                onClick={openTakeoverConfirmation}
+                disabled={
+                  !selectedQueueItems.length || !selectedTakeoverOwnerId
+                }
+              >
+                <CheckSquare className="h-4 w-4" />
+                Batch takeover
+              </Button>
+            </div>
+          </div>
           <div className="divide-y rounded-lg border">
-            {queueItems.length ? (
-              queueItems.map((item) => (
-                <div
-                  key={`${item.type}-${item.id}`}
-                  className={`grid gap-3 p-3 text-sm md:grid-cols-[140px_minmax(0,1fr)_220px] ${
-                    item.isOverdue ? "bg-amber-50" : ""
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{queueTypeLabel(item.type)}</Badge>
-                    {item.isOverdue ? (
-                      <Badge variant="destructive">SLA overdue</Badge>
-                    ) : null}
-                    {item.ownerCanHandle === false && item.ownerId ? (
-                      <Badge variant="destructive">RBAC blocked</Badge>
-                    ) : null}
-                  </div>
-                  <div>
-                    <Link
-                      className="font-medium text-primary hover:underline"
-                      href={adminHref(item.adminPath)!}
-                    >
-                      {item.label}
-                    </Link>
-                    <div className="mt-1 text-muted-foreground">
-                      {item.summary}
+            {filteredQueueItems.length ? (
+              filteredQueueItems.map((item) => {
+                const key = queueKey(item);
+                const effectiveOwnerId =
+                  localQueueAssignments[key] ||
+                  item.ownerId ||
+                  UNASSIGNED_OWNER_ID;
+                const slaState = getQueueSlaState(
+                  item,
+                  summary?.queueSla,
+                  nowMs,
+                );
+
+                return (
+                  <div
+                    key={key}
+                    className={`grid gap-3 p-3 text-sm md:grid-cols-[32px_140px_minmax(0,1fr)_250px] ${
+                      slaState.tone === "overdue" ? "bg-amber-50" : ""
+                    }`}
+                  >
+                    <div>
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-border"
+                        checked={selectedQueueKeys.includes(key)}
+                        onChange={() => toggleQueueSelection(key)}
+                        aria-label={`select ${item.label}`}
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">
+                        {queueTypeLabel(item.type)}
+                      </Badge>
+                      {slaState.tone === "overdue" ? (
+                        <Badge variant="destructive">SLA overdue</Badge>
+                      ) : null}
+                      {item.ownerCanHandle === false && item.ownerId ? (
+                        <Badge variant="destructive">RBAC blocked</Badge>
+                      ) : null}
+                    </div>
+                    <div>
+                      <Link
+                        className="font-medium text-primary hover:underline"
+                        href={adminHref(item.adminPath)!}
+                      >
+                        {item.label}
+                      </Link>
+                      <div className="mt-1 text-muted-foreground">
+                        {item.summary}
+                      </div>
+                    </div>
+                    <div className="space-y-1 text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {ownerDisplayName(effectiveOwnerId, ownerOptions)}
+                        {localQueueAssignments[key] ? (
+                          <Badge variant="outline">local</Badge>
+                        ) : null}
+                      </div>
+                      <div>permission {item.requiredPermission || "-"}</div>
+                      <div
+                        className={`inline-flex flex-col gap-0.5 rounded-md border px-2 py-1 ${slaClassName(
+                          slaState.tone,
+                        )}`}
+                      >
+                        <span className="flex items-center gap-1 font-medium">
+                          <Clock className="h-3.5 w-3.5" />
+                          {slaState.label}
+                        </span>
+                        <span className="text-xs">{slaState.detail}</span>
+                      </div>
+                      <Badge variant="outline">
+                        {handlingLabel(item.handlingStatus)}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="space-y-1 text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {item.ownerId || "Unassigned"}
-                    </div>
-                    <div>permission {item.requiredPermission || "-"}</div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      due {formatDate(item.dueAt)}
-                    </div>
-                    <Badge variant="outline">
-                      {handlingLabel(item.handlingStatus)}
-                    </Badge>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="p-4 text-sm text-muted-foreground">
                 No queue items match the current filters.
@@ -654,37 +1159,159 @@ export default function AdminWorkflowsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {summary?.orders.length ? (
-              <div className="space-y-3">
-                {summary.orders.map((order) => (
-                  <div key={order.id} className="rounded-lg border p-3 text-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Link
-                        className="font-medium text-primary hover:underline"
-                        href={adminHref(order.adminPath)!}
-                      >
-                        {order.orderNo}
-                      </Link>
-                      <Badge variant="outline">{order.status}</Badge>
+            <div className="rounded-lg border">
+              <div className="border-b p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">
+                      Order aggregation view
                     </div>
-                    <div className="mt-2 text-muted-foreground">
-                      {order.totalAmount} {order.totalCurrency} /{" "}
-                      {formatDate(order.createdAt)}
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      TODO: wire real API order-level workflow status fields;
+                      current columns derive from loaded summary arrays.
                     </div>
-                    {adminHref(order.warehouseAdminPath) ? (
-                      <Link
-                        className="mt-2 inline-block text-xs text-primary hover:underline"
-                        href={adminHref(order.warehouseAdminPath)!}
-                      >
-                        warehouse flow
-                      </Link>
-                    ) : null}
                   </div>
-                ))}
+                  <Badge variant="outline">
+                    {filteredOrderWorkflowRows.length} /{" "}
+                    {orderWorkflowRows.length} orders
+                  </Badge>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-4">
+                  {[
+                    {
+                      key: "orderProcessing" as const,
+                      label: "Order processing",
+                    },
+                    { key: "support" as const, label: "Support" },
+                    { key: "refund" as const, label: "Refund" },
+                    { key: "warehouse" as const, label: "Warehouse" },
+                  ].map((filter) => (
+                    <Select
+                      key={filter.key}
+                      value={orderStatusFilters[filter.key]}
+                      onValueChange={(value) =>
+                        setOrderStatusFilters((current) => ({
+                          ...current,
+                          [filter.key]: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={filter.label} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orderStatusOptions[filter.key].map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {filter.label}: {statusFilterLabel(value)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ))}
+                </div>
               </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">No orders.</div>
-            )}
+              {filteredOrderWorkflowRows.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[960px] text-left text-sm">
+                    <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">Order</th>
+                        <th className="px-3 py-2 font-medium">
+                          Order processing
+                        </th>
+                        <th className="px-3 py-2 font-medium">Support</th>
+                        <th className="px-3 py-2 font-medium">Refund</th>
+                        <th className="px-3 py-2 font-medium">Warehouse</th>
+                        <th className="px-3 py-2 font-medium">SLA</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {filteredOrderWorkflowRows.map((row) => {
+                        const slaState = orderRowSlaState(
+                          row,
+                          summary?.queueSla,
+                          nowMs,
+                        );
+
+                        return (
+                          <tr key={row.order.id} className="align-top">
+                            <td className="px-3 py-3">
+                              <Link
+                                className="font-medium text-primary hover:underline"
+                                href={adminHref(row.order.adminPath)!}
+                              >
+                                {row.order.orderNo}
+                              </Link>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {row.order.totalAmount}{" "}
+                                {row.order.totalCurrency} /{" "}
+                                {formatDate(row.order.createdAt)}
+                              </div>
+                              {adminHref(row.order.warehouseAdminPath) ? (
+                                <Link
+                                  className="mt-2 inline-block text-xs text-primary hover:underline"
+                                  href={
+                                    adminHref(row.order.warehouseAdminPath)!
+                                  }
+                                >
+                                  warehouse flow
+                                </Link>
+                              ) : null}
+                            </td>
+                            {[
+                              {
+                                status: row.orderProcessingStatus,
+                                detail: row.orderProcessingDetail,
+                              },
+                              {
+                                status: row.supportStatus,
+                                detail: row.supportDetail,
+                              },
+                              {
+                                status: row.refundStatus,
+                                detail: row.refundDetail,
+                              },
+                              {
+                                status: row.warehouseStatus,
+                                detail: row.warehouseDetail,
+                              },
+                            ].map((cell, index) => (
+                              <td key={index} className="px-3 py-3">
+                                <Badge variant="outline">
+                                  {statusFilterLabel(cell.status)}
+                                </Badge>
+                                <div className="mt-2 text-xs text-muted-foreground">
+                                  {cell.detail}
+                                </div>
+                              </td>
+                            ))}
+                            <td className="px-3 py-3">
+                              <div
+                                className={`inline-flex flex-col gap-0.5 rounded-md border px-2 py-1 ${slaClassName(
+                                  slaState.tone,
+                                )}`}
+                              >
+                                <span className="flex items-center gap-1 font-medium">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  {slaState.label}
+                                </span>
+                                <span className="text-xs">
+                                  {slaState.detail}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-4 text-sm text-muted-foreground">
+                  No orders match the current aggregation filters.
+                </div>
+              )}
+            </div>
 
             <div className="rounded-lg border">
               <div className="border-b px-3 py-2 text-sm font-medium">
@@ -966,6 +1593,38 @@ export default function AdminWorkflowsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={confirmTakeoverOpen} onOpenChange={setConfirmTakeoverOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm batch takeover</DialogTitle>
+            <DialogDescription>
+              This only updates local UI assignment state for the selected queue
+              rows. No backend mutation will run from this workbench.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border p-3 text-sm">
+            Assign {selectedQueueItems.length} selected row
+            {selectedQueueItems.length === 1 ? "" : "s"} to{" "}
+            <span className="font-medium">
+              {ownerDisplayName(selectedTakeoverOwnerId, ownerOptions)}
+            </span>
+            .
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmTakeoverOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={confirmBatchTakeover}>
+              Confirm takeover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-start gap-2 rounded-lg border bg-muted p-3 text-sm text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4" />
