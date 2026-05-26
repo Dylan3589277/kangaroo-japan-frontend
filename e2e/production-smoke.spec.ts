@@ -21,6 +21,8 @@ const artifactDir =
 const strictPlatformSmoke = process.env.STRICT_PLATFORM_SMOKE === "1";
 const strictDsrReadonlySmoke = process.env.STRICT_DSR_READONLY_SMOKE === "1";
 const dsrLegacySmokeOrderId = process.env.DSR_LEGACY_SMOKE_ORDER_ID;
+const yahooAuctionSampleGoodsNo =
+  process.env.YAHOO_AUCTION_SAMPLE_GOODS_NO || "h1230145004";
 const e2eAdminEmail = process.env.E2E_ADMIN_EMAIL;
 const e2eAdminPassword = process.env.E2E_ADMIN_PASSWORD;
 const e2eAdminSeedSecret = process.env.E2E_ADMIN_SEED_SECRET;
@@ -281,38 +283,50 @@ test.describe("kangaroo-japan production smoke", () => {
     fs.mkdirSync(artifactDir, { recursive: true });
   });
 
-  test("product detail APIs expose product 6 and legacy image data", async ({
+  test("real Yahoo Auction product detail APIs expose live DSR image data", async ({
     request,
   }, testInfo) => {
-    const v1 = await request.get(`${backendUrl}/api/v1/products/6?lang=zh`);
-    expect(v1.ok()).toBe(true);
-    const v1Body = await v1.json();
-    expect(v1Body.id).toBe("6");
-    expect(v1Body.title).toBe("Tralarello Phone Case");
-    expect(v1Body.images?.length).toBeGreaterThan(0);
+    const modern = await request.get(
+      `${backendUrl}/api/v1/yahoo/goods/${encodeURIComponent(yahooAuctionSampleGoodsNo)}`,
+    );
+    expect(modern.ok()).toBe(true);
+    const modernBody = await modern.json();
+    expect(modernBody.code).toBe(0);
+    expect(modernBody.data?.goods_name).toBeTruthy();
+    expect(modernBody.data?.imgurls?.length).toBeGreaterThan(0);
+    const modernImageOk = await probeImage(
+      request,
+      modernBody.data?.imgurls?.[0] || null,
+    );
+    expect(modernImageOk).toBe(true);
 
     const legacy = await request.get(
-      `${backendUrl}/api/goods/ydetail?appid=kangaroo-japan-web&id=6&goodsNo=6&goods_no=6&lang=zh`,
+      `${backendUrl}/api/goods/ydetail?appid=kangaroo-japan-web&id=${encodeURIComponent(yahooAuctionSampleGoodsNo)}&goodsNo=${encodeURIComponent(yahooAuctionSampleGoodsNo)}&goods_no=${encodeURIComponent(yahooAuctionSampleGoodsNo)}&lang=zh`,
     );
     expect(legacy.ok()).toBe(true);
     const legacyBody = await legacy.json();
     expect(legacyBody.code).toBe(0);
-    expect(legacyBody.data?.id).toBe("6");
-    expect(legacyBody.data?.images?.length).toBeGreaterThan(0);
+    expect(legacyBody.data?.goods_name).toBeTruthy();
+    expect(legacyBody.data?.imgurls?.length).toBeGreaterThan(0);
+    const legacyImageOk = await probeImage(
+      request,
+      legacyBody.data?.imgurls?.[0] || null,
+    );
+    expect(legacyImageOk).toBe(true);
 
     await testInfo.attach("product-detail-api-summary", {
       body: JSON.stringify(
         {
-          v1: {
-            id: v1Body.id,
-            title: v1Body.title,
-            imageCount: v1Body.images?.length || 0,
+          sampleGoodsNo: yahooAuctionSampleGoodsNo,
+          modernYahooAuction: {
+            code: modernBody.code,
+            imageCount: modernBody.data?.imgurls?.length || 0,
+            firstImageLive: modernImageOk,
           },
           legacy: {
             code: legacyBody.code,
-            id: legacyBody.data?.id,
-            title: legacyBody.data?.title,
-            imageCount: legacyBody.data?.images?.length || 0,
+            imageCount: legacyBody.data?.imgurls?.length || 0,
+            firstImageLive: legacyImageOk,
           },
         },
         null,
@@ -322,7 +336,7 @@ test.describe("kangaroo-japan production smoke", () => {
     });
   });
 
-  test("product detail page renders the product image", async ({
+  test("product detail page renders a real Yahoo Auction image", async ({
     page,
     baseURL,
   }) => {
@@ -333,11 +347,15 @@ test.describe("kangaroo-japan production smoke", () => {
       }
     });
 
-    await expectOkResponse(page, `${baseURL}/zh/products/6`);
-    await expect(page.getByText("Tralarello Phone Case").first()).toBeVisible();
+    await expectOkResponse(
+      page,
+      `${baseURL}/zh/products/${encodeURIComponent(yahooAuctionSampleGoodsNo)}`,
+    );
+    await expect(page.locator("h1").first()).toBeVisible();
 
     const productImages = await page
-      .locator("img")
+      .locator("div.relative.aspect-square img")
+      .first()
       .evaluateAll((images): ImageProbe[] =>
         images.map((image) => {
           const img = image as HTMLImageElement;
@@ -353,10 +371,7 @@ test.describe("kangaroo-japan production smoke", () => {
     const visibleProductImages = productImages.filter(
       (image) =>
         image.naturalWidth > 0 &&
-        image.naturalHeight > 0 &&
-        (image.alt?.includes("Tralarello") ||
-          image.src?.includes("Phone+Case") ||
-          image.src?.includes("Phone%2BCase")),
+        image.naturalHeight > 0,
     );
 
     expect(visibleProductImages.length).toBeGreaterThan(0);
@@ -369,7 +384,7 @@ test.describe("kangaroo-japan production smoke", () => {
     ).toEqual([]);
 
     await page.screenshot({
-      path: path.join(artifactDir, "product-6-detail.png"),
+      path: path.join(artifactDir, "product-yahoo-auction-detail.png"),
       fullPage: true,
     });
   });
@@ -505,7 +520,9 @@ test.describe("kangaroo-japan production smoke", () => {
 
     await expectOkResponse(page, `${baseURL}/zh/admin/payments`);
     await expect(page.getByText("Refund lifecycle")).toBeVisible();
-    await expect(page.getByText("manual_refund_completed")).toBeVisible();
+    await expect(
+      page.getByText("manual_refund_completed", { exact: true }).first(),
+    ).toBeVisible();
 
     await expectOkResponse(page, `${baseURL}/zh/admin/platforms`);
     await expect(page.getByText("Health alert rules")).toBeVisible();
