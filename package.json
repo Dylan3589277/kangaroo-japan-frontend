@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:prod-smoke": "playwright test --config=playwright.production.config.ts",
-    "test:prod-smoke:auth": "powershell -ExecutionPolicy Bypass -File scripts/run-production-smoke.ps1"
+    "test:prod-smoke:auth": "powershell -ExecutionPolicy Bypass -File scripts/run-production-smoke.ps1",
+    "test:prod-smoke:dsr": "powershell -ExecutionPolicy Bypass -File scripts/run-production-smoke.ps1 -StrictDsrReadonlySmoke"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",

@@ -1,7 +1,8 @@
 param(
   [string]$EnvFile = (Join-Path $PSScriptRoot "..\.env.production-smoke.local"),
   [string]$ArtifactDir = "",
-  [switch]$AllowAdminSkip
+  [switch]$AllowAdminSkip,
+  [switch]$StrictDsrReadonlySmoke
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +48,16 @@ if ($missing.Count -gt 0 -and -not $AllowAdminSkip) {
   throw "Missing required production smoke env: $($missing -join ', ')"
 }
 
+if ($StrictDsrReadonlySmoke) {
+  [Environment]::SetEnvironmentVariable("STRICT_DSR_READONLY_SMOKE", "1", "Process")
+  if (-not [Environment]::GetEnvironmentVariable("DSR_LEGACY_SMOKE_ORDER_ID", "Process")) {
+    throw "Missing DSR_LEGACY_SMOKE_ORDER_ID. Strict DSR readonly smoke needs a real legacy order id for detail checks."
+  }
+}
+else {
+  [Environment]::SetEnvironmentVariable("STRICT_DSR_READONLY_SMOKE", $null, "Process")
+}
+
 if (-not $ArtifactDir) {
   $stamp = Get-Date -Format "yyyy-MM-dd-HHmmss"
   $ArtifactDir = Join-Path $env:USERPROFILE ".team\artifacts\prod-smoke-$stamp"
@@ -55,6 +66,7 @@ if (-not $ArtifactDir) {
 
 Write-Output "Running production smoke. Artifact dir: $ArtifactDir"
 Write-Output "E2E admin env present: $($missing.Count -eq 0)"
+Write-Output "Strict DSR readonly smoke: $($StrictDsrReadonlySmoke.IsPresent)"
 
 Push-Location (Join-Path $PSScriptRoot "..")
 try {

@@ -148,7 +148,6 @@ export default function AdminWorkflowsPage() {
   >("all");
   const [workflowOwnerId, setWorkflowOwnerId] = useState("");
   const [workflowOverdueOnly, setWorkflowOverdueOnly] = useState(false);
-  const [legacyDsrToken, setLegacyDsrToken] = useState("");
   const [legacyDsrRoute, setLegacyDsrRoute] =
     useState<LegacyDsrReadonlyRoute>("orders.mine");
   const [legacyDsrQuery, setLegacyDsrQuery] = useState("");
@@ -205,29 +204,21 @@ export default function AdminWorkflowsPage() {
 
   async function handleLegacyDsrSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const token = legacyDsrToken.trim();
     setLegacyDsrError("");
-    if (!token) {
-      setLegacyDsrResult(null);
-      setLegacyDsrError(
-        "Admin-only readonly DSR token is required before requesting legacy snapshots.",
-      );
-      return;
-    }
 
     setLegacyDsrLoading(true);
     const params = buildLegacyDsrParams(legacyDsrRoute, legacyDsrQuery);
     let response: LegacyDsrReadonlyApiResponse;
     if (legacyDsrRoute === "orders.detail") {
-      response = await api.getAdminLegacyDsrOrdersDetail(params, token);
+      response = await api.getAdminLegacyDsrOrdersDetail(params);
     } else if (legacyDsrRoute === "warehouse.orders") {
-      response = await api.getAdminLegacyDsrWarehouseOrders(params, token);
+      response = await api.getAdminLegacyDsrWarehouseOrders(params);
     } else if (legacyDsrRoute === "warehouse.ships") {
-      response = await api.getAdminLegacyDsrWarehouseShips(params, token);
+      response = await api.getAdminLegacyDsrWarehouseShips(params);
     } else if (legacyDsrRoute === "warehouse.photos") {
-      response = await api.getAdminLegacyDsrWarehousePhotos(params, token);
+      response = await api.getAdminLegacyDsrWarehousePhotos(params);
     } else {
-      response = await api.getAdminLegacyDsrOrdersMine(params, token);
+      response = await api.getAdminLegacyDsrOrdersMine(params);
     }
     setLegacyDsrLoading(false);
     setLegacyDsrResult(response);
@@ -382,8 +373,9 @@ export default function AdminWorkflowsPage() {
                 Legacy DSR readonly
               </CardTitle>
               <CardDescription>
-                Pull Ali/DSR order and warehouse snapshots into this workbench.
-                The legacy token stays in this tab state only.
+                Pull Ali/DSR order and warehouse snapshots through the backend
+                readonly token. The browser never handles the long-lived legacy
+                credential.
               </CardDescription>
             </div>
             <Badge variant="outline">No write actions</Badge>
@@ -391,17 +383,9 @@ export default function AdminWorkflowsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <form
-            className="grid gap-3 xl:grid-cols-[minmax(180px,240px)_minmax(180px,260px)_minmax(180px,1fr)_auto]"
+            className="grid gap-3 xl:grid-cols-[minmax(180px,260px)_minmax(180px,1fr)_auto]"
             onSubmit={handleLegacyDsrSubmit}
           >
-            <Input
-              type="password"
-              value={legacyDsrToken}
-              onChange={(event) => setLegacyDsrToken(event.target.value)}
-              placeholder="x-dsr-legacy-token"
-              aria-label="legacy DSR readonly token"
-              autoComplete="off"
-            />
             <Select
               value={legacyDsrRoute}
               onValueChange={(value) =>
@@ -433,8 +417,8 @@ export default function AdminWorkflowsPage() {
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="outline">{legacyRoute.sourceRoute}</Badge>
             <span>
-              Modern admin JWT is kept as Authorization; legacy identity is sent
-              only as x-dsr-legacy-token for this request.
+              Modern admin JWT stays in Authorization; the backend adds its
+              readonly DSR credential server-side.
             </span>
           </div>
           {legacyDsrError ? (

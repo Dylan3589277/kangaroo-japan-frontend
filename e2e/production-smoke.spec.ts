@@ -19,6 +19,8 @@ const artifactDir =
     `prod-smoke-${new Date().toISOString().slice(0, 10)}`,
   );
 const strictPlatformSmoke = process.env.STRICT_PLATFORM_SMOKE === "1";
+const strictDsrReadonlySmoke = process.env.STRICT_DSR_READONLY_SMOKE === "1";
+const dsrLegacySmokeOrderId = process.env.DSR_LEGACY_SMOKE_ORDER_ID;
 const e2eAdminEmail = process.env.E2E_ADMIN_EMAIL;
 const e2eAdminPassword = process.env.E2E_ADMIN_PASSWORD;
 const e2eAdminSeedSecret = process.env.E2E_ADMIN_SEED_SECRET;
@@ -62,6 +64,23 @@ type PlatformDetailAudit = {
   error?: string;
   notice?: string;
 };
+
+type LegacyDsrReadonlyRoute = {
+  key: string;
+  path: string;
+  params: Record<string, unknown>;
+};
+
+type JsonRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): JsonRecord {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as JsonRecord;
+}
+
+function asOptionalString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
 
 async function expectOkResponse(page: Page, url: string) {
   const response = await page.goto(url, {
@@ -128,7 +147,7 @@ function classifyPlatformSmokeError(input: {
   sampleId: string;
   detailHttpOk: boolean;
   detailStatus: number;
-  body: Record<string, any>;
+  body: JsonRecord;
   detailOk: boolean;
   imageUrl: string | null;
   imageOk: boolean;
@@ -136,24 +155,25 @@ function classifyPlatformSmokeError(input: {
   if (input.detailOk && input.imageOk) return null;
   if (!input.sampleId) return "missing_sample";
 
+  const data = asRecord(input.body.data);
   const errorText = [
-    input.body?.error,
-    input.body?.message,
-    input.body?.notice,
-    input.body?.data?.reason,
+    input.body.error,
+    input.body.message,
+    input.body.notice,
+    data.reason,
   ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
 
   if (
-    input.body?.data?.reason === "missing_credentials" ||
+    data.reason === "missing_credentials" ||
     errorText.includes("missing credential") ||
     errorText.includes("not configured")
   ) {
     return "missing_credentials";
   }
-  if (input.body?.data?.blocked === true) return "detail_adapter_blocked";
+  if (data.blocked === true) return "detail_adapter_blocked";
   if (
     input.detailStatus === 404 ||
     errorText.includes("not found") ||
@@ -180,17 +200,20 @@ async function auditPlatformDetail(
     const detailResponse = await request.get(
       `${backendUrl}/api/v1/integrations/${platform}/detail?id=${encodeURIComponent(sampleId)}`,
     );
-    let body: Record<string, any> = {};
+    let body: JsonRecord = {};
     try {
       body = await detailResponse.json();
     } catch {
       body = { error: "detail response was not JSON" };
     }
-    const imageUrl = body.data?.imgurls?.[0] || null;
+    const data = asRecord(body.data);
+    const imgurls = Array.isArray(data.imgurls) ? data.imgurls : [];
+    const firstImage = imgurls[0];
+    const imageUrl = typeof firstImage === "string" ? firstImage : null;
     const imageOk = await probeImage(request, imageUrl);
     const detailOk = detailResponse.ok() && body.success === true;
     const audit = {
-      configured: Boolean(body.success || body.data?.blocked === false),
+      configured: Boolean(body.success || data.blocked === false),
       sampleId,
       triedSampleIds: sampleIds,
       detailOk,
@@ -205,9 +228,10 @@ async function auditPlatformDetail(
         imageUrl,
         imageOk,
       }),
-      blocked: body.data?.blocked,
-      error: body.error,
-      notice: body.notice,
+      blocked:
+        data.blocked === true ? true : data.blocked === false ? false : undefined,
+      error: asOptionalString(body.error),
+      notice: asOptionalString(body.notice),
     };
     if (audit.detailOk && audit.imageOk) return audit;
     lastAudit = audit;
@@ -224,6 +248,32 @@ async function auditPlatformDetail(
       error: "No sample ids configured",
     }
   );
+}
+
+async function auditLegacyDsrReadonlyRoute(
+  request: APIRequestContext,
+  accessToken: string,
+  route: LegacyDsrReadonlyRoute,
+) {
+  const response = await request.post(`${backendUrl}${route.path}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    data: route.params,
+  });
+  let body: JsonRecord = {};
+  try {
+    body = await response.json();
+  } catch {
+    body = { error: "legacy DSR readonly response was not JSON" };
+  }
+  return {
+    route: route.key,
+    path: route.path,
+    status: response.status(),
+    httpOk: response.ok(),
+    success: body.success === true,
+    safety: body.safety || null,
+    error: body.error || null,
+  };
 }
 
 test.describe("kangaroo-japan production smoke", () => {
@@ -660,5 +710,80 @@ test.describe("kangaroo-japan production smoke", () => {
       ),
       contentType: "application/json",
     });
+  });
+
+  test("legacy DSR readonly routes use backend env token when strict smoke is enabled", async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.skip(
+      !strictDsrReadonlySmoke,
+      "Set STRICT_DSR_READONLY_SMOKE=1 after DSR_LEGACY_READONLY_TOKEN is configured in production.",
+    );
+    test.skip(
+      !e2eAdminEmail || !e2eAdminPassword,
+      "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run authenticated DSR readonly smoke.",
+    );
+    expect(dsrLegacySmokeOrderId).toBeTruthy();
+
+    const accessToken = await injectAdminSession(page, request);
+    const routes: LegacyDsrReadonlyRoute[] = [
+      {
+        key: "orders.mine",
+        path: "/api/v1/orders/admin/legacy-dsr/mine",
+        params: { page: 1, limit: 1 },
+      },
+      {
+        key: "orders.detail",
+        path: "/api/v1/orders/admin/legacy-dsr/detail",
+        params: { id: dsrLegacySmokeOrderId },
+      },
+      {
+        key: "warehouse.orders",
+        path: "/api/v1/warehouse/legacy-dsr/orders",
+        params: { page: 1, limit: 1 },
+      },
+      {
+        key: "warehouse.ships",
+        path: "/api/v1/warehouse/legacy-dsr/ships",
+        params: { page: 1, limit: 1 },
+      },
+      {
+        key: "warehouse.photos",
+        path: "/api/v1/warehouse/legacy-dsr/photos",
+        params: { page: 1, limit: 1, order_id: dsrLegacySmokeOrderId },
+      },
+    ];
+
+    const audits = [];
+    for (const route of routes) {
+      audits.push(
+        await auditLegacyDsrReadonlyRoute(request, accessToken, route),
+      );
+    }
+
+    fs.writeFileSync(
+      path.join(artifactDir, "legacy-dsr-readonly-audit.json"),
+      JSON.stringify(audits, null, 2),
+      "utf8",
+    );
+    await testInfo.attach("legacy-dsr-readonly-audit", {
+      body: JSON.stringify(audits, null, 2),
+      contentType: "application/json",
+    });
+
+    for (const audit of audits) {
+      expect(audit.httpOk, `${audit.route} returned ${audit.status}`).toBe(
+        true,
+      );
+      expect(audit.success, `${audit.route} did not return success=true`).toBe(
+        true,
+      );
+      expect(audit.safety).toMatchObject({
+        readonly: true,
+        adminOnly: true,
+        source: "legacy-dsr",
+      });
+    }
   });
 });

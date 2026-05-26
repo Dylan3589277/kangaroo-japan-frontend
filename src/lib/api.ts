@@ -2176,13 +2176,14 @@ class ApiClient {
     );
   }
 
-  private legacyDsrHeaders(legacyToken: string) {
-    return { "x-dsr-legacy-token": legacyToken };
+  private legacyDsrHeaders(legacyToken?: string) {
+    const token = legacyToken?.trim();
+    return token ? { "x-dsr-legacy-token": token } : undefined;
   }
 
   async getAdminLegacyDsrOrdersMine(
     params: LegacyDsrReadonlyParams,
-    legacyToken: string,
+    legacyToken?: string,
   ) {
     return this.request<unknown>("/orders/admin/legacy-dsr/mine", {
       method: "POST",
@@ -2193,7 +2194,7 @@ class ApiClient {
 
   async getAdminLegacyDsrOrdersDetail(
     params: LegacyDsrReadonlyParams,
-    legacyToken: string,
+    legacyToken?: string,
   ) {
     return this.request<unknown>("/orders/admin/legacy-dsr/detail", {
       method: "POST",
@@ -2204,7 +2205,7 @@ class ApiClient {
 
   async getAdminLegacyDsrWarehouseOrders(
     params: LegacyDsrReadonlyParams,
-    legacyToken: string,
+    legacyToken?: string,
   ) {
     return this.request<unknown>("/warehouse/legacy-dsr/orders", {
       method: "POST",
@@ -2215,7 +2216,7 @@ class ApiClient {
 
   async getAdminLegacyDsrWarehouseShips(
     params: LegacyDsrReadonlyParams,
-    legacyToken: string,
+    legacyToken?: string,
   ) {
     return this.request<unknown>("/warehouse/legacy-dsr/ships", {
       method: "POST",
@@ -2226,7 +2227,7 @@ class ApiClient {
 
   async getAdminLegacyDsrWarehousePhotos(
     params: LegacyDsrReadonlyParams,
-    legacyToken: string,
+    legacyToken?: string,
   ) {
     return this.request<unknown>("/warehouse/legacy-dsr/photos", {
       method: "POST",
