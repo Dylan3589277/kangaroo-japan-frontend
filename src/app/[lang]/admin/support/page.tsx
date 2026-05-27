@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -18,7 +11,6 @@ import {
   Loader2,
   MessageSquare,
   RefreshCw,
-  Search,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
@@ -32,22 +24,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   api,
   type HermesDraft,
   type ManualHandlingStatus,
-  type SupportOrderLookupItem,
   type SupportTicket,
   type SupportTicketContextResponse,
 } from "@/lib/api";
-
-type OrderLookupForm = {
-  orderNo: string;
-  email: string;
-  phone: string;
-  trackingNumber: string;
-};
 
 const supportTicketStatusLabel: Record<string, string> = {
   open: "待处理",
@@ -175,35 +167,44 @@ function getDraftEvidence(draft: HermesDraft | null) {
   return evidence;
 }
 
-function getDraftPolicyLabels(draft: HermesDraft | null) {
-  const policy = draft?.metadata?.policy;
-  if (!policy || typeof policy !== "object") return [];
-  const typedPolicy = policy as Record<string, unknown>;
-  return [
-    typedPolicy.knowledgeOnly === true ? "仅知识库" : "",
-    typedPolicy.customerScopeOnly === true ? "仅本客户订单" : "",
-    typedPolicy.noAutoSendToCustomer === true ? "不自动发送" : "",
-  ].filter(Boolean);
+function getBooleanEvidence(
+  source: Record<string, unknown> | null | undefined,
+  labels: Record<string, string>,
+) {
+  if (!source || typeof source !== "object") return [];
+  return Object.entries(labels)
+    .filter(([key]) => source[key] === true)
+    .map(([, label]) => label);
 }
 
-function hasLookupCondition(form: OrderLookupForm) {
-  return Object.values(form).some((value) => value.trim().length >= 4);
+function getDraftPolicyLabels(draft: HermesDraft | null) {
+  const metadata = draft?.metadata;
+  const policy = metadata?.policy;
+  if (!policy || typeof policy !== "object") return [];
+  const typedPolicy = policy as Record<string, unknown>;
+  return Array.from(
+    new Set([
+      ...getBooleanEvidence(metadata, {
+        knowledgeOnly: "仅知识库",
+        customerScopeOnly: "仅本客户订单",
+        reviewedBeforeSend: "已标记需人工审阅",
+      }),
+      ...getBooleanEvidence(typedPolicy, {
+        knowledgeOnly: "仅知识库",
+        customerScopeOnly: "仅本客户订单",
+        noAutoSendToCustomer: "不自动发送",
+      }),
+    ]),
+  );
 }
 
 export default function AdminSupportPage() {
   const [ticketKeyword, setTicketKeyword] = useState("");
-  const [lookupForm, setLookupForm] = useState<OrderLookupForm>({
-    orderNo: "",
-    email: "",
-    phone: "",
-    trackingNumber: "",
-  });
-  const [lookupItems, setLookupItems] = useState<SupportOrderLookupItem[]>([]);
-  const [lookupTotal, setLookupTotal] = useState(0);
-  const [lookupError, setLookupError] = useState("");
-  const [lookupLoading, setLookupLoading] = useState(false);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [supportTotal, setSupportTotal] = useState(0);
+  const [supportScopeEvidence, setSupportScopeEvidence] = useState<string[]>(
+    [],
+  );
   const [supportHandlingFilter, setSupportHandlingFilter] = useState<
     "all" | ManualHandlingStatus
   >("all");
@@ -226,6 +227,9 @@ export default function AdminSupportPage() {
   const [draftLoading, setDraftLoading] = useState(false);
   const [refreshLoading, setRefreshLoading] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
+  const [sendSafetyEvidence, setSendSafetyEvidence] = useState<string[]>([]);
+  const [sendConfirmed, setSendConfirmed] = useState(false);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [copiedJobId, setCopiedJobId] = useState("");
   const [lifecycleStatus, setLifecycleStatus] = useState("");
   const [lifecycleNote, setLifecycleNote] = useState("");
@@ -296,6 +300,8 @@ export default function AdminSupportPage() {
     setDrafts([]);
     setSelectedDraftJobId("");
     setDraftMessage("");
+    setSendSafetyEvidence([]);
+    setSendConfirmed(false);
     setLifecycleStatus("");
     setLifecycleNote("");
     setAssignedAdminId("");
@@ -320,6 +326,7 @@ export default function AdminSupportPage() {
       );
       setSupportTickets([]);
       setSupportTotal(0);
+      setSupportScopeEvidence([]);
       return;
     }
 
@@ -329,6 +336,17 @@ export default function AdminSupportPage() {
       current.filter((id) => rows.some((ticket) => ticket.id === id)),
     );
     setSupportTotal(response.data.total || 0);
+    setSupportScopeEvidence([
+      ...getBooleanEvidence(response.data.safety, {
+        adminOnly: "后台 admin 接口",
+        currentAdminScopeOnly: "仅当前管理员可读范围",
+        customerScopeOnly: "不跨客户拉取订单上下文",
+        legacyHistoryDisabled: "旧系统无可用客服历史",
+      }),
+      ...(response.data.scope?.site
+        ? [`站点：${response.data.scope.site}`]
+        : []),
+    ]);
     if (!rows.some((ticket) => ticket.id === selectedTicketIdRef.current)) {
       selectSupportTicket(rows[0]?.id || "");
     }
@@ -371,6 +389,7 @@ export default function AdminSupportPage() {
     }
 
     setDrafts(draftsResponse.data);
+    setSendConfirmed(false);
     setSelectedDraftJobId((current) =>
       current && draftsResponse.data?.some((draft) => draft.jobId === current)
         ? current
@@ -407,38 +426,6 @@ export default function AdminSupportPage() {
     }, 2500);
     return () => window.clearInterval(timer);
   }, [selectedDraft]);
-
-  async function handleLookupSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLookupError("");
-    if (!hasLookupCondition(lookupForm)) {
-      setLookupError(
-        "请至少填写一个 4 位以上的查询条件，避免过宽查询。可用订单号、邮箱、手机号或物流单号。",
-      );
-      return;
-    }
-
-    setLookupLoading(true);
-    const response = await api.lookupSupportOrders({
-      ...lookupForm,
-      limit: 10,
-    });
-    setLookupLoading(false);
-    if (!response.success || !response.data) {
-      setLookupError(
-        response.error?.message || "查询失败，请确认账号权限和查询条件。",
-      );
-      setLookupItems([]);
-      setLookupTotal(0);
-      return;
-    }
-    setLookupItems(response.data.items || []);
-    setLookupTotal(response.data.total || 0);
-  }
-
-  function updateLookupField(field: keyof OrderLookupForm, value: string) {
-    setLookupForm((current) => ({ ...current, [field]: value }));
-  }
 
   async function refreshSelectedTicket() {
     if (!selectedTicketId) return;
@@ -509,6 +496,8 @@ export default function AdminSupportPage() {
     const ticketId = selectedTicketId;
     setDraftLoading(true);
     setDraftMessage("");
+    setSendSafetyEvidence([]);
+    setSendConfirmed(false);
     const response = await api.triggerHermesDraft({
       ticketId,
       promptContext: promptContext.trim() || undefined,
@@ -560,11 +549,14 @@ export default function AdminSupportPage() {
       ),
     );
     setDismissReason("");
+    setSendConfirmed(false);
     setDraftMessage("草稿已驳回，未发送给客户。");
   }
 
   async function handleSendDraft() {
-    if (!selectedDraft || selectedDraft.status !== "READY") return;
+    if (!selectedDraft || selectedDraft.status !== "READY" || !sendConfirmed) {
+      return;
+    }
     setDraftLoading(true);
     setDraftMessage("");
     const response = await api.sendHermesDraft(selectedDraft.jobId);
@@ -582,6 +574,16 @@ export default function AdminSupportPage() {
           : draft,
       ),
     );
+    setSendSafetyEvidence(
+      getBooleanEvidence(response.data.safety, {
+        reviewedBeforeSend: "reviewedBeforeSend=true",
+        knowledgeOnly: "knowledgeOnly=true",
+        customerScopeOnly: "customerScopeOnly=true",
+        externalTransport: "externalTransport=true",
+      }),
+    );
+    setSendConfirmed(false);
+    setSendConfirmOpen(false);
     setDraftMessage(
       `草稿已发送到客户可见会话；审计记录=${String(
         response.data.auditRecorded,
@@ -606,8 +608,8 @@ export default function AdminSupportPage() {
         </div>
         <h1 className="mt-2 text-2xl font-semibold">客服工单台账</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          先把 tawk.to
-          在线咨询、离线留言和人工跟进统一记录到台账；订单/物流只读查询只给管理员使用，并保持脱敏、审计和限流边界。
+          工单列表来自后台 admin 支持接口；订单上下文只展示所选工单 API
+          返回的当前账号允许范围，不提供按邮箱、手机或物流号任意拉取客户资料的入口。
         </p>
       </div>
 
@@ -616,7 +618,7 @@ export default function AdminSupportPage() {
           <CardHeader>
             <CardTitle>真实工单</CardTitle>
             <CardDescription>
-              来自后台工单接口，只统计当前可读取数据。
+              来自后台 admin 工单接口，只统计当前管理员可读取范围。
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -639,6 +641,9 @@ export default function AdminSupportPage() {
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>不在第三方客服工具粘贴完整手机号、完整地址、支付号。</p>
             <p>不直接承诺退款、赔偿、补发、改地址。</p>
+            <p>
+              Hermes 只能依据订单上下文和知识库回答，超出范围必须拒答或转人工。
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -664,7 +669,9 @@ export default function AdminSupportPage() {
             </div>
             <CardTitle className="mt-2">草稿审阅队列</CardTitle>
             <CardDescription>
-              前端只创建草稿、展示审阅和驳回；不会自动发送给客户，订单/支付/地址敏感信息由后端只读脱敏接口控制。
+              前端只创建草稿、展示审阅和驳回；发送必须由客服人工勾选确认。
+              Hermes
+              只能使用所选工单订单上下文和知识库，无法覆盖的问题必须拒答或交给人工处理。
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -713,6 +720,26 @@ export default function AdminSupportPage() {
               <div className="flex items-center justify-between border-b px-4 py-3">
                 <div className="font-medium">真实工单</div>
                 <Badge variant="secondary">{supportTotal}</Badge>
+              </div>
+              <div className="border-b px-4 py-3 text-xs text-muted-foreground">
+                <div>
+                  后端筛选：site=kangaroo-japan，handling/owner/SLA 由 admin API
+                  执行。
+                </div>
+                {supportScopeEvidence.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {supportScopeEvidence.map((item) => (
+                      <Badge key={item} variant="outline">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-amber-900">
+                    后端未返回额外 scope/safety
+                    标记；本页仍按工单上下文边界展示，旧系统无可用客服历史，也不提供任意订单查询入口。
+                  </div>
+                )}
               </div>
               <div className="max-h-[520px] overflow-y-auto">
                 {supportLoading ? (
@@ -812,14 +839,29 @@ export default function AdminSupportPage() {
                         <div className="font-medium">本账号订单上下文</div>
                         <div className="mt-2 text-muted-foreground">
                           {ticketContext?.orders?.items?.length
-                            ? `匹配 ${ticketContext.orders.total} 条脱敏订单，草稿只能引用这些订单。`
-                            : "未匹配到本账号订单；Hermes 必须只按知识库或边界回复。"}
+                            ? `后端为此工单返回 ${ticketContext.orders.total} 条脱敏订单；草稿只能引用这些当前账号允许订单。`
+                            : "此工单 API 未返回可用订单上下文；Hermes 必须只按知识库答复，无法确认的问题拒答或转人工。"}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {getBooleanEvidence(ticketContext?.orders?.safety, {
+                            readonly: "readonly=true",
+                            masked: "masked=true",
+                            externalCarrierLookup: "externalCarrierLookup=true",
+                            paymentSensitiveFieldsHidden:
+                              "paymentSensitiveFieldsHidden=true",
+                          }).map((item) => (
+                            <Badge key={item} variant="outline">
+                              {item}
+                            </Badge>
+                          ))}
                         </div>
                       </div>
                       {ticketContext?.orders?.items?.length ? (
                         <div className="rounded-lg border p-3">
-                          <div className="font-medium">
-                            Linked order workflows
+                          <div className="font-medium">允许订单与审计入口</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            只显示上下文 API
+                            返回的链接；没有返回的客户资料不在前端请求。
                           </div>
                           <div className="mt-3 grid gap-2">
                             {ticketContext.orders.items
@@ -849,7 +891,7 @@ export default function AdminSupportPage() {
                                           )!
                                         }
                                       >
-                                        order workflow
+                                        订单流程
                                       </Link>
                                     ) : null}
                                     {adminHref(
@@ -863,7 +905,7 @@ export default function AdminSupportPage() {
                                           )!
                                         }
                                       >
-                                        payment/refund
+                                        支付/退款
                                       </Link>
                                     ) : null}
                                     {adminHref(
@@ -877,7 +919,7 @@ export default function AdminSupportPage() {
                                           )!
                                         }
                                       >
-                                        audit
+                                        审计记录
                                       </Link>
                                     ) : null}
                                   </div>
@@ -960,6 +1002,10 @@ export default function AdminSupportPage() {
 
                 <div className="rounded-lg border p-4">
                   <div className="font-medium">给客服分身的补充说明</div>
+                  <div className="mt-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                    生成边界：Hermes
+                    只能依据当前工单、后端返回的允许订单上下文和知识库起草回复；超出知识库或订单上下文的问题必须拒答或交给人工，不得猜测客户资料、退款承诺或禁运结论。
+                  </div>
                   <textarea
                     value={promptContext}
                     onChange={(event) => setPromptContext(event.target.value)}
@@ -1016,7 +1062,11 @@ export default function AdminSupportPage() {
                               : "outline"
                           }
                           size="sm"
-                          onClick={() => setSelectedDraftJobId(draft.jobId)}
+                          onClick={() => {
+                            setSelectedDraftJobId(draft.jobId);
+                            setSendConfirmed(false);
+                            setSendSafetyEvidence([]);
+                          }}
                         >
                           {compactDate(draft.createdAt)}
                         </Button>
@@ -1060,9 +1110,21 @@ export default function AdminSupportPage() {
                       </div>
                     </div>
                   ) : null}
+                  {sendSafetyEvidence.length > 0 ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="font-medium">发送返回安全证据</div>
+                      <div className="flex flex-wrap gap-2">
+                        {sendSafetyEvidence.map((item) => (
+                          <Badge key={item} variant="secondary">
+                            {item}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                    草稿只供人工审阅。工单原文可能包含客户主动填写的信息；退款、赔偿、补发、改地址、禁运判断等事项必须人工最终确认。
+                    草稿只供人工审阅。回复必须只基于订单上下文和知识库；知识库外、客户账号外、退款赔偿补发改地址、禁运判断等问题必须拒答或交给人工最终确认。
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -1081,10 +1143,24 @@ export default function AdminSupportPage() {
 
                   {selectedDraft?.status === "READY" ? (
                     <div className="space-y-3 border-t pt-4">
+                      <label className="flex gap-2 rounded-lg border p-3 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={sendConfirmed}
+                          onChange={(event) =>
+                            setSendConfirmed(event.target.checked)
+                          }
+                        />
+                        <span>
+                          我已人工审阅草稿，确认它只使用当前工单订单上下文和知识库；
+                          超出范围内容已拒答或转人工，现在允许调用发送 API。
+                        </span>
+                      </label>
                       <Button
                         type="button"
-                        onClick={handleSendDraft}
-                        disabled={draftLoading}
+                        onClick={() => setSendConfirmOpen(true)}
+                        disabled={draftLoading || !sendConfirmed}
                       >
                         {draftLoading ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -1120,135 +1196,6 @@ export default function AdminSupportPage() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>订单/物流只读查询</CardTitle>
-          <CardDescription>
-            仅限管理员登录后使用。接口会做限流、审计记录和敏感信息脱敏；不提供退款、改地址、补发等写操作。
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <form
-            className="grid gap-3 md:grid-cols-5"
-            onSubmit={handleLookupSubmit}
-          >
-            <Input
-              value={lookupForm.orderNo}
-              onChange={(event) =>
-                updateLookupField("orderNo", event.target.value)
-              }
-              placeholder="订单号"
-              aria-label="订单号"
-            />
-            <Input
-              value={lookupForm.email}
-              onChange={(event) =>
-                updateLookupField("email", event.target.value)
-              }
-              placeholder="客户邮箱"
-              aria-label="客户邮箱"
-            />
-            <Input
-              value={lookupForm.phone}
-              onChange={(event) =>
-                updateLookupField("phone", event.target.value)
-              }
-              placeholder="手机号"
-              aria-label="手机号"
-            />
-            <Input
-              value={lookupForm.trackingNumber}
-              onChange={(event) =>
-                updateLookupField("trackingNumber", event.target.value)
-              }
-              placeholder="物流单号"
-              aria-label="物流单号"
-            />
-            <Button type="submit" disabled={lookupLoading}>
-              {lookupLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-              查询
-            </Button>
-          </form>
-
-          {lookupError ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              {lookupError}
-            </div>
-          ) : null}
-
-          <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-            <div className="font-medium text-foreground">安全边界</div>
-            <ul className="mt-2 list-disc space-y-1 pl-5">
-              <li>最少 4 位查询条件，避免客服随意拉全量订单。</li>
-              <li>手机号、邮箱、姓名、地址、邮编、物流单号均只返回脱敏值。</li>
-              <li>
-                每次查询都会记录审计日志，日志只存查询条件哈希，不存明文。
-              </li>
-            </ul>
-          </div>
-
-          {lookupItems.length > 0 ? (
-            <div className="space-y-3">
-              <div className="text-sm text-muted-foreground">
-                共匹配 {lookupTotal} 条，当前显示 {lookupItems.length} 条。
-              </div>
-              {lookupItems.map((order) => (
-                <div key={order.id} className="rounded-lg border p-4 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-semibold">{order.orderNo}</div>
-                    <Badge variant="outline">{order.status}</Badge>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-muted-foreground md:grid-cols-2">
-                    <div>
-                      客户：{order.customer.name || "-"} /{" "}
-                      {order.customer.email || "-"} /{" "}
-                      {order.customer.phone || "-"}
-                    </div>
-                    <div>
-                      金额：{order.total.amount} {order.total.currency || ""}
-                    </div>
-                    <div>下单时间：{compactDate(order.createdAt)}</div>
-                    <div>支付时间：{compactDate(order.paidAt)}</div>
-                    <div>
-                      物流：{order.shipping.carrier || "-"} /{" "}
-                      {order.shipping.trackingNumber || "-"}
-                    </div>
-                    <div>
-                      收货城市：{order.shipping.address?.country || "-"}{" "}
-                      {order.shipping.address?.city || ""}
-                    </div>
-                  </div>
-                  <div className="mt-3 text-muted-foreground">
-                    商品：
-                    {order.items
-                      .map(
-                        (item) =>
-                          `${item.title || "未命名商品"} × ${item.quantity}`,
-                      )
-                      .join("；") || "-"}
-                  </div>
-                  {order.shipmentOrders.length > 0 ? (
-                    <div className="mt-3 rounded-md bg-muted p-3 text-muted-foreground">
-                      仓库发货单：
-                      {order.shipmentOrders
-                        .map(
-                          (shipment) =>
-                            `${shipment.status || "未知状态"} / ${shipment.shipWay || "未知线路"}`,
-                        )
-                        .join("；")}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          ) : null}
         </CardContent>
       </Card>
 
@@ -1447,6 +1394,47 @@ export default function AdminSupportPage() {
           </div>
         </CardContent>
       </Card>
+      <Dialog open={sendConfirmOpen} onOpenChange={setSendConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认发送客服回复</DialogTitle>
+            <DialogDescription>
+              该动作会把已审阅的 Hermes
+              草稿发送到客户可见会话，并写入管理员审计日志。发送内容必须只基于当前工单、允许的订单上下文和知识库。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+            知识库外、客户账号外、退款赔偿补发改地址、禁运判断等内容必须拒答或转人工；确认前请再次核对草稿没有越界承诺。
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSendConfirmOpen(false)}
+              disabled={draftLoading}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSendDraft}
+              disabled={
+                draftLoading ||
+                !sendConfirmed ||
+                !selectedDraft ||
+                selectedDraft.status !== "READY"
+              }
+            >
+              {draftLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MessageSquare className="h-4 w-4" />
+              )}
+              确认发送
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

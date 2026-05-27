@@ -103,6 +103,95 @@ const addresses = [
   },
 ];
 
+const supportTicket = {
+  id: "ticket-e2e",
+  ticketNumber: "SUP-E2E-0001",
+  visitorName: "E2E Customer",
+  visitorEmail: "e***@example.com",
+  visitorPhone: null,
+  site: "kangaroo-japan",
+  language: "zh",
+  category: "shipping",
+  subject: "请确认订单物流",
+  description: "客户询问 DSJ-E2E-0001 的物流进度。",
+  conversationSnapshot: null,
+  conversationId: "conversation-e2e",
+  status: "open",
+  handlingStatus: "unhandled",
+  adminNote: null,
+  assignedAdminId: null,
+  assignedAdminEmailHash: null,
+  slaDueAt: null,
+  createdAt: "2026-05-10T10:00:00.000Z",
+  updatedAt: "2026-05-10T10:05:00.000Z",
+};
+
+const supportOrder = {
+  id: "order-e2e",
+  orderNo: "DSJ-E2E-0001",
+  status: "paid",
+  createdAt: "2026-05-10T10:00:00.000Z",
+  updatedAt: "2026-05-10T10:05:00.000Z",
+  paidAt: "2026-05-10T10:03:00.000Z",
+  total: { amount: 12800, currency: "JPY" },
+  adminLinks: {
+    orderAdminPath: "/admin/orders/order-e2e",
+    paymentAdminPath: "/admin/payments/payment-e2e",
+    auditLookupPath: "/admin/audit-logs?resourceId=order-e2e",
+  },
+  customer: { name: "E***", email: "e***@example.com", phone: "090***00" },
+  shipping: {
+    carrier: "Yamato",
+    trackingNumber: "YA***0001",
+    status: "paid",
+    address: { country: "CN", city: "Shanghai" },
+  },
+  items: [
+    { id: "item-e2e", title: "E2E Mock Camera", quantity: 1, status: "paid" },
+  ],
+  shipmentOrders: [
+    {
+      id: "shipment-e2e",
+      status: "pending",
+      shipWay: "EMS",
+      weight: 1.2,
+      amountRmb: 60,
+      isPay: false,
+      receiver: {
+        name: "E***",
+        mobile: "090***00",
+        country: "CN",
+        city: "Shanghai",
+      },
+      createdAt: "2026-05-10T10:10:00.000Z",
+      updatedAt: "2026-05-10T10:10:00.000Z",
+    },
+  ],
+};
+
+const hermesDraft = {
+  id: "draft-e2e",
+  ticketId: supportTicket.id,
+  jobId: "job-e2e",
+  status: "READY",
+  draftBody:
+    "您好，基于当前订单上下文，DSJ-E2E-0001 已付款，物流信息请以后续仓库更新为准。超出订单上下文的问题将转人工确认。",
+  metadata: {
+    sourceIds: ["kb-shipping"],
+    orderContextUsed: true,
+    knowledgeOnly: true,
+    customerScopeOnly: true,
+    reviewedBeforeSend: true,
+    policy: {
+      knowledgeOnly: true,
+      customerScopeOnly: true,
+      noAutoSendToCustomer: true,
+    },
+  },
+  createdAt: "2026-05-10T10:06:00.000Z",
+  updatedAt: "2026-05-10T10:06:00.000Z",
+};
+
 /**
  * Register a route handler for both old /api/v1/ and new /api/backend/ path patterns.
  * This ensures mocks work regardless of which backend URL the app rewrites to.
@@ -129,7 +218,10 @@ function json(route: Route, body: unknown, status = 200) {
   });
 }
 
-export async function mockBackend(page: Page, options: { cart?: typeof emptyCart | typeof cartWithItem } = {}) {
+export async function mockBackend(
+  page: Page,
+  options: { cart?: typeof emptyCart | typeof cartWithItem } = {},
+) {
   const cart = options.cart ?? emptyCart;
 
   await page.route("https://embed.tawk.to/**", (route) => route.abort());
@@ -141,7 +233,10 @@ export async function mockBackend(page: Page, options: { cart?: typeof emptyCart
   );
 }
 
-export async function signInForE2E(page: Page, role: "user" | "admin" = "user") {
+export async function signInForE2E(
+  page: Page,
+  role: "user" | "admin" = "user",
+) {
   await page.addInitScript((e2eRole) => {
     window.localStorage.setItem(
       "auth-storage",
@@ -164,7 +259,10 @@ export async function signInForE2E(page: Page, role: "user" | "admin" = "user") 
   }, role);
 }
 
-function handleApiRoute(route: Route, cart: typeof emptyCart | typeof cartWithItem) {
+function handleApiRoute(
+  route: Route,
+  cart: typeof emptyCart | typeof cartWithItem,
+) {
   const request = route.request();
   const url = new URL(request.url());
   const path = url.pathname
@@ -207,7 +305,11 @@ function handleApiRoute(route: Route, cart: typeof emptyCart | typeof cartWithIt
   }
 
   if (path === "/auth/login") {
-    return json(route, { success: false, error: { message: "E2E login is mocked" } }, 401);
+    return json(
+      route,
+      { success: false, error: { message: "E2E login is mocked" } },
+      401,
+    );
   }
 
   if (path === "/support/chat") {
@@ -217,8 +319,79 @@ function handleApiRoute(route: Route, cart: typeof emptyCart | typeof cartWithIt
     });
   }
 
-  if (path === "/support/tickets") {
+  if (path === "/support/tickets" && request.method() === "POST") {
     return json(route, { success: true, data: { ticketNumber: "T-E2E-1" } });
+  }
+
+  if (path === "/support/tickets" && request.method() === "GET") {
+    return json(route, {
+      success: true,
+      data: {
+        data: [supportTicket],
+        total: 1,
+      },
+    });
+  }
+
+  if (path === `/support/admin/tickets/${supportTicket.id}/context`) {
+    return json(route, {
+      success: true,
+      data: {
+        ticket: supportTicket,
+        orders: {
+          items: [supportOrder],
+          total: 1,
+          page: 1,
+          limit: 10,
+          safety: {
+            readonly: true,
+            masked: true,
+            externalCarrierLookup: false,
+            paymentSensitiveFieldsHidden: true,
+          },
+        },
+      },
+    });
+  }
+
+  if (path === `/support/admin/tickets/${supportTicket.id}/hermes/drafts`) {
+    return json(route, { success: true, data: [hermesDraft] });
+  }
+
+  if (path === "/support/admin/hermes/jobs") {
+    return json(route, { success: true, data: { jobId: hermesDraft.jobId } });
+  }
+
+  if (path === `/support/admin/hermes/drafts/${hermesDraft.jobId}`) {
+    return json(route, { success: true, data: hermesDraft });
+  }
+
+  if (path === `/support/admin/hermes/drafts/${hermesDraft.jobId}/send`) {
+    return json(route, {
+      success: true,
+      data: {
+        draft: {
+          ...hermesDraft,
+          status: "SENT",
+          sentAt: "2026-05-10T10:08:00.000Z",
+          sentByAdminId: "admin-e2e",
+          sentMessageId: "message-e2e",
+        },
+        ticket: { ...supportTicket, status: "in_progress" },
+        message: {
+          id: "message-e2e",
+          conversationId: "conversation-e2e",
+          createdAt: "2026-05-10T10:08:00.000Z",
+        },
+        auditRecorded: true,
+        safety: {
+          reviewedBeforeSend: true,
+          knowledgeOnly: true,
+          customerScopeOnly: true,
+          externalTransport: true,
+        },
+      },
+    });
   }
 
   if (path === "/support/orders/lookup") {
@@ -234,14 +407,25 @@ function handleApiRoute(route: Route, cart: typeof emptyCart | typeof cartWithIt
             updatedAt: "2026-05-10T10:05:00.000Z",
             paidAt: "2026-05-10T10:03:00.000Z",
             total: { amount: 12800, currency: "JPY" },
-            customer: { name: "E***", email: "e***@example.com", phone: "090***00" },
+            customer: {
+              name: "E***",
+              email: "e***@example.com",
+              phone: "090***00",
+            },
             shipping: {
               carrier: "Yamato",
               trackingNumber: "YA***0001",
               status: "paid",
               address: { country: "CN", city: "Shanghai" },
             },
-            items: [{ id: "item-e2e", title: "E2E Mock Camera", quantity: 1, status: "paid" }],
+            items: [
+              {
+                id: "item-e2e",
+                title: "E2E Mock Camera",
+                quantity: 1,
+                status: "paid",
+              },
+            ],
             shipmentOrders: [
               {
                 id: "shipment-e2e",
@@ -250,7 +434,12 @@ function handleApiRoute(route: Route, cart: typeof emptyCart | typeof cartWithIt
                 weight: 1.2,
                 amountRmb: 60,
                 isPay: false,
-                receiver: { name: "E***", mobile: "090***00", country: "CN", city: "Shanghai" },
+                receiver: {
+                  name: "E***",
+                  mobile: "090***00",
+                  country: "CN",
+                  city: "Shanghai",
+                },
                 createdAt: "2026-05-10T10:10:00.000Z",
                 updatedAt: "2026-05-10T10:10:00.000Z",
               },

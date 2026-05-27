@@ -162,6 +162,12 @@ export interface SupportTicket {
 export interface SupportTicketListResponse {
   data: SupportTicket[];
   total: number;
+  scope?: {
+    site?: string;
+    adminId?: string;
+    assignedAdminId?: string;
+  };
+  safety?: Record<string, unknown>;
 }
 
 export interface SupportTicketContextResponse {
@@ -687,8 +693,9 @@ export interface LegacyDsrWarehouseTimelineEntry {
   };
 }
 
-export interface LegacyDsrReadonlyApiResponse<T = unknown>
-  extends ApiResponse<T> {
+export interface LegacyDsrReadonlyApiResponse<
+  T = unknown,
+> extends ApiResponse<T> {
   timeline?: LegacyDsrWarehouseTimelineEntry[];
   safety?: LegacyDsrReadonlySafety;
 }
@@ -2237,9 +2244,7 @@ class ApiClient {
   }
 
   async getAdminMiniProgramSummary() {
-    return this.request<AdminMiniProgramSummary>(
-      "/admin/mini-program/summary",
-    );
+    return this.request<AdminMiniProgramSummary>("/admin/mini-program/summary");
   }
 
   async listAdminLegacyYahooAccounts(params?: {
