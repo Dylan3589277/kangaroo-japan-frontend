@@ -378,6 +378,20 @@ export interface AdminOrderItem {
   };
 }
 
+export interface AdminLegacyOrderSnapshot {
+  order_id: string;
+  out_trade_no: string | null;
+  goods_name: string | null;
+  quantity: number | null;
+  price: number | null;
+  amount: number | null;
+  amount_rmb: number | null;
+  status: string | null;
+  created_at: string | null;
+  snapshot_source: "legacy_dsr_readonly";
+  fields_pending_extended_api: string[];
+}
+
 export interface AdminOrderOperationState {
   id: string;
   order_id: string;
@@ -1908,6 +1922,12 @@ class ApiClient {
     const query = searchParams.toString();
     return this.request<AdminListResponse<AdminOrderItem>>(
       `/orders/admin${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async getAdminLegacyOrderSnapshot(orderId: string) {
+    return this.request<AdminLegacyOrderSnapshot>(
+      `/admin/orders/${encodeURIComponent(orderId)}/legacy-snapshot`,
     );
   }
 
