@@ -21,6 +21,8 @@ import type {
   ManualHandlingStatus,
 } from "@/lib/api";
 
+const SOFT_LAUNCH_READONLY = true;
+
 type RefundReviewDecision =
   | "needs_review"
   | "finance_review"
@@ -330,6 +332,12 @@ export default function AdminPaymentsPage() {
         </Button>
       </div>
 
+      {SOFT_LAUNCH_READONLY ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900">
+          软上线只读模式：退款审核与执行入口已禁用，仅供流水查阅
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>筛选</CardTitle>
@@ -468,20 +476,22 @@ export default function AdminPaymentsPage() {
             >
               超时
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={
-                latestApprovalByPayment.size === 0 || refundBatchLoading
-              }
-              onClick={() => void bulkClaimRefundApprovals()}
-            >
-              批量接手{" "}
-              {selectedRefundApprovalIds.length ||
-                latestApprovalByPayment.size ||
-                ""}
-            </Button>
+            {!SOFT_LAUNCH_READONLY ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={
+                  latestApprovalByPayment.size === 0 || refundBatchLoading
+                }
+                onClick={() => void bulkClaimRefundApprovals()}
+              >
+                批量接手{" "}
+                {selectedRefundApprovalIds.length ||
+                  latestApprovalByPayment.size ||
+                  ""}
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -526,10 +536,16 @@ export default function AdminPaymentsPage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[1600px] text-left text-sm">
+            <table
+              className={`w-full ${
+                SOFT_LAUNCH_READONLY ? "min-w-[1360px]" : "min-w-[1600px]"
+              } text-left text-sm`}
+            >
               <thead className="bg-muted text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Select</th>
+                  {!SOFT_LAUNCH_READONLY ? (
+                    <th className="px-3 py-2 font-medium">Select</th>
+                  ) : null}
                   <th className="px-3 py-2 font-medium">支付号</th>
                   <th className="px-3 py-2 font-medium">订单号</th>
                   <th className="px-3 py-2 font-medium">金额</th>
@@ -545,7 +561,7 @@ export default function AdminPaymentsPage() {
                 {payments.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={SOFT_LAUNCH_READONLY ? 9 : 10}
                       className="px-3 py-8 text-center text-muted-foreground"
                     >
                       {loading ? "正在读取支付流水" : "暂无支付流水"}
@@ -559,31 +575,36 @@ export default function AdminPaymentsPage() {
                   const lifecycle = refundLifecycle(latestApproval);
                   return (
                     <tr key={payment.id} className="border-t align-top">
-                      <td className="px-3 py-2">
-                        {latestApproval ? (
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-muted-foreground"
-                            aria-label={`select refund approval ${latestApproval.id}`}
-                            checked={selectedRefundApprovalIds.includes(
-                              latestApproval.id,
-                            )}
-                            onChange={(event) => {
-                              setSelectedRefundApprovalIds((current) =>
-                                event.target.checked
-                                  ? Array.from(
-                                      new Set([...current, latestApproval.id]),
-                                    )
-                                  : current.filter(
-                                      (id) => id !== latestApproval.id,
-                                    ),
-                              );
-                            }}
-                          />
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </td>
+                      {!SOFT_LAUNCH_READONLY ? (
+                        <td className="px-3 py-2">
+                          {latestApproval ? (
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-muted-foreground"
+                              aria-label={`select refund approval ${latestApproval.id}`}
+                              checked={selectedRefundApprovalIds.includes(
+                                latestApproval.id,
+                              )}
+                              onChange={(event) => {
+                                setSelectedRefundApprovalIds((current) =>
+                                  event.target.checked
+                                    ? Array.from(
+                                        new Set([
+                                          ...current,
+                                          latestApproval.id,
+                                        ]),
+                                      )
+                                    : current.filter(
+                                        (id) => id !== latestApproval.id,
+                                      ),
+                                );
+                              }}
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </td>
+                      ) : null}
                       <td className="px-3 py-2 font-medium">
                         {payment.paymentNo}
                         <div className="mt-2 flex flex-wrap gap-2 text-xs font-normal">
@@ -679,63 +700,67 @@ export default function AdminPaymentsPage() {
                                 </span>
                               ) : null}
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                              {latestApproval.handlingStatus !==
-                              "in_progress" ? (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={
-                                    handlingBusyId === latestApproval.id
-                                  }
-                                  onClick={() =>
-                                    void updateRefundHandling(
-                                      latestApproval,
-                                      "in_progress",
-                                    )
-                                  }
-                                >
-                                  接手
-                                </Button>
-                              ) : null}
-                              {latestApproval.handlingStatus !== "resolved" ? (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={
-                                    handlingBusyId === latestApproval.id
-                                  }
-                                  onClick={() =>
-                                    void updateRefundHandling(
-                                      latestApproval,
-                                      "resolved",
-                                    )
-                                  }
-                                >
-                                  关闭
-                                </Button>
-                              ) : null}
-                              {latestApproval.handlingStatus === "resolved" ? (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={
-                                    handlingBusyId === latestApproval.id
-                                  }
-                                  onClick={() =>
-                                    void updateRefundHandling(
-                                      latestApproval,
-                                      "in_progress",
-                                    )
-                                  }
-                                >
-                                  重开
-                                </Button>
-                              ) : null}
-                            </div>
+                            {!SOFT_LAUNCH_READONLY ? (
+                              <div className="flex flex-wrap gap-1">
+                                {latestApproval.handlingStatus !==
+                                "in_progress" ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={
+                                      handlingBusyId === latestApproval.id
+                                    }
+                                    onClick={() =>
+                                      void updateRefundHandling(
+                                        latestApproval,
+                                        "in_progress",
+                                      )
+                                    }
+                                  >
+                                    接手
+                                  </Button>
+                                ) : null}
+                                {latestApproval.handlingStatus !==
+                                "resolved" ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={
+                                      handlingBusyId === latestApproval.id
+                                    }
+                                    onClick={() =>
+                                      void updateRefundHandling(
+                                        latestApproval,
+                                        "resolved",
+                                      )
+                                    }
+                                  >
+                                    关闭
+                                  </Button>
+                                ) : null}
+                                {latestApproval.handlingStatus ===
+                                "resolved" ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={
+                                      handlingBusyId === latestApproval.id
+                                    }
+                                    onClick={() =>
+                                      void updateRefundHandling(
+                                        latestApproval,
+                                        "in_progress",
+                                      )
+                                    }
+                                  >
+                                    重开
+                                  </Button>
+                                ) : null}
+                              </div>
+                            ) : null}
                             {latestApproval.auditLookupPath ? (
                               <Link
                                 className="text-xs text-primary hover:underline"
@@ -746,8 +771,9 @@ export default function AdminPaymentsPage() {
                                 audit trail
                               </Link>
                             ) : null}
-                            {latestApproval.decision ===
-                            "approved_for_manual_refund" ? (
+                            {!SOFT_LAUNCH_READONLY &&
+                            latestApproval.decision ===
+                              "approved_for_manual_refund" ? (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -763,8 +789,9 @@ export default function AdminPaymentsPage() {
                                 start manual refund
                               </Button>
                             ) : null}
-                            {latestApproval.decision ===
-                            "manual_refund_processing" ? (
+                            {!SOFT_LAUNCH_READONLY &&
+                            latestApproval.decision ===
+                              "manual_refund_processing" ? (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -794,56 +821,73 @@ export default function AdminPaymentsPage() {
                             <ShieldCheck className="h-3.5 w-3.5" />
                             生命周期留痕，不触发 provider refund
                           </div>
-                          <div className="grid gap-2 md:grid-cols-[230px_1fr_auto]">
-                            <select
-                              className="h-9 rounded-md border bg-background px-2 text-sm"
-                              value={
-                                reviewDecision[payment.id] || "needs_review"
-                              }
-                              onChange={(event) =>
-                                setReviewDecision((current) => ({
-                                  ...current,
-                                  [payment.id]: event.target
-                                    .value as RefundReviewDecision,
-                                }))
-                              }
-                            >
-                              <option value="needs_review">需要复核</option>
-                              <option value="finance_review">
-                                finance_review
-                              </option>
-                              <option value="approved_for_manual_refund">
-                                批准人工退款
-                              </option>
-                              <option value="manual_refund_processing">
-                                manual_refund_processing
-                              </option>
-                              <option value="manual_refund_completed">
-                                manual_refund_completed
-                              </option>
-                              <option value="rejected">驳回</option>
-                            </select>
-                            <Input
-                              value={reviewReason[payment.id] || ""}
-                              onChange={(event) =>
-                                setReviewReason((current) => ({
-                                  ...current,
-                                  [payment.id]: event.target.value,
-                                }))
-                              }
-                              placeholder="原因 / 备注"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => submitRefundReview(payment)}
-                              disabled={reviewingPaymentId === payment.id}
-                            >
-                              {reviewingPaymentId === payment.id
-                                ? "记录中"
-                                : "记录"}
-                            </Button>
-                          </div>
+                          {SOFT_LAUNCH_READONLY ? (
+                            <div className="grid gap-1 text-xs text-muted-foreground">
+                              <span>
+                                current:{" "}
+                                {lifecycle?.currentDecision ||
+                                  latestApproval?.decision ||
+                                  "-"}
+                              </span>
+                              <span>
+                                next:{" "}
+                                {lifecycle?.terminal
+                                  ? "terminal"
+                                  : lifecycle?.nextAllowed?.join(" / ") || "-"}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="grid gap-2 md:grid-cols-[230px_1fr_auto]">
+                              <select
+                                className="h-9 rounded-md border bg-background px-2 text-sm"
+                                value={
+                                  reviewDecision[payment.id] || "needs_review"
+                                }
+                                onChange={(event) =>
+                                  setReviewDecision((current) => ({
+                                    ...current,
+                                    [payment.id]: event.target
+                                      .value as RefundReviewDecision,
+                                  }))
+                                }
+                              >
+                                <option value="needs_review">需要复核</option>
+                                <option value="finance_review">
+                                  finance_review
+                                </option>
+                                <option value="approved_for_manual_refund">
+                                  批准人工退款
+                                </option>
+                                <option value="manual_refund_processing">
+                                  manual_refund_processing
+                                </option>
+                                <option value="manual_refund_completed">
+                                  manual_refund_completed
+                                </option>
+                                <option value="rejected">驳回</option>
+                              </select>
+                              <Input
+                                value={reviewReason[payment.id] || ""}
+                                onChange={(event) =>
+                                  setReviewReason((current) => ({
+                                    ...current,
+                                    [payment.id]: event.target.value,
+                                  }))
+                                }
+                                placeholder="原因 / 备注"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => submitRefundReview(payment)}
+                                disabled={reviewingPaymentId === payment.id}
+                              >
+                                {reviewingPaymentId === payment.id
+                                  ? "记录中"
+                                  : "记录"}
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
