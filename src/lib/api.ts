@@ -126,15 +126,37 @@ export type SupportTicketStatus =
   | "closed";
 export type ManualHandlingStatus = "unhandled" | "in_progress" | "resolved";
 export type SupportTicketCategory =
+  | "product"
   | "order"
   | "shipping"
   | "refund"
+  | "deposit_refund"
   | "change_address"
   | "cancel_order"
   | "compensation"
+  | "proxy_bid"
+  | "after_sales"
   | "complaint"
-  | "general";
+  | "general"
+  | "other";
 export type HermesDraftStatus = "PENDING" | "READY" | "DISMISSED" | "SENT";
+
+export interface SupportConversationSourceContext {
+  sourceChannel?: string | null;
+  wechatOpenid?: string | null;
+  wechatUnionid?: string | null;
+  externalSessionId?: string | null;
+  sourcePage?: string | null;
+  sourceGoodsId?: string | null;
+  sourcePlatform?: string | null;
+  source_channel?: string | null;
+  wechat_openid?: string | null;
+  wechat_unionid?: string | null;
+  external_session_id?: string | null;
+  source_page?: string | null;
+  source_goods_id?: string | null;
+  source_platform?: string | null;
+}
 
 export interface SupportTicket {
   id: string;
@@ -149,6 +171,23 @@ export interface SupportTicket {
   description: string;
   conversationSnapshot?: Array<Record<string, unknown>> | null;
   conversationId?: string | null;
+  customerUserId?: string | null;
+  relatedOrderId?: string | null;
+  sourcePageUrl?: string | null;
+  sourceChannel?: string | null;
+  sourceGoodsId?: string | null;
+  sourcePlatform?: string | null;
+  wechatOpenid?: string | null;
+  wechatUnionid?: string | null;
+  externalSessionId?: string | null;
+  sourcePage?: string | null;
+  customer_user_id?: string | null;
+  related_order_id?: string | null;
+  source_page_url?: string | null;
+  source_channel?: string | null;
+  source_goods_id?: string | null;
+  source_platform?: string | null;
+  resolution?: string | null;
   status: SupportTicketStatus;
   handlingStatus?: ManualHandlingStatus | null;
   adminNote?: string | null;
@@ -173,6 +212,7 @@ export interface SupportTicketListResponse {
 export interface SupportTicketContextResponse {
   ticket: SupportTicket;
   orders: SupportOrderLookupResponse;
+  conversation?: SupportConversationSourceContext | null;
 }
 
 export interface HermesDraft {
@@ -953,6 +993,39 @@ export interface SupportTicketLifecycleResponse {
   };
   auditRecorded: boolean;
   auditLookupPath: string;
+}
+
+export interface AdminSupportHermesHealth {
+  status: "online" | "offline" | "degraded" | "unconfigured" | string;
+  message?: string | null;
+  checkedAt?: string | null;
+  agentId?: string | null;
+  lastSeenAt?: string | null;
+  lastError?: string | null;
+  tunnelStatus?: string | null;
+  version?: string | null;
+  model?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface AdminSupport53KfFallbackStatus {
+  fallbackStatus?: "recommended" | "enabled" | "unconfigured" | string;
+  status?: "recommended" | "enabled" | "unconfigured" | string;
+  enabled?: boolean | null;
+  recommended?: boolean | null;
+  message?: string | null;
+  safety?: Record<string, unknown>;
+}
+
+export interface AdminSupportWorkbenchStatus {
+  m4Hermes?: AdminSupportHermesHealth | null;
+  hermes?: AdminSupportHermesHealth | null;
+  kf53?: AdminSupport53KfFallbackStatus | null;
+  partialErrors?: {
+    hermes?: string;
+    kf53?: string;
+  };
+  safety?: Record<string, unknown>;
 }
 
 export interface AdminPlatformHealthHistoryItem {
@@ -1763,6 +1836,18 @@ class ApiClient {
   async listHermesDraftsForTicket(ticketId: string) {
     return this.request<HermesDraft[]>(
       `/support/admin/tickets/${ticketId}/hermes/drafts`,
+    );
+  }
+
+  async getAdminSupportHermesHealth() {
+    return this.request<AdminSupportHermesHealth>(
+      "/support/admin/hermes/health",
+    );
+  }
+
+  async getAdminSupport53KfFallback() {
+    return this.request<AdminSupport53KfFallbackStatus>(
+      "/support/admin/support/fallback/53kf",
     );
   }
 

@@ -103,7 +103,7 @@ const menuItems = [
   {
     key: "/admin/support",
     icon: <InboxOutlined />,
-    label: "客服台账",
+    label: "客服工作台",
     href: "/admin/support",
   },
   {

@@ -35,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   api,
+  type AdminSupportWorkbenchStatus,
   type HermesDraft,
   type ManualHandlingStatus,
   type SupportTicket,
@@ -42,17 +43,56 @@ import {
 } from "@/lib/api";
 
 const supportTicketStatusLabel: Record<string, string> = {
-  open: "待处理",
+  open: "待接待",
   in_progress: "处理中",
-  resolved: "已解决",
+  resolved: "已关闭",
   closed: "已关闭",
 };
 
 const manualHandlingLabels: Record<ManualHandlingStatus, string> = {
-  unhandled: "未处理",
+  unhandled: "待人工",
   in_progress: "处理中",
-  resolved: "已解决",
+  resolved: "已关闭",
 };
+
+type SupportQueueKey =
+  | "waiting_reception"
+  | "ai_replied"
+  | "waiting_human"
+  | "processing"
+  | "closed";
+
+const supportQueueConfigs: Array<{
+  key: SupportQueueKey;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: "waiting_reception",
+    label: "待接待",
+    description: "新进咨询，等待客服接手",
+  },
+  {
+    key: "ai_replied",
+    label: "AI已回复",
+    description: "已有 AI 草稿或回复痕迹，需人工复核",
+  },
+  {
+    key: "waiting_human",
+    label: "待人工",
+    description: "需要人工确认的咨询",
+  },
+  {
+    key: "processing",
+    label: "处理中",
+    description: "客服已接手处理",
+  },
+  {
+    key: "closed",
+    label: "已关闭",
+    description: "已完成或关闭",
+  },
+];
 
 function supportHandlingStatus(ticket: SupportTicket): ManualHandlingStatus {
   if (ticket.handlingStatus) return ticket.handlingStatus;
@@ -62,14 +102,19 @@ function supportHandlingStatus(ticket: SupportTicket): ManualHandlingStatus {
 }
 
 const supportTicketCategoryLabel: Record<string, string> = {
-  order: "订单问题",
-  shipping: "物流问题",
-  refund: "退款问题",
-  change_address: "改地址",
-  cancel_order: "取消订单",
-  compensation: "赔付问题",
-  complaint: "投诉建议",
-  general: "一般咨询",
+  product: "商品咨询",
+  order: "订单咨询",
+  shipping: "物流咨询",
+  refund: "押金/退款",
+  deposit_refund: "押金/退款",
+  change_address: "订单咨询",
+  cancel_order: "订单咨询",
+  compensation: "售后/投诉",
+  proxy_bid: "代拍咨询",
+  after_sales: "售后/投诉",
+  complaint: "售后/投诉",
+  general: "其他",
+  other: "其他",
 };
 
 const hermesDraftStatusLabel: Record<string, string> = {
@@ -153,6 +198,130 @@ function adminHref(path?: string | null) {
   return path.startsWith("/zh/") ? path : `/zh${path}`;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function displayField(value: unknown, fallback = "未记录") {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
+  return fallback;
+}
+
+const backendFieldAliases: Record<string, readonly string[]> = {
+  customer_user_id: ["customerUserId", "customer_user_id"],
+  related_order_id: ["relatedOrderId", "related_order_id"],
+  source_page_url: ["sourcePageUrl", "source_page_url"],
+  source_channel: ["sourceChannel", "source_channel"],
+  source_goods_id: ["sourceGoodsId", "source_goods_id"],
+  source_platform: ["sourcePlatform", "source_platform"],
+  wechat_openid: ["wechatOpenid", "wechat_openid"],
+  wechat_unionid: ["wechatUnionid", "wechat_unionid"],
+  external_session_id: ["externalSessionId", "external_session_id"],
+  source_page: ["sourcePage", "source_page"],
+};
+
+function pickReturnedField(
+  key: string,
+  ...sources: Array<Record<string, unknown> | null | undefined>
+) {
+  const keys = backendFieldAliases[key] ?? [key];
+  for (const candidateKey of keys) {
+    for (const source of sources) {
+      if (
+        source &&
+        source[candidateKey] !== undefined &&
+        source[candidateKey] !== null
+      ) {
+        return source[candidateKey];
+      }
+    }
+  }
+  return undefined;
+}
+
+function conversationSourceRecord(
+  context: SupportTicketContextResponse | null,
+  ticket: SupportTicket | null,
+) {
+  const contextRecord = asRecord(context);
+  const contextTicketRecord = asRecord(context?.ticket);
+  const selectedTicketRecord = asRecord(ticket);
+  const conversationRecord = asRecord(contextRecord?.conversation);
+  const snapshotRecord = asRecord(ticket?.conversationSnapshot?.[0]);
+  return {
+    conversationRecord,
+    contextTicketRecord,
+    selectedTicketRecord,
+    snapshotRecord,
+  };
+}
+
+function hasAiReplyTrace(ticket: SupportTicket) {
+  if (ticket.resolution) return true;
+  return (ticket.conversationSnapshot || []).some((item) => {
+    const record = asRecord(item);
+    return (
+      record?.role === "assistant" ||
+      record?.sender === "ai" ||
+      record?.source === "hermes"
+    );
+  });
+}
+
+function supportQueueKey(ticket: SupportTicket): SupportQueueKey {
+  const handlingStatus = supportHandlingStatus(ticket);
+  if (ticket.status === "closed" || ticket.status === "resolved") {
+    return "closed";
+  }
+  if (handlingStatus === "in_progress" || ticket.status === "in_progress") {
+    return "processing";
+  }
+  if (hasAiReplyTrace(ticket)) return "ai_replied";
+  if (handlingStatus === "unhandled" && ticket.assignedAdminId) {
+    return "waiting_human";
+  }
+  return "waiting_reception";
+}
+
+function queueApiFilters(queue: SupportQueueKey): {
+  status?: SupportTicket["status"];
+  handlingStatus?: ManualHandlingStatus;
+} {
+  if (queue === "waiting_reception") return { handlingStatus: "unhandled" };
+  if (queue === "processing") return { handlingStatus: "in_progress" };
+  if (queue === "closed") return { status: "closed" };
+  return {};
+}
+
+function healthTone(status?: string | null) {
+  if (status === "online" || status === "enabled") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+  if (status === "degraded" || status === "recommended") {
+    return "border-amber-200 bg-amber-50 text-amber-900";
+  }
+  return "border-muted bg-muted text-muted-foreground";
+}
+
+function hermesStatusLabel(status?: string | null) {
+  if (status === "online") return "在线";
+  if (status === "offline") return "离线";
+  if (status === "degraded") return "降级";
+  if (status === "unconfigured") return "未配置";
+  return status || "未配置";
+}
+
+function kf53StatusLabel(status?: string | null, enabled?: boolean | null) {
+  if (enabled === true || status === "enabled") return "已启用";
+  if (status === "recommended") return "推荐启用";
+  if (status === "unconfigured") return "未配置";
+  return status || "推荐启用";
+}
+
 function getDraftEvidence(draft: HermesDraft | null) {
   const metadata = draft?.metadata;
   if (!metadata) return [];
@@ -205,9 +374,8 @@ export default function AdminSupportPage() {
   const [supportScopeEvidence, setSupportScopeEvidence] = useState<string[]>(
     [],
   );
-  const [supportHandlingFilter, setSupportHandlingFilter] = useState<
-    "all" | ManualHandlingStatus
-  >("all");
+  const [supportQueueFilter, setSupportQueueFilter] =
+    useState<SupportQueueKey>("waiting_reception");
   const [supportAssigneeFilter, setSupportAssigneeFilter] = useState("");
   const [supportOverdueOnly, setSupportOverdueOnly] = useState(false);
   const [selectedSupportTicketIds, setSelectedSupportTicketIds] = useState<
@@ -236,13 +404,17 @@ export default function AdminSupportPage() {
   const [assignedAdminId, setAssignedAdminId] = useState("");
   const [slaDueAt, setSlaDueAt] = useState("");
   const [lifecycleLoading, setLifecycleLoading] = useState(false);
+  const [workbenchStatus, setWorkbenchStatus] =
+    useState<AdminSupportWorkbenchStatus | null>(null);
+  const [workbenchStatusMessage, setWorkbenchStatusMessage] =
+    useState("状态未读取");
   const selectedTicketIdRef = useRef("");
   const reviewRequestSeq = useRef(0);
 
-  const openTicketCount = useMemo(
+  const waitingReceptionCount = useMemo(
     () =>
       supportTickets.filter(
-        (ticket) => ticket.status === "open" || ticket.status === "in_progress",
+        (ticket) => supportQueueKey(ticket) === "waiting_reception",
       ).length,
     [supportTickets],
   );
@@ -253,8 +425,9 @@ export default function AdminSupportPage() {
   const filteredSupportTickets = useMemo(() => {
     const normalized = ticketKeyword.trim().toLowerCase();
     if (!normalized) return supportTickets;
-    return supportTickets.filter((ticket) =>
-      [
+    return supportTickets.filter((ticket) => {
+      const source = conversationSourceRecord(null, ticket);
+      return [
         ticket.ticketNumber,
         ticket.site,
         ticket.language,
@@ -264,11 +437,34 @@ export default function AdminSupportPage() {
         ticket.status,
         ticket.subject,
         ticket.description,
+        pickReturnedField(
+          "source_channel",
+          source.selectedTicketRecord,
+          source.snapshotRecord,
+        ),
+        pickReturnedField(
+          "source_goods_id",
+          source.selectedTicketRecord,
+          source.snapshotRecord,
+        ),
+        pickReturnedField(
+          "source_platform",
+          source.selectedTicketRecord,
+          source.snapshotRecord,
+        ),
       ]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(normalized)),
-    );
+        .some((value) => String(value).toLowerCase().includes(normalized));
+    });
   }, [supportTickets, ticketKeyword]);
+
+  const queueFilteredSupportTickets = useMemo(
+    () =>
+      filteredSupportTickets.filter(
+        (ticket) => supportQueueKey(ticket) === supportQueueFilter,
+      ),
+    [filteredSupportTickets, supportQueueFilter],
+  );
 
   const selectedTicket = useMemo(
     () =>
@@ -311,10 +507,11 @@ export default function AdminSupportPage() {
   const loadSupportTickets = useCallback(async () => {
     setSupportLoading(true);
     setSupportError("");
+    const filters = queueApiFilters(supportQueueFilter);
     const response = await api.listSupportTickets({
       site: "kangaroo-japan",
-      handlingStatus:
-        supportHandlingFilter === "all" ? undefined : supportHandlingFilter,
+      status: filters.status,
+      handlingStatus: filters.handlingStatus,
       assignedAdminId: supportAssigneeFilter.trim() || undefined,
       overdueOnly: supportOverdueOnly,
       limit: 20,
@@ -347,14 +544,17 @@ export default function AdminSupportPage() {
         ? [`站点：${response.data.scope.site}`]
         : []),
     ]);
-    if (!rows.some((ticket) => ticket.id === selectedTicketIdRef.current)) {
-      selectSupportTicket(rows[0]?.id || "");
+    const visibleRows = rows.filter(
+      (ticket) => supportQueueKey(ticket) === supportQueueFilter,
+    );
+    if (!visibleRows.some((ticket) => ticket.id === selectedTicketIdRef.current)) {
+      selectSupportTicket(visibleRows[0]?.id || rows[0]?.id || "");
     }
   }, [
     selectSupportTicket,
     supportAssigneeFilter,
-    supportHandlingFilter,
     supportOverdueOnly,
+    supportQueueFilter,
   ]);
 
   const loadTicketReviewData = useCallback(async (ticketId: string) => {
@@ -405,6 +605,54 @@ export default function AdminSupportPage() {
   }, [loadSupportTickets]);
 
   useEffect(() => {
+    let cancelled = false;
+    async function loadWorkbenchStatus() {
+      const [hermesResponse, kf53Response] = await Promise.all([
+        api.getAdminSupportHermesHealth(),
+        api.getAdminSupport53KfFallback(),
+      ]);
+      if (cancelled) return;
+
+      const partialErrors: AdminSupportWorkbenchStatus["partialErrors"] = {};
+      if (!hermesResponse.success) {
+        partialErrors.hermes =
+          hermesResponse.error?.message || "Hermes 健康状态读取失败";
+      }
+      if (!kf53Response.success) {
+        partialErrors.kf53 =
+          kf53Response.error?.message || "53KF 兜底状态读取失败";
+      }
+
+      setWorkbenchStatus({
+        m4Hermes: hermesResponse.success ? hermesResponse.data || null : null,
+        hermes: hermesResponse.success ? hermesResponse.data || null : null,
+        kf53: kf53Response.success ? kf53Response.data || null : null,
+        partialErrors:
+          partialErrors.hermes || partialErrors.kf53
+            ? partialErrors
+            : undefined,
+        safety: kf53Response.success ? kf53Response.data?.safety : undefined,
+      });
+
+      if (partialErrors.hermes && partialErrors.kf53) {
+        setWorkbenchStatusMessage(
+          "状态接口未返回，按未配置/推荐兜底展示",
+        );
+        return;
+      }
+      if (partialErrors.hermes || partialErrors.kf53) {
+        setWorkbenchStatusMessage("部分状态读取失败，已保留可用状态并降级展示");
+        return;
+      }
+      setWorkbenchStatusMessage("状态来自后台 admin 支持接口");
+    }
+    void loadWorkbenchStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (selectedTicketId) {
       const timer = window.setTimeout(() => {
         void loadTicketReviewData(selectedTicketId);
@@ -439,7 +687,7 @@ export default function AdminSupportPage() {
     setLifecycleLoading(true);
     setDraftMessage("");
     const response = await api.updateSupportTicketLifecycle(selectedTicketId, {
-      status: lifecycleStatus as typeof selectedTicket.status,
+      status: (lifecycleStatus || selectedTicket.status) as typeof selectedTicket.status,
       adminNote: lifecycleNote.trim() || null,
       assignedAdminId: assignedAdminId.trim() || null,
       slaDueAt: slaDueAt ? new Date(slaDueAt).toISOString() : null,
@@ -464,10 +712,41 @@ export default function AdminSupportPage() {
     await loadTicketReviewData(selectedTicketId);
   }
 
+  async function handleQuickLifecycle(
+    status: SupportTicket["status"],
+    note: string,
+  ) {
+    setLifecycleStatus(status);
+    setLifecycleNote((current) => current || note);
+    if (!selectedTicketId) return;
+    setLifecycleLoading(true);
+    setDraftMessage("");
+    const response = await api.updateSupportTicketLifecycle(selectedTicketId, {
+      status,
+      adminNote: lifecycleNote.trim() || note,
+      assignedAdminId: assignedAdminId.trim() || null,
+      slaDueAt: slaDueAt ? new Date(slaDueAt).toISOString() : null,
+    });
+    setLifecycleLoading(false);
+    if (!response.success || !response.data) {
+      setDraftMessage(response.error?.message || "咨询状态更新失败。");
+      return;
+    }
+    setDraftMessage(
+      `咨询状态已更新：${supportTicketStatusLabel[response.data.lifecycle.currentStatus] || response.data.lifecycle.currentStatus}；未发送客户消息。`,
+    );
+    setSupportTickets((current) =>
+      current.map((ticket) =>
+        ticket.id === selectedTicketId ? response.data!.ticket : ticket,
+      ),
+    );
+    await loadTicketReviewData(selectedTicketId);
+  }
+
   async function handleBulkClaimTickets() {
     const targetIds = selectedSupportTicketIds.length
       ? selectedSupportTicketIds
-      : filteredSupportTickets.map((ticket) => ticket.id);
+      : queueFilteredSupportTickets.map((ticket) => ticket.id);
     if (targetIds.length === 0) return;
     setSupportBatchLoading(true);
     setDraftMessage("");
@@ -599,34 +878,101 @@ export default function AdminSupportPage() {
     window.setTimeout(() => setCopiedJobId(""), 1600);
   }
 
+  const hermesHealth =
+    workbenchStatus?.m4Hermes || workbenchStatus?.hermes || null;
+  const hermesHealthStatus = hermesHealth?.status || "unconfigured";
+  const kf53Fallback = workbenchStatus?.kf53 || null;
+  const kf53FallbackStatus =
+    kf53Fallback?.fallbackStatus ||
+    kf53Fallback?.status ||
+    (kf53Fallback?.enabled ? "enabled" : "recommended");
+  const selectedContextTicket = ticketContext?.ticket || selectedTicket;
+  const sourceRecords = conversationSourceRecord(
+    ticketContext,
+    selectedContextTicket,
+  );
+  const selectedTicketRecord = asRecord(selectedContextTicket);
+  const conversationFields = [
+    ["source_channel", "来源渠道"],
+    ["wechat_openid", "微信 openid"],
+    ["wechat_unionid", "微信 unionid"],
+    ["external_session_id", "外部会话 ID"],
+    ["source_page", "来源页面"],
+    ["source_goods_id", "来源商品 ID"],
+    ["source_platform", "来源平台"],
+  ].map(([key, label]) => ({
+    key,
+    label,
+    value: displayField(
+      pickReturnedField(
+        key,
+        sourceRecords.conversationRecord,
+        sourceRecords.contextTicketRecord,
+        sourceRecords.selectedTicketRecord,
+        sourceRecords.snapshotRecord,
+      ),
+    ),
+  }));
+  const ticketFields = [
+    ["customer_user_id", "客户用户 ID", "无"],
+    ["related_order_id", "关联订单 ID", "无"],
+    ["source_page_url", "来源页面 URL", "未记录"],
+    ["source_channel", "工单来源渠道", "未记录"],
+    ["source_goods_id", "工单商品 ID", "无"],
+    ["source_platform", "工单平台", "未记录"],
+    ["resolution", "处理结论", "无"],
+  ].map(([key, label, fallback]) => ({
+    key,
+    label,
+    value: displayField(
+      pickReturnedField(key, selectedTicketRecord, sourceRecords.snapshotRecord),
+      fallback,
+    ),
+  }));
+
   return (
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <ClipboardList className="h-4 w-4" />
-          客服工作台 · 低风险 MVP
+          袋鼠君小程序后台
         </div>
-        <h1 className="mt-2 text-2xl font-semibold">客服工单台账</h1>
+        <h1 className="mt-2 text-2xl font-semibold">客服工作台</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          工单列表来自后台 admin 支持接口；订单上下文只展示所选工单 API
-          返回的当前账号允许范围，不提供按邮箱、手机或物流号任意拉取客户资料的入口。
+          保留现代 support 模块，只把后台语义升级为小程序客服工作台。订单上下文只展示所选咨询 API
+          返回的当前账号允许范围，不提供任意拉取客户资料的入口。
         </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs">
+        <span className="font-medium text-muted-foreground">服务状态</span>
+        <span
+          className={`rounded-full border px-2.5 py-1 ${healthTone(hermesHealthStatus)}`}
+        >
+          M4 Hermes：{hermesStatusLabel(hermesHealthStatus)}
+        </span>
+        <span
+          className={`rounded-full border px-2.5 py-1 ${healthTone(kf53FallbackStatus)}`}
+        >
+          53KF 兜底：{kf53StatusLabel(kf53FallbackStatus, kf53Fallback?.enabled)}
+        </span>
+        <span className="text-muted-foreground">{workbenchStatusMessage}</span>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>真实工单</CardTitle>
+            <CardTitle>待接待咨询</CardTitle>
             <CardDescription>
-              来自后台 admin 工单接口，只统计当前管理员可读取范围。
+              来自后台 admin 支持接口，只统计当前管理员可读取范围。
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">
-              {supportLoading ? "..." : supportTotal}
+              {supportLoading ? "..." : waitingReceptionCount}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              待处理 {openTicketCount} 个
+              当前页待接待 {waitingReceptionCount} 个
               {latestTicket
                 ? `，最近更新 ${compactDate(latestTicket.updatedAt)}`
                 : ""}
@@ -635,7 +981,7 @@ export default function AdminSupportPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>客服红线</CardTitle>
+            <CardTitle>人工确认边界</CardTitle>
             <CardDescription>避免隐私和资金风险。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
@@ -648,32 +994,37 @@ export default function AdminSupportPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>台账模板</CardTitle>
+            <CardTitle>客服动作</CardTitle>
             <CardDescription>下载后可用 Excel / 飞书表格维护。</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button type="button" onClick={downloadCsvTemplate}>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={downloadCsvTemplate}>
               <Download className="h-4 w-4" />
-              下载 CSV 模板
+              导出台账模板
             </Button>
+            <Badge variant="outline">接手</Badge>
+            <Badge variant="outline">生成回复</Badge>
+            <Badge variant="outline">确认发送</Badge>
+            <Badge variant="outline">转人工</Badge>
+            <Badge variant="outline">关闭咨询</Badge>
+            <Badge variant="outline">加入知识库</Badge>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader className="gap-3 lg:flex lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Bot className="h-4 w-4" />
-              Hermes 客服草稿 · 人工审阅
+            <div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Bot className="h-4 w-4" />
+                Hermes 客服分身 · 人工审阅
+              </div>
+              <CardTitle className="mt-2">咨询处理台</CardTitle>
+              <CardDescription>
+                前端只生成回复草稿、展示审阅和驳回；确认发送必须由客服人工勾选并二次确认。
+                Hermes 只能使用所选咨询订单上下文和知识库，无法覆盖的问题必须转人工处理。
+              </CardDescription>
             </div>
-            <CardTitle className="mt-2">草稿审阅队列</CardTitle>
-            <CardDescription>
-              前端只创建草稿、展示审阅和驳回；发送必须由客服人工勾选确认。
-              Hermes
-              只能使用所选工单订单上下文和知识库，无法覆盖的问题必须拒答或交给人工处理。
-            </CardDescription>
-          </div>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -718,13 +1069,42 @@ export default function AdminSupportPage() {
           <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
             <div className="rounded-lg border">
               <div className="flex items-center justify-between border-b px-4 py-3">
-                <div className="font-medium">真实工单</div>
-                <Badge variant="secondary">{supportTotal}</Badge>
+                <div className="font-medium">咨询队列</div>
+                <Badge variant="secondary">
+                  {queueFilteredSupportTickets.length}/{supportTotal}
+                </Badge>
+              </div>
+              <div className="grid gap-2 border-b p-3">
+                {supportQueueConfigs.map((queue) => {
+                  const count = supportTickets.filter(
+                    (ticket) => supportQueueKey(ticket) === queue.key,
+                  ).length;
+                  return (
+                    <button
+                      key={queue.key}
+                      type="button"
+                      onClick={() => setSupportQueueFilter(queue.key)}
+                      className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                        supportQueueFilter === queue.key
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "hover:bg-muted"
+                      }`}
+                    >
+                      <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                        {queue.label}
+                        <span>{count}</span>
+                      </span>
+                      <span className="mt-1 block text-xs opacity-80">
+                        {queue.description}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
               <div className="border-b px-4 py-3 text-xs text-muted-foreground">
                 <div>
-                  后端筛选：site=kangaroo-japan，handling/owner/SLA 由 admin API
-                  执行。
+                  后端筛选：site=kangaroo-japan，队列可用字段由 admin API
+                  执行；AI已回复/待人工在返回数据上降级筛选。
                 </div>
                 {supportScopeEvidence.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -748,12 +1128,12 @@ export default function AdminSupportPage() {
                     正在读取工单
                   </div>
                 ) : null}
-                {!supportLoading && supportTickets.length === 0 ? (
+                {!supportLoading && queueFilteredSupportTickets.length === 0 ? (
                   <div className="p-4 text-sm text-muted-foreground">
-                    暂无可审阅工单。
+                    当前队列暂无咨询。
                   </div>
                 ) : null}
-                {supportTickets.map((ticket) => (
+                {queueFilteredSupportTickets.map((ticket) => (
                   <button
                     type="button"
                     key={ticket.id}
@@ -830,6 +1210,40 @@ export default function AdminSupportPage() {
                         <div>站点：{selectedTicket.site}</div>
                         <div>
                           更新时间：{compactDate(selectedTicket.updatedAt)}
+                        </div>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-lg border p-3">
+                          <div className="font-medium">会话来源</div>
+                          <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                            {conversationFields.map((field) => (
+                              <div
+                                key={field.key}
+                                className="flex justify-between gap-3"
+                              >
+                                <span>{field.label}</span>
+                                <span className="max-w-[220px] truncate text-foreground">
+                                  {field.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="rounded-lg border p-3">
+                          <div className="font-medium">咨询关联</div>
+                          <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                            {ticketFields.map((field) => (
+                              <div
+                                key={field.key}
+                                className="flex justify-between gap-3"
+                              >
+                                <span>{field.label}</span>
+                                <span className="max-w-[220px] truncate text-foreground">
+                                  {field.value}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                       <div className="rounded-lg bg-muted p-3 text-muted-foreground">
@@ -931,15 +1345,62 @@ export default function AdminSupportPage() {
                       <div className="rounded-lg border p-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <div className="font-medium">Ticket lifecycle</div>
+                            <div className="font-medium">咨询处理动作</div>
                             <div className="mt-1 text-xs text-muted-foreground">
-                              Saves admin handling state, writes audit log, and
-                              sends no customer message.
+                              保存后台处理状态、写审计日志，不发送客户消息。
                             </div>
                           </div>
                           <Badge variant="outline">
-                            {selectedTicket.status}
+                            {supportTicketStatusLabel[selectedTicket.status] ||
+                              selectedTicket.status}
                           </Badge>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              void handleQuickLifecycle(
+                                "in_progress",
+                                "客服已接手咨询。",
+                              )
+                            }
+                            disabled={lifecycleLoading}
+                          >
+                            接手
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              void handleQuickLifecycle(
+                                "in_progress",
+                                "已转人工客服继续处理。",
+                              )
+                            }
+                            disabled={lifecycleLoading}
+                          >
+                            转人工
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              void handleQuickLifecycle(
+                                "closed",
+                                "咨询已关闭。",
+                              )
+                            }
+                            disabled={lifecycleLoading}
+                          >
+                            关闭咨询
+                          </Button>
+                          <Button type="button" size="sm" variant="outline" disabled>
+                            加入知识库
+                          </Button>
                         </div>
                         <div className="mt-3 grid gap-2 md:grid-cols-[180px_1fr_180px_220px_auto]">
                           <select
@@ -950,17 +1411,17 @@ export default function AdminSupportPage() {
                             }
                             aria-label="support ticket lifecycle status"
                           >
-                            <option value="open">open</option>
-                            <option value="in_progress">in_progress</option>
-                            <option value="resolved">resolved</option>
-                            <option value="closed">closed</option>
+                            <option value="open">待接待</option>
+                            <option value="in_progress">处理中</option>
+                            <option value="resolved">已关闭</option>
+                            <option value="closed">已关闭</option>
                           </select>
                           <Input
                             value={lifecycleNote}
                             onChange={(event) =>
                               setLifecycleNote(event.target.value)
                             }
-                            placeholder="Internal handling note"
+                            placeholder="内部处理备注"
                             aria-label="support ticket internal handling note"
                           />
                           <Input
@@ -968,7 +1429,7 @@ export default function AdminSupportPage() {
                             onChange={(event) =>
                               setAssignedAdminId(event.target.value)
                             }
-                            placeholder="Assigned admin id"
+                            placeholder="客服 admin id"
                             aria-label="support ticket assigned admin"
                           />
                           <Input
@@ -988,14 +1449,14 @@ export default function AdminSupportPage() {
                             {lifecycleLoading ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : null}
-                            Save
+                            保存状态
                           </Button>
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="mt-4 text-sm text-muted-foreground">
-                      左侧选择一个工单后生成客服草稿。
+                      左侧选择一个咨询后生成客服回复。
                     </div>
                   )}
                 </div>
@@ -1027,7 +1488,7 @@ export default function AdminSupportPage() {
                       ) : (
                         <Bot className="h-4 w-4" />
                       )}
-                      生成 Hermes 草稿
+                      生成回复
                     </Button>
                   </div>
                 </div>
@@ -1078,7 +1539,7 @@ export default function AdminSupportPage() {
                 <div className="space-y-4 p-4">
                   {!selectedDraft ? (
                     <div className="text-sm text-muted-foreground">
-                      还没有草稿。选择工单后点击“生成 Hermes 草稿”。
+                      还没有草稿。选择咨询后点击“生成回复”。
                     </div>
                   ) : null}
                   {selectedDraft?.status === "PENDING" ? (
@@ -1139,6 +1600,9 @@ export default function AdminSupportPage() {
                         ? "已复制"
                         : "复制草稿"}
                     </Button>
+                    <Button type="button" variant="outline" disabled>
+                      加入知识库
+                    </Button>
                   </div>
 
                   {selectedDraft?.status === "READY" ? (
@@ -1167,7 +1631,7 @@ export default function AdminSupportPage() {
                         ) : (
                           <MessageSquare className="h-4 w-4" />
                         )}
-                        审阅通过并发送
+                        确认发送
                       </Button>
                       <Input
                         value={dismissReason}
@@ -1201,10 +1665,9 @@ export default function AdminSupportPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>tawk.to 预聊天表单字段建议</CardTitle>
+          <CardTitle>53KF 兜底客服字段建议</CardTitle>
           <CardDescription>
-            预聊天表单需要在 tawk.to
-            后台开启；站点代码只传低敏上下文，不传订单详情。
+            53KF 作为人工客服兜底渠道时，只传低敏来源上下文，不传订单详情。
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 text-sm md:grid-cols-2">
@@ -1216,7 +1679,7 @@ export default function AdminSupportPage() {
             <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
               <li>姓名或称呼</li>
               <li>邮箱</li>
-              <li>问题类型：商品、订单、物流、退款、投诉建议</li>
+              <li>问题类型：商品咨询、订单咨询、物流咨询、押金/退款、代拍咨询、售后/投诉、其他</li>
               <li>问题描述</li>
               <li>订单号后几位或用户主动提供的订单号</li>
             </ul>
@@ -1239,49 +1702,37 @@ export default function AdminSupportPage() {
       <Card>
         <CardHeader className="gap-3 md:flex md:flex-row md:items-center md:justify-between">
           <div>
-            <CardTitle>真实工单台账</CardTitle>
+            <CardTitle>咨询台账</CardTitle>
             <CardDescription>
-              从后台工单接口读取；只展示脱敏字段，不展示支付号、完整地址或内部敏感备注。
+              从后台支持接口读取；只展示脱敏字段和 API 返回的来源字段，不展示支付号、完整地址或内部敏感备注。
             </CardDescription>
           </div>
           <Input
             className="max-w-xs"
             value={ticketKeyword}
             onChange={(event) => setTicketKeyword(event.target.value)}
-            placeholder="搜索工单、邮箱、分类"
-            aria-label="搜索真实工单"
+            placeholder="搜索咨询、邮箱、分类、来源"
+            aria-label="搜索咨询"
           />
         </CardHeader>
         <CardContent>
           <div className="mb-3 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={supportHandlingFilter === "all" ? "default" : "outline"}
-              onClick={() => setSupportHandlingFilter("all")}
-            >
-              全部
-            </Button>
-            {(["unhandled", "in_progress", "resolved"] as const).map(
-              (status) => (
-                <Button
-                  key={status}
-                  type="button"
-                  size="sm"
-                  variant={
-                    supportHandlingFilter === status ? "default" : "outline"
-                  }
-                  onClick={() => setSupportHandlingFilter(status)}
-                >
-                  {manualHandlingLabels[status]}
-                </Button>
-              ),
-            )}
+            {supportQueueConfigs.map((queue) => (
+              <Button
+                key={queue.key}
+                type="button"
+                size="sm"
+                variant={supportQueueFilter === queue.key ? "default" : "outline"}
+                onClick={() => setSupportQueueFilter(queue.key)}
+              >
+                {queue.label}
+              </Button>
+            ))}
             <Input
               className="h-8 max-w-[180px]"
               value={supportAssigneeFilter}
               onChange={(event) => setSupportAssigneeFilter(event.target.value)}
-              placeholder="assignee id"
+              placeholder="客服 admin id"
               aria-label="support assignee filter"
             />
             <Button
@@ -1297,44 +1748,48 @@ export default function AdminSupportPage() {
               size="sm"
               variant="outline"
               disabled={
-                filteredSupportTickets.length === 0 || supportBatchLoading
+                queueFilteredSupportTickets.length === 0 || supportBatchLoading
               }
               onClick={() => void handleBulkClaimTickets()}
             >
-              批量接手 {selectedSupportTicketIds.length || "当前筛选"}
+              接手 {selectedSupportTicketIds.length || "当前队列"}
             </Button>
           </div>
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[1060px] text-left text-sm">
+            <table className="w-full min-w-[1240px] text-left text-sm">
               <thead className="bg-muted text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Select</th>
-                  <th className="px-3 py-2 font-medium">工单编号</th>
+                  <th className="px-3 py-2 font-medium">选择</th>
+                  <th className="px-3 py-2 font-medium">咨询编号</th>
                   <th className="px-3 py-2 font-medium">站点/语言</th>
+                  <th className="px-3 py-2 font-medium">来源</th>
                   <th className="px-3 py-2 font-medium">分类</th>
                   <th className="px-3 py-2 font-medium">状态</th>
                   <th className="px-3 py-2 font-medium">客户</th>
+                  <th className="px-3 py-2 font-medium">关联</th>
                   <th className="px-3 py-2 font-medium">主题</th>
                   <th className="px-3 py-2 font-medium">更新时间</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredSupportTickets.length === 0 ? (
+                {queueFilteredSupportTickets.length === 0 ? (
                   <tr className="border-t">
                     <td
                       className="px-3 py-6 text-center text-muted-foreground"
-                      colSpan={8}
+                      colSpan={10}
                     >
-                      暂无匹配工单
+                      暂无匹配咨询
                     </td>
                   </tr>
                 ) : null}
-                {filteredSupportTickets.map((ticket) => (
-                  <tr key={ticket.id} className="border-t">
+                {queueFilteredSupportTickets.map((ticket) => {
+                  const rowSource = conversationSourceRecord(null, ticket);
+                  return (
+                    <tr key={ticket.id} className="border-t">
                     <td className="px-3 py-2">
                       <input
                         type="checkbox"
-                        aria-label={`select ${ticket.ticketNumber}`}
+                        aria-label={`选择 ${ticket.ticketNumber}`}
                         checked={selectedSupportTicketIds.includes(ticket.id)}
                         onChange={(event) =>
                           setSelectedSupportTicketIds((current) =>
@@ -1361,6 +1816,26 @@ export default function AdminSupportPage() {
                     <td className="px-3 py-2 text-muted-foreground">
                       {ticket.site} / {ticket.language}
                     </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <div>
+                        {displayField(
+                          pickReturnedField(
+                            "source_channel",
+                            rowSource.selectedTicketRecord,
+                            rowSource.snapshotRecord,
+                          ),
+                        )}
+                      </div>
+                      <div>
+                        {displayField(
+                          pickReturnedField(
+                            "source_platform",
+                            rowSource.selectedTicketRecord,
+                            rowSource.snapshotRecord,
+                          ),
+                        )}
+                      </div>
+                    </td>
                     <td className="px-3 py-2">
                       {supportTicketCategoryLabel[ticket.category] ||
                         ticket.category}
@@ -1381,6 +1856,30 @@ export default function AdminSupportPage() {
                     <td className="px-3 py-2 text-muted-foreground">
                       {ticket.visitorEmail || ticket.visitorName || "-"}
                     </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <div>
+                        订单：
+                        {displayField(
+                          pickReturnedField(
+                            "related_order_id",
+                            rowSource.selectedTicketRecord,
+                            rowSource.snapshotRecord,
+                          ),
+                          "无",
+                        )}
+                      </div>
+                      <div>
+                        商品：
+                        {displayField(
+                          pickReturnedField(
+                            "source_goods_id",
+                            rowSource.selectedTicketRecord,
+                            rowSource.snapshotRecord,
+                          ),
+                          "无",
+                        )}
+                      </div>
+                    </td>
                     <td className="max-w-[340px] px-3 py-2">
                       {ticket.subject}
                     </td>
@@ -1388,7 +1887,8 @@ export default function AdminSupportPage() {
                       {compactDate(ticket.updatedAt)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
