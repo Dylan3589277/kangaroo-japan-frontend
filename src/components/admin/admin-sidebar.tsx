@@ -107,6 +107,12 @@ const menuItems = [
     href: "/admin/support",
   },
   {
+    key: "/admin/kefu",
+    icon: <InboxOutlined />,
+    label: "小程序客服",
+    href: "/admin/kefu",
+  },
+  {
     key: "/admin/audit",
     icon: <FileSearchOutlined />,
     label: "审计日志",
