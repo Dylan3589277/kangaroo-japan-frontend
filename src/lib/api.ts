@@ -119,6 +119,48 @@ export interface SupportOrderLookupResponse {
   };
 }
 
+export type SupportConversationStatus =
+  | "open"
+  | "pending_human"
+  | "human_active"
+  | "resolved"
+  | "closed"
+  | "error";
+
+export interface SupportConversationMessage {
+  id: string;
+  role: "visitor" | "bot" | "support";
+  content: string;
+  intent?: string;
+  createdAt: string;
+}
+
+export interface SupportConversation {
+  id: string;
+  visitorName?: string | null;
+  visitorEmail?: string | null;
+  site?: string | null;
+  language?: string | null;
+  status: SupportConversationStatus;
+  sourceChannel?: string | null;
+  externalSessionId?: string | null;
+  sourcePage?: string | null;
+  sourceGoodsId?: string | null;
+  sourcePlatform?: string | null;
+  assignedAdminId?: string | null;
+  handoffReason?: string | null;
+  lastMessageAt?: string | null;
+  closedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messages?: SupportConversationMessage[];
+}
+
+export interface SupportConversationListResponse {
+  data: SupportConversation[];
+  total: number;
+}
+
 export type SupportTicketStatus =
   | "open"
   | "in_progress"
@@ -1849,6 +1891,71 @@ class ApiClient {
     return this.request<AdminSupport53KfFallbackStatus>(
       "/support/admin/support/fallback/53kf",
     );
+  }
+
+  async listSupportConversations(params?: {
+    status?: SupportConversationStatus;
+    sourceChannel?: string;
+    assignedAdminId?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.sourceChannel)
+      searchParams.set("sourceChannel", params.sourceChannel);
+    if (params?.assignedAdminId)
+      searchParams.set("assignedAdminId", params.assignedAdminId);
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<SupportConversationListResponse>(
+      `/support/admin/conversations${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async getSupportConversation(id: string) {
+    return this.request<SupportConversation>(
+      `/support/admin/conversations/${id}`,
+    );
+  }
+
+  async claimSupportConversation(
+    id: string,
+    data?: { assignedAdminId?: string | null; adminNote?: string | null },
+  ) {
+    return this.request<{
+      conversation: SupportConversation;
+      auditRecorded: boolean;
+    }>(`/support/admin/conversations/${id}/claim`, {
+      method: "POST",
+      body: data || {},
+    });
+  }
+
+  async sendSupportConversationMessage(id: string, content: string) {
+    return this.request<{
+      message: SupportConversationMessage;
+      conversation: SupportConversation;
+      customerDelivery: {
+        mode: "polling";
+        customerVisible: boolean;
+        activePushSent: boolean;
+      };
+    }>(`/support/admin/conversations/${id}/messages`, {
+      method: "POST",
+      body: { content },
+    });
+  }
+
+  async closeSupportConversation(id: string, reason?: string | null) {
+    return this.request<{
+      conversation: SupportConversation;
+      auditRecorded: boolean;
+    }>(`/support/admin/conversations/${id}/close`, {
+      method: "POST",
+      body: { reason: reason || null },
+    });
   }
 
   async getAdminPlatformHealth() {
