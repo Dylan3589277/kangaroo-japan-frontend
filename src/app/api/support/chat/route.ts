@@ -147,6 +147,14 @@ const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
     text: "Supported platforms include Mercari, Yahoo Auction, Yahoo Shopping, Amazon, and Rakuten. Product availability, seller response, auction result, and platform restrictions are not guaranteed.",
   },
   {
+    id: "kb-storage-001",
+    text: "Japan warehouse storage: non-members get 30 days of free storage after arrival, members get 60 days; after the free period each package is charged 5 CNY per day. Items are not unboxed by default; an optional photo service costs 5 CNY for 3 photos. Free filler paper or free boxes are provided for packing; when no free box fits, paid boxes start at 350 JPY (140cm size). Do not promise fee waivers or free-period extensions; disputes about incurred storage fees go to human support.",
+  },
+  {
+    id: "kb-service-hours-001",
+    text: "Human customer service works 9:00-23:00 China time daily. Outside these hours users can leave a message or ask the AI assistant, and staff will reply as soon as they are back online.",
+  },
+  {
     id: "kb-human-transfer-001",
     text: "If the user asks for refund execution, cancellation, address modification, payment abnormality handling, complaint, dispute, exact delivery promise, or a specific order decision, return action=transfer_human.",
   },
