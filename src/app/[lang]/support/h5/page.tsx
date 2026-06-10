@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import {
   ExternalLink,
@@ -11,14 +11,18 @@ import {
 } from "lucide-react";
 
 type ChatItem = {
-  role: "assistant" | "user";
+  id?: string;
+  role: "assistant" | "user" | "support";
   content: string;
+  createdAt?: string;
 };
 
 type SupportParsedResponse = {
   text: string;
   transferHuman: boolean;
   reason?: string;
+  conversationId?: string;
+  queuedForHuman?: boolean;
 };
 
 type MiniProgramWindow = Window & {
@@ -38,14 +42,28 @@ const QUICK_QUESTIONS = [
   "我要转人工客服",
 ];
 
-const SUPPORTED_PLATFORMS = new Set(["mercari", "amazon", "yahoo"]);
-const HUMAN_TRANSFER_MESSAGE = "AI客服暂时不可用，请联系人工客服";
+const SUPPORTED_PLATFORMS = new Set(["mercari", "amazon", "yahoo", "rakuten"]);
+const HUMAN_TRANSFER_MESSAGE =
+  "袋鼠酱这边暂时有点忙，我先带你转人工客服继续处理～";
+const RESPONSE_TIME_NOTE =
+  "我会尽量快点回复；复杂问题可能需要十几秒整理，请稍等一下。";
 const MINI_PROGRAM_REAL_KEFU_PATH = "/pages/bundle/realkefu/realkefu";
+const KF53_CHAT_URL = process.env.NEXT_PUBLIC_KF53_CHAT_URL || "";
+
+const WELCOME_ITEM: ChatItem = {
+  role: "assistant",
+  content:
+    "嗨，我是袋鼠酱～你可以直接问我，也可以点下面的快捷问题。代拍流程、费用、国际运费这些我都能先帮你捋一捋；遇到需要人工确认的事，我会马上带你去找客服同事。",
+};
 
 function getRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 function parseSupportResponse(payload: unknown): SupportParsedResponse {
@@ -54,36 +72,54 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
   const action = data.action || root.action;
   const type = data.type || root.type;
   const fallback = data.fallback || root.fallback;
-  const reason = data.transfer_reason || data.reason || root.reason;
-
+  const reason =
+    data.transfer_reason || data.transferReason || data.reason || root.reason;
   const transferHuman =
     action === "transfer_human" ||
     type === "transfer_human" ||
     fallback === "53kf";
 
-  for (const key of ["reply", "answer", "message"]) {
-    const value = data[key] || root[key];
-    if (typeof value === "string" && value.trim()) {
-      return {
-        text: value,
-        transferHuman,
-        reason: typeof reason === "string" ? reason : undefined,
-      };
-    }
-  }
-
-  if (transferHuman) {
-    return {
-      text: HUMAN_TRANSFER_MESSAGE,
-      transferHuman: true,
-      reason: typeof reason === "string" ? reason : undefined,
-    };
-  }
+  const text =
+    getString(data.reply) ||
+    getString(data.answer) ||
+    getString(data.message) ||
+    getString(data.autoReply) ||
+    (transferHuman
+      ? HUMAN_TRANSFER_MESSAGE
+      : "这个问题袋鼠酱需要请人工客服一起确认，点一下就能转过去～");
 
   return {
-    text: "这个问题需要人工客服继续处理，请点击联系人工客服。",
-    transferHuman: true,
+    text,
+    transferHuman,
+    reason: getString(reason),
+    conversationId: getString(data.conversationId),
+    queuedForHuman: Boolean(data.queuedForHuman),
   };
+}
+
+function mapServerRole(role: unknown): ChatItem["role"] {
+  if (role === "visitor") return "user";
+  if (role === "support") return "support";
+  return "assistant";
+}
+
+function mapServerMessages(payload: unknown): ChatItem[] {
+  const root = getRecord(payload);
+  const data = getRecord(root.data);
+  const messages = Array.isArray(data.messages) ? data.messages : [];
+  return messages
+    .map((item) => {
+      const record = getRecord(item);
+      const content = getString(record.content);
+      if (!content) return null;
+      return {
+        id: getString(record.id),
+        role: mapServerRole(record.role),
+        content,
+        createdAt: getString(record.createdAt),
+      } satisfies ChatItem;
+    })
+    .filter(Boolean) as ChatItem[];
 }
 
 function isMiniProgramWebview() {
@@ -100,39 +136,75 @@ function navigateToMiniProgramHumanKefu() {
   return true;
 }
 
+function getKf53ChatUrl() {
+  const rawUrl = KF53_CHAT_URL.trim();
+  if (!rawUrl) return null;
+
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export default function MiniProgramSupportH5Page() {
   const params = useParams<{ lang?: string }>();
   const searchParams = useSearchParams();
   const lang = params?.lang || "zh";
   const initialSessionId = searchParams.get("session_id") || undefined;
+  const userId = searchParams.get("user_id") || undefined;
   const sourceGoodsId = searchParams.get("gid") || undefined;
   const rawShop = searchParams.get("shop") || "mercari";
   const sourcePlatform = SUPPORTED_PLATFORMS.has(rawShop) ? rawShop : "mercari";
   const initialTransferHuman =
     searchParams.get("type") === "transfer_human" ||
     searchParams.get("fallback") === "53kf";
-  const [conversationId, setConversationId] = useState<string | undefined>();
+  const [conversationId, setConversationId] = useState<string | undefined>(
+    searchParams.get("conversation_id") || undefined,
+  );
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pollingError, setPollingError] = useState("");
   const [humanTransferVisible, setHumanTransferVisible] =
     useState(initialTransferHuman);
   const [humanTransferNote, setHumanTransferNote] = useState(
-    initialTransferHuman
-      ? "AI客服暂时不可用，您可以直接转接人工客服。"
-      : "",
+    initialTransferHuman ? "袋鼠酱暂时接不上，我先帮你转人工客服～" : "",
   );
-  const [items, setItems] = useState<ChatItem[]>([
-    {
-      role: "assistant",
-      content:
-        "你好，我是袋鼠智能客服。你可以先点下面的常见问题；如果我答不上来，会提示你转人工客服。",
-    },
-  ]);
+  const [items, setItems] = useState<ChatItem[]>([WELCOME_ITEM]);
+  const kf53ChatUrl = getKf53ChatUrl();
 
   const externalSessionId = useMemo(
     () => initialSessionId || `mini-h5-${Date.now()}`,
     [initialSessionId],
   );
+
+  const loadConversationMessages = useCallback(async () => {
+    if (!conversationId) return;
+    try {
+      const response = await fetch(
+        `/api/support/conversations/${conversationId}/messages?limit=100`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) throw new Error("message polling failed");
+      const payload = await response.json().catch(() => null);
+      const serverItems = mapServerMessages(payload);
+      setItems([WELCOME_ITEM, ...serverItems]);
+      setPollingError("");
+    } catch {
+      setPollingError("消息同步暂时失败，请稍后重试或联系人工客服。");
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    void loadConversationMessages();
+    const timer = window.setInterval(() => {
+      void loadConversationMessages();
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [conversationId, loadConversationMessages]);
 
   async function sendMessage(message: string) {
     const content = message.trim();
@@ -140,7 +212,7 @@ export default function MiniProgramSupportH5Page() {
 
     if (content.includes("人工")) {
       setHumanTransferVisible(true);
-      setHumanTransferNote("正在为您准备人工客服入口。");
+      setHumanTransferNote("好呀，袋鼠酱这就帮你叫人工客服～");
     }
 
     setItems((current) => [...current, { role: "user", content }]);
@@ -148,47 +220,57 @@ export default function MiniProgramSupportH5Page() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/support/chat", {
+      const endpoint = conversationId
+        ? `/api/support/conversations/${conversationId}/messages`
+        : "/api/support/chat";
+      const body = conversationId
+        ? { content }
+        : {
+            message: content,
+            conversationId,
+            site: "kangaroo-japan",
+            language: lang === "ja" ? "ja" : lang === "en" ? "en" : "zh",
+            sourceChannel: "mini_program_ai_webview",
+            externalSessionId,
+            userId,
+            sourceGoodsId,
+            sourcePlatform,
+            sourcePage:
+              typeof window === "undefined" ? undefined : window.location.href,
+          };
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept-Language": lang,
         },
-        body: JSON.stringify({
-          message: content,
-          conversationId,
-          site: "kangaroo-japan",
-          language: lang === "ja" ? "ja" : lang === "en" ? "en" : "zh",
-          sourceChannel: "mini_program_ai_webview",
-          externalSessionId,
-          sourceGoodsId,
-          sourcePlatform,
-          sourcePage:
-            typeof window === "undefined" ? undefined : window.location.href,
-        }),
+        body: JSON.stringify(body),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error("support api failed");
       }
-      const data = getRecord(payload).data || payload;
       const parsed = parseSupportResponse(payload);
-      const dataRecord = getRecord(data);
 
-      if (typeof dataRecord.conversationId === "string") {
-        setConversationId(dataRecord.conversationId);
+      if (parsed.conversationId) {
+        setConversationId(parsed.conversationId);
       }
-      if (parsed.transferHuman) {
+      if (parsed.transferHuman || parsed.queuedForHuman) {
         setHumanTransferVisible(true);
         setHumanTransferNote(parsed.reason || parsed.text);
       }
-      setItems((current) => [
-        ...current,
-        { role: "assistant", content: parsed.text },
-      ]);
+      if (parsed.text && !parsed.queuedForHuman) {
+        setItems((current) => [
+          ...current,
+          { role: "assistant", content: parsed.text },
+        ]);
+      }
+      if (parsed.conversationId || conversationId) {
+        window.setTimeout(() => void loadConversationMessages(), 300);
+      }
     } catch {
       setHumanTransferVisible(true);
-      setHumanTransferNote("客服服务暂时不可用，请转接人工客服。");
+      setHumanTransferNote("袋鼠酱这边暂时卡住了，我先带你转人工客服～");
       setItems((current) => [
         ...current,
         {
@@ -203,9 +285,16 @@ export default function MiniProgramSupportH5Page() {
 
   function contactHuman() {
     if (navigateToMiniProgramHumanKefu()) return;
+    if (kf53ChatUrl) {
+      window.open(kf53ChatUrl, "_blank", "noopener,noreferrer");
+      setHumanTransferVisible(true);
+      setHumanTransferNote("已为你打开网页人工客服窗口，请在新窗口继续沟通。");
+      return;
+    }
+
     setHumanTransferVisible(true);
     setHumanTransferNote(
-      "当前不是小程序 WebView 环境。请回到袋鼠君小程序，点击在线客服或人工客服入口联系 53KF 人工客服。",
+      "当前不是小程序 WebView 环境。请回到袋鼠君小程序，点击在线客服或人工客服入口联系人工客服。",
     );
   }
 
@@ -219,31 +308,52 @@ export default function MiniProgramSupportH5Page() {
   return (
     <main className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <header className="sticky top-0 z-10 border-b bg-white/95 px-4 py-3 backdrop-blur">
-        <div className="text-center text-base font-semibold">
-          袋鼠智能客服
-        </div>
+        <div className="text-center text-base font-semibold">袋鼠酱</div>
         <div className="mt-1 text-center text-xs text-slate-500">
-          AI 先答复，复杂问题请转人工客服
+          我先陪你看，复杂问题可能需要一点时间；拿不准的事马上帮你找人工
         </div>
       </header>
 
       <section className="space-y-3 px-3 pb-32 pt-4">
         {items.map((item, index) => (
           <div
-            key={`${item.role}-${index}`}
-            className={`flex ${item.role === "user" ? "justify-end" : "justify-start"}`}
+            key={item.id || `${item.role}-${index}`}
+            className={`flex ${
+              item.role === "user" ? "justify-end" : "justify-start"
+            }`}
           >
             <div
               className={`max-w-[82%] rounded-lg px-3 py-2 text-sm leading-6 shadow-sm ${
                 item.role === "user"
                   ? "bg-[#4f67ff] text-white"
-                  : "bg-white text-slate-800"
+                  : item.role === "support"
+                    ? "border border-orange-100 bg-white text-slate-800"
+                    : "bg-white text-slate-800"
               }`}
             >
+              {item.role === "support" ? (
+                <div className="mb-1 text-[11px] font-medium text-orange-600">
+                  人工客服
+                </div>
+              ) : null}
               {item.content}
             </div>
           </div>
         ))}
+
+        {pollingError ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            {pollingError}
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="flex justify-start">
+            <div className="max-w-[82%] rounded-lg border border-orange-100 bg-white px-3 py-2 text-xs leading-5 text-slate-500 shadow-sm">
+              {RESPONSE_TIME_NOTE}
+            </div>
+          </div>
+        ) : null}
 
         {humanTransferVisible ? (
           <div
@@ -269,7 +379,9 @@ export default function MiniProgramSupportH5Page() {
             {!isMiniProgramWebview() ? (
               <p className="mt-2 flex items-start gap-1 text-xs leading-5 text-slate-500">
                 <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                普通 H5 环境无法直接拉起微信客服，请回到袋鼠君小程序后点击人工客服入口。
+                {kf53ChatUrl
+                  ? "普通 H5 环境会打开网页人工客服窗口，不会自动携带订单或个人敏感信息。"
+                  : "普通 H5 环境无法直接拉起微信客服，请回到袋鼠君小程序后点击人工客服入口。"}
               </p>
             ) : null}
           </div>
@@ -297,9 +409,9 @@ export default function MiniProgramSupportH5Page() {
         <div className="rounded-lg border border-orange-100 bg-white p-3 text-xs leading-5 text-slate-600">
           <div className="mb-1 flex items-center gap-1 font-medium text-orange-700">
             <UserRoundCheck className="h-4 w-4" />
-            转人工规则
+            袋鼠酱小提醒
           </div>
-          Hermes 离线、问题超出知识库、涉及退款承诺、发货承诺、他人订单时，请转人工客服处理。
+          袋鼠酱可以先回答代拍流程、费用、物流等常见问题；复杂问题可能需要十几秒整理，请稍等一下。如果遇到退款、改地址、投诉、支付异常，或者需要确认订单的事，我会帮你转给人工客服处理。
         </div>
       </section>
 
@@ -324,7 +436,6 @@ export default function MiniProgramSupportH5Page() {
           <Send className="h-4 w-4" />
         </button>
       </form>
-
     </main>
   );
 }

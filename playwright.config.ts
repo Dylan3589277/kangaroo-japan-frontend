@@ -25,6 +25,7 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       NEXT_PUBLIC_API_URL: `${baseURL}/__e2e-api`,
+      NEXT_PUBLIC_KF53_CHAT_URL: "https://kf53.example.test/chat",
       SUPPORT_API_BASE_URL: `${baseURL}/__e2e-api`,
     },
   },
