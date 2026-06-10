@@ -136,7 +136,7 @@ const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
   },
   {
     id: "kb-fee-001",
-    text: "Fees may include item price, platform/domestic shipping, service fee, warehouse or packing costs when applicable, international shipping, and customs/tax charged by the destination. Do not promise exact final cost unless system data is provided.",
+    text: "Fees may include item price, platform/domestic shipping, service fee, warehouse or packing costs when applicable, international shipping, and customs/tax charged by the destination. Platform payment fees, service fees, and the exchange-rate markup are calculated by membership level, so quote no flat numbers; the user's current rates are shown in the mini program. Do not promise exact final cost unless system data is provided.",
   },
   {
     id: "kb-logistics-001",
@@ -152,7 +152,7 @@ const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
   },
   {
     id: "kb-service-hours-001",
-    text: "Human customer service works 9:00-23:00 China time daily. Outside these hours users can leave a message or ask the AI assistant, and staff will reply as soon as they are back online.",
+    text: "Human customer service works 9:00-18:00 China time daily. Outside these hours users can leave a message or ask the AI assistant, and staff will reply as soon as they are back online.",
   },
   {
     id: "kb-human-transfer-001",
