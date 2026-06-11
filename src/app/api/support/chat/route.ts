@@ -136,7 +136,7 @@ const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
   },
   {
     id: "kb-fee-001",
-    text: "Fees may include item price, platform/domestic shipping, service fee, warehouse or packing costs when applicable, international shipping, and customs/tax charged by the destination. Platform payment fees, service fees, and the exchange-rate markup are calculated by membership level, so quote no flat numbers; the user's current rates are shown in the mini program. Do not promise exact final cost unless system data is provided.",
+    text: "Fee standard 2026-06: item cost = (item price + platform payment fee) x (partner exchange rate + markup) + 200 JPY service fee per link. Current promotion: markup is +0.0025 daytime / +0.0023 nighttime for ALL users, and the 200 JPY service fee is waived; outside promotions rates follow membership level. International shipping = official Japan EMS fee x (partner rate + 0.003); EMS, air, and sea shipping are available, exact shipping cost is shown in the mini program. Membership: Gold 49 CNY, Platinum 98 CNY, Diamond 998 CNY; Platinum/Diamond waive the service fee and get 60-day free storage. The partner exchange rate floats daily, so never promise an exact final total; the system settlement in the mini program is authoritative. Promotions may end or change.",
   },
   {
     id: "kb-logistics-001",
@@ -148,7 +148,7 @@ const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
   },
   {
     id: "kb-storage-001",
-    text: "Japan warehouse storage: non-members get 30 days of free storage after arrival, members get 60 days; after the free period each package is charged 5 CNY per day. Items are not unboxed by default; an optional photo service costs 5 CNY for 3 photos. Free filler paper or free boxes are provided for packing; when no free box fits, paid boxes start at 350 JPY (140cm size). Do not promise fee waivers or free-period extensions; disputes about incurred storage fees go to human support.",
+    text: "Japan warehouse storage (fee standard 2026-06): free storage is 30 days for non-members and Gold members, 60 days for Platinum and Diamond members; after the free period each package is charged 100 JPY per day. Items are not unboxed by default; optional photo service costs 100 JPY per item or 200 JPY per box for 3 photos. Free filler paper or free boxes are provided; when no free box fits, paid boxes are 300 JPY (100size), 400 JPY (120/140size), 1000 JPY (170size). Other paid services: waterproof wrap 200 JPY/box, strapping 200 JPY/box, fragile reinforcement 200 JPY/item, mis-shipment check 100 JPY/item, seller-approved return/exchange 500 JPY/box, repacking 500 JPY/box. Do not promise fee waivers or free-period extensions; disputes about incurred storage fees go to human support.",
   },
   {
     id: "kb-service-hours-001",
