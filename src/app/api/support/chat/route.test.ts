@@ -283,6 +283,113 @@ test("Hermes bridge payload includes 2026-06 storage, photo, box, and exchange-r
   }
 });
 
+test("short storage, photo, and box questions pass business guardrail and reach storage KB", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  const capturedBridgeBodies: Array<Record<string, unknown>> = [];
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBodies.push(JSON.parse(String(init?.body)));
+    return Response.json({
+      action: "answered",
+      reply: "仓储收费以 kb-storage-001 为准。",
+      source_ids: ["kb-storage-001"],
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const shortQuestions = [
+      "仓储超期怎么收费？",
+      "拍照和纸箱怎么收费？",
+      "打包合箱转运怎么收费？",
+    ];
+
+    for (const message of shortQuestions) {
+      const request = new NextRequest("http://localhost/api/support/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message,
+          language: "zh",
+        }),
+      });
+
+      const response = await POST(request);
+      const payload = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.data.action, "answered");
+      assert.deepEqual(payload.data.sourceIds, ["kb-storage-001"]);
+      assert.notEqual(payload.data.reason, "guardrail_out_of_business_scope");
+    }
+
+    assert.equal(capturedBridgeBodies.length, shortQuestions.length);
+    for (const bridgeBody of capturedBridgeBodies) {
+      const knowledgeBase = bridgeBody.knowledge_base as Array<{
+        id: string;
+        text: string;
+      }>;
+      assert.ok(knowledgeBase.some((entry) => entry.id === "kb-storage-001"));
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("unrelated short questions remain blocked by business guardrail", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("Bridge fetch must not be called for unrelated questions");
+  };
+
+  try {
+    const unrelatedQuestions = ["今天北京天气怎么样？", "帮我写一首诗"];
+
+    for (const message of unrelatedQuestions) {
+      const request = new NextRequest("http://localhost/api/support/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message,
+          language: "zh",
+        }),
+      });
+
+      const response = await POST(request);
+      const payload = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.data.reason, "guardrail_out_of_business_scope");
+      assert.deepEqual(payload.data.sourceIds, ["local-customer-service-guardrail"]);
+    }
+
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
 test("customer-facing bridge replies do not expose internal agent names", async () => {
   const { POST } = await import("./route");
   const originalFetch = globalThis.fetch;
