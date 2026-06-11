@@ -147,6 +147,18 @@ const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
     text: "Supported platforms include Mercari, Yahoo Auction, Yahoo Shopping, Amazon, and Rakuten. Product availability, seller response, auction result, and platform restrictions are not guaranteed.",
   },
   {
+    id: "kb-auction-001",
+    text: "Yahoo Auction bid failure troubleshooting, common causes: (1) Japan-China time difference — the auction may already have ended by the time the user bids; (2) the seller may have blocked the buyer account; blocking cannot be detected harmlessly in advance, it only shows up when a bid is attempted; (3) if the seller cancelled and relisted the same item, the system requires the new bid to be higher than the user's own previous highest bid. For a specific order or bid status, ask for the product link and screenshot and transfer to human support to verify. Never promise a bid will succeed and never place test bids.",
+  },
+  {
+    id: "kb-auction-002",
+    text: "Yahoo Auction has two ways to buy: the buy-it-now price (即決価格) buys the item directly at that price; the current price (現在価格) is the live auction price and the highest bidder wins. Maximum-bid mechanism (心理价位): bidding 20000 JPY does not immediately change the item price to 20000 JPY; with no competing bidders the price stays unchanged, and only when others bid does the price auto-increase until it exceeds the user's maximum bid. If the user's bid is greater than or equal to the seller's buy-it-now price, the purchase completes immediately.",
+  },
+  {
+    id: "kb-auction-003",
+    text: "Auction deposit rules: users must top up a deposit before bidding; the ratio is 1 CNY = 200 JPY (1 元 = 200 日元) of bidding quota. The deposit is only a bidding guarantee and cannot be used to offset the item cost. If the auction is lost, the user can directly request a deposit refund, returned via the original payment channel; after winning and paying the item cost, the user can also request the deposit refund. Top-up entry: mini program - 我的 - 我的押金 (My Deposit). Refund execution, amount disputes, and arrival issues go to human support.",
+  },
+  {
     id: "kb-storage-001",
     text: "Japan warehouse storage (fee standard 2026-06): free storage is 30 days for non-members and Gold members, 60 days for Platinum and Diamond members; after the free period each item/package is charged 100 JPY per day. Items are not unboxed by default; optional photo service costs 100 JPY per item or 200 JPY per box for 3 photos. Free filler paper or free boxes are provided; when no free box fits, paid boxes are 300 JPY (100size), 400 JPY (120size), 400 JPY (140size), and 1000 JPY (170size). Other paid services: waterproof wrap 200 JPY/box, strapping 200 JPY/box, fragile reinforcement 200 JPY/item, mis-shipment check 100 JPY/item, seller-approved return/exchange 500 JPY/box, repacking 500 JPY/box. Do not promise fee waivers or free-period extensions; disputes about incurred storage fees go to human support.",
   },
@@ -173,6 +185,12 @@ const BUSINESS_KEYWORDS = [
   "怎么买",
   "购买",
   "下单",
+  "竞拍",
+  "出价",
+  "出不了价",
+  "即决",
+  "流拍",
+  "截拍",
   "流程",
   "商品",
   "多少钱",

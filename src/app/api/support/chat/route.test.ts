@@ -528,3 +528,213 @@ test("deposit refund quick reply describes process without claiming verification
     delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
   }
 });
+
+test("short auction bid questions pass business guardrail and reach auction bid KB", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  const capturedBridgeBodies: Array<Record<string, unknown>> = [];
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBodies.push(JSON.parse(String(init?.body)));
+    return Response.json({
+      action: "answered",
+      reply: "竞拍出价问题以 kb-auction-001 为准。",
+      source_ids: ["kb-auction-001"],
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const shortQuestions = [
+      "为什么出不了价？",
+      "出价失败怎么回事？",
+      "竞拍怎么参加？",
+      "流拍了怎么办？",
+      "还有多久截拍？",
+    ];
+
+    for (const message of shortQuestions) {
+      const request = new NextRequest("http://localhost/api/support/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message,
+          language: "zh",
+        }),
+      });
+
+      const response = await POST(request);
+      const payload = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.data.action, "answered");
+      assert.deepEqual(payload.data.sourceIds, ["kb-auction-001"]);
+      assert.notEqual(payload.data.reason, "guardrail_out_of_business_scope");
+    }
+
+    assert.equal(capturedBridgeBodies.length, shortQuestions.length);
+    for (const bridgeBody of capturedBridgeBodies) {
+      const knowledgeBase = bridgeBody.knowledge_base as Array<{
+        id: string;
+        text: string;
+      }>;
+      const auctionBid = knowledgeBase.find(
+        (entry) => entry.id === "kb-auction-001",
+      );
+      assert.ok(auctionBid);
+      assert.match(auctionBid.text, /Japan-China time difference/);
+      assert.match(auctionBid.text, /only shows up when a bid is attempted/);
+      assert.match(
+        auctionBid.text,
+        /higher than the user's own previous highest bid/,
+      );
+      assert.match(auctionBid.text, /transfer to human support to verify/);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("buy-it-now question passes guardrail and auction rules KB locks 即決 and maximum-bid mechanism", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let capturedBridgeBody: Record<string, unknown> | null = null;
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBody = JSON.parse(String(init?.body));
+    return Response.json({
+      action: "answered",
+      reply: "即决与竞拍规则以 kb-auction-002 为准。",
+      source_ids: ["kb-auction-002"],
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "即决是什么意思？",
+        language: "zh",
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.action, "answered");
+    assert.deepEqual(payload.data.sourceIds, ["kb-auction-002"]);
+    assert.notEqual(payload.data.reason, "guardrail_out_of_business_scope");
+
+    const bridgeBody = capturedBridgeBody as {
+      knowledge_base: Array<{
+        id: string;
+        text: string;
+      }>;
+    } | null;
+    assert.ok(bridgeBody);
+    const auctionRules = bridgeBody.knowledge_base.find(
+      (entry) => entry.id === "kb-auction-002",
+    );
+    assert.ok(auctionRules);
+    assert.match(auctionRules.text, /即決価格/);
+    assert.match(auctionRules.text, /現在価格/);
+    assert.match(auctionRules.text, /highest bidder wins/);
+    assert.match(
+      auctionRules.text,
+      /with no competing bidders the price stays unchanged/,
+    );
+    assert.match(
+      auctionRules.text,
+      /greater than or equal to the seller's buy-it-now price/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("deposit refund question reaches auction deposit KB and locks the 1 CNY = 200 JPY ratio", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  // Disable the exact-match quick reply so "押金怎么退？" exercises the bridge KB path.
+  process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED = "false";
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let capturedBridgeBody: Record<string, unknown> | null = null;
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBody = JSON.parse(String(init?.body));
+    return Response.json({
+      action: "answered",
+      reply: "押金规则以 kb-auction-003 为准。",
+      source_ids: ["kb-auction-003"],
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "押金怎么退？",
+        language: "zh",
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.action, "answered");
+    assert.deepEqual(payload.data.sourceIds, ["kb-auction-003"]);
+
+    const bridgeBody = capturedBridgeBody as {
+      knowledge_base: Array<{
+        id: string;
+        text: string;
+      }>;
+    } | null;
+    assert.ok(bridgeBody);
+    const knowledgeBase = bridgeBody.knowledge_base;
+    const auctionDeposit = knowledgeBase.find(
+      (entry) => entry.id === "kb-auction-003",
+    );
+    assert.ok(auctionDeposit);
+    assert.match(auctionDeposit.text, /1 CNY = 200 JPY/);
+    assert.match(auctionDeposit.text, /1 元 = 200 日元/);
+    assert.match(auctionDeposit.text, /cannot be used to offset the item cost/);
+    assert.match(auctionDeposit.text, /original payment channel/);
+
+    // Guard against an old/wrong deposit ratio flowing back into any KB entry.
+    for (const entry of knowledgeBase) {
+      assert.doesNotMatch(entry.text, /1 ?元\s*[=：:]\s*(?!200)\d/u);
+      assert.doesNotMatch(entry.text, /1 ?CNY\s*=\s*(?!200)\d/u);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
