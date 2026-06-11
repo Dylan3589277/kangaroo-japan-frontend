@@ -148,7 +148,7 @@ const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
   },
   {
     id: "kb-storage-001",
-    text: "Japan warehouse storage (fee standard 2026-06): free storage is 30 days for non-members and Gold members, 60 days for Platinum and Diamond members; after the free period each package is charged 100 JPY per day. Items are not unboxed by default; optional photo service costs 100 JPY per item or 200 JPY per box for 3 photos. Free filler paper or free boxes are provided; when no free box fits, paid boxes are 300 JPY (100size), 400 JPY (120/140size), 1000 JPY (170size). Other paid services: waterproof wrap 200 JPY/box, strapping 200 JPY/box, fragile reinforcement 200 JPY/item, mis-shipment check 100 JPY/item, seller-approved return/exchange 500 JPY/box, repacking 500 JPY/box. Do not promise fee waivers or free-period extensions; disputes about incurred storage fees go to human support.",
+    text: "Japan warehouse storage (fee standard 2026-06): free storage is 30 days for non-members and Gold members, 60 days for Platinum and Diamond members; after the free period each item/package is charged 100 JPY per day. Items are not unboxed by default; optional photo service costs 100 JPY per item or 200 JPY per box for 3 photos. Free filler paper or free boxes are provided; when no free box fits, paid boxes are 300 JPY (100size), 400 JPY (120size), 400 JPY (140size), and 1000 JPY (170size). Other paid services: waterproof wrap 200 JPY/box, strapping 200 JPY/box, fragile reinforcement 200 JPY/item, mis-shipment check 100 JPY/item, seller-approved return/exchange 500 JPY/box, repacking 500 JPY/box. Do not promise fee waivers or free-period extensions; disputes about incurred storage fees go to human support.",
   },
   {
     id: "kb-service-hours-001",

@@ -211,6 +211,78 @@ test("quick reply switch can disable deterministic answers for rollback", async 
   }
 });
 
+test("Hermes bridge payload includes 2026-06 storage, photo, box, and exchange-rate fee standards", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let capturedBridgeBody: Record<string, unknown> | null = null;
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBody = JSON.parse(String(init?.body));
+    return Response.json({
+      action: "answered",
+      reply: "仓储收费以 2026-06 标准为准。",
+      source_ids: ["kb-storage-001"],
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "包裹在仓库可以免费放多久？拍照和纸箱怎么收费？",
+        language: "zh",
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.action, "answered");
+
+    const bridgeBody = capturedBridgeBody as {
+      knowledge_base: Array<{
+        id: string;
+        text: string;
+      }>;
+    } | null;
+    assert.ok(bridgeBody);
+    const knowledgeBase = bridgeBody.knowledge_base as Array<{
+      id: string;
+      text: string;
+    }>;
+    const storage = knowledgeBase.find((entry) => entry.id === "kb-storage-001");
+    const fee = knowledgeBase.find((entry) => entry.id === "kb-fee-001");
+
+    assert.ok(storage);
+    assert.match(storage.text, /30 days for non-members and Gold members/);
+    assert.match(storage.text, /60 days for Platinum and Diamond members/);
+    assert.match(storage.text, /each item\/package is charged 100 JPY per day/);
+    assert.match(storage.text, /100 JPY per item or 200 JPY per box/);
+    assert.match(storage.text, /300 JPY \(100size\)/);
+    assert.match(storage.text, /400 JPY \(120size\)/);
+    assert.match(storage.text, /400 JPY \(140size\)/);
+    assert.match(storage.text, /1000 JPY \(170size\)/);
+    assert.doesNotMatch(storage.text, /5\s*CNY|5\s*元|350 JPY/);
+
+    assert.ok(fee);
+    assert.match(fee.text, /\+0\.0025 daytime \/ \+0\.0023 nighttime for ALL users/);
+    assert.match(fee.text, /official Japan EMS fee x \(partner rate \+ 0\.003\)/);
+    assert.doesNotMatch(fee.text, /\+0\.025|0\.006/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
 test("customer-facing bridge replies do not expose internal agent names", async () => {
   const { POST } = await import("./route");
   const originalFetch = globalThis.fetch;
@@ -349,4 +421,3 @@ test("deposit refund quick reply describes process without claiming verification
     delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
   }
 });
-
