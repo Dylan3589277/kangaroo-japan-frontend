@@ -94,6 +94,26 @@ const QUICK_REPLIES = new Map<string, QuickReply>([
         "商品到仓时间会受平台处理、卖家发货和日本国内物流影响，暂时无法承诺准确时效，请以订单物流状态为准。",
     },
   ],
+  [
+    normalizeQuickQuestion("入库了吗？"),
+    {
+      action: "answered",
+      sourceId: "03_物流仓库海关.md",
+      sourceVersion: "customer-service-kb-v0.1-20260601",
+      reply:
+        "商品是否入库需要以小程序订单状态为准。若你已经登录并从订单入口进入客服，袋鼠酱可以继续帮你核对；未登录时请联系人工客服确认。",
+    },
+  ],
+  [
+    normalizeQuickQuestion("到哪了？"),
+    {
+      action: "answered",
+      sourceId: "03_物流仓库海关.md",
+      sourceVersion: "customer-service-kb-v0.1-20260601",
+      reply:
+        "订单当前状态需要以小程序里的订单和物流信息为准。若你已经登录并从订单入口进入客服，袋鼠酱可以继续帮你核对；未登录时请联系人工客服确认。",
+    },
+  ],
   // source: 02_费用支付押金.md v0.4, 2026-06-10
   [
     normalizeQuickQuestion("押金怎么退？"),
@@ -103,6 +123,16 @@ const QUICK_REPLIES = new Map<string, QuickReply>([
       sourceVersion: "v0.4-20260610",
       reply:
         "押金退款需要先确认是否还有待支付订单、竞拍中订单、欠款、负余额或挂账。请先在小程序内提交押金退款申请；如需进一步核对或出现异常，会由客服按只读核验流程辅助初核。最终是否可退、退款金额和到账处理仍以人工及财务审核为准。",
+    },
+  ],
+  [
+    normalizeQuickQuestion("押金退了吗？"),
+    {
+      action: "answered",
+      sourceId: "02_费用支付押金.md",
+      sourceVersion: "v0.4-20260610",
+      reply:
+        "押金退款状态需要结合你的登录身份和押金记录核对。未登录或无法确认身份时，会转人工客服继续处理。",
     },
   ],
   // source: 00_客服边界.md, customer-service-kb-v0.1-20260601
@@ -115,6 +145,14 @@ const QUICK_REPLIES = new Map<string, QuickReply>([
       sourceVersion: "customer-service-kb-v0.1-20260601",
     },
   ],
+]);
+
+const PERSONALIZED_STATUS_QUICK_QUESTIONS = new Set([
+  normalizeQuickQuestion("商品多久能到仓库？"),
+  normalizeQuickQuestion("入库了吗？"),
+  normalizeQuickQuestion("到哪了？"),
+  normalizeQuickQuestion("押金怎么退？"),
+  normalizeQuickQuestion("押金退了吗？"),
 ]);
 
 const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
@@ -310,8 +348,24 @@ function transferHumanResponse(
   });
 }
 
-function quickReplyResponse(message: string) {
+function hasTrustedH5UserId(body: Record<string, unknown>) {
+  return Boolean(getString(body.userId));
+}
+
+function isPersonalizedStatusQuickQuestion(message: string) {
+  return PERSONALIZED_STATUS_QUICK_QUESTIONS.has(normalizeQuickQuestion(message));
+}
+
+function shouldPassPersonalizedStatusToBridge(
+  message: string,
+  body: Record<string, unknown>,
+) {
+  return hasTrustedH5UserId(body) && isPersonalizedStatusQuickQuestion(message);
+}
+
+function quickReplyResponse(message: string, body: Record<string, unknown>) {
   if (!isQuickReplyEnabled()) return null;
+  if (shouldPassPersonalizedStatusToBridge(message, body)) return null;
 
   const quickReply = QUICK_REPLIES.get(normalizeQuickQuestion(message));
   if (!quickReply) return null;
@@ -502,13 +556,16 @@ export async function POST(request: NextRequest) {
 
     const message = getString(parsedBody.data.message);
     if (message) {
-      const response = quickReplyResponse(message);
+      const response = quickReplyResponse(message, parsedBody.data);
       if (response) {
         return response;
       }
     }
 
-    const guardrailResponse = guardCustomerServiceScope(parsedBody.data);
+    const guardrailResponse =
+      message && shouldPassPersonalizedStatusToBridge(message, parsedBody.data)
+        ? null
+        : guardCustomerServiceScope(parsedBody.data);
     if (guardrailResponse) {
       return guardrailResponse;
     }

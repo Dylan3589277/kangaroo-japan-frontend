@@ -211,6 +211,140 @@ test("quick reply switch can disable deterministic answers for rollback", async 
   }
 });
 
+test("personalized status quick questions with userId pass through to Hermes bridge", async () => {
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  const capturedBridgeBodies: Array<Record<string, unknown>> = [];
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBodies.push(JSON.parse(String(init?.body)));
+    return Response.json({
+      action: "answered",
+      reply: "已为您核对入库状态。",
+      source_ids: ["backend-selfservice:warehouse_status"],
+      answered_by: "backend-order-status-selfservice",
+    });
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "入库了吗？",
+        language: "zh",
+        userId: "4",
+        externalSessionId: "uid4-smoke",
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.action, "answered");
+    assert.equal(payload.data.reply, "已为您核对入库状态。");
+    assert.equal(payload.data.answeredBy, "backend-order-status-selfservice");
+    assert.equal(capturedBridgeBodies.length, 1);
+    assert.equal(capturedBridgeBodies[0].session_id, "uid4-smoke");
+    assert.deepEqual(
+      (capturedBridgeBodies[0].context as Record<string, unknown>).user_id,
+      "4",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("personalized status quick questions without userId still use local quick reply", async () => {
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("Bridge fetch must not be called without userId");
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "入库了吗？",
+        language: "zh",
+      }),
+    });
+
+    const payload = await (await POST(request)).json();
+
+    assert.equal(payload.data.action, "answered");
+    assert.equal(payload.data.answeredBy, "local-quick-reply");
+    assert.ok(payload.data.sourceIds.includes("03_物流仓库海关.md"));
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("general FAQ quick replies stay local even when userId is present", async () => {
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("Bridge fetch must not be called for general FAQ");
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    for (const userId of [undefined, "4"]) {
+      const request = new NextRequest("http://localhost/api/support/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: "国际运费怎么查？",
+          language: "zh",
+          ...(userId ? { userId } : {}),
+        }),
+      });
+
+      const payload = await (await POST(request)).json();
+      assert.equal(payload.data.action, "answered");
+      assert.equal(payload.data.answeredBy, "local-quick-reply");
+      assert.match(payload.data.reply, /提交国际发货时查看国际运费/);
+    }
+
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
 test("Hermes bridge payload includes 2026-06 storage, photo, box, and exchange-rate fee standards", async () => {
   process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
   process.env.KANGAROO_AGENT_TOKEN = "test-token";
