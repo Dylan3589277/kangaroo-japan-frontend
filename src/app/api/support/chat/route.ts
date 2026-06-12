@@ -155,6 +155,8 @@ const PERSONALIZED_STATUS_QUICK_QUESTIONS = new Set([
   normalizeQuickQuestion("押金退了吗？"),
 ]);
 
+type PersonalizedStatusKind = "warehouse" | "tracking" | "deposit";
+
 const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
   {
     id: "kb-identity-001",
@@ -356,18 +358,76 @@ function isPersonalizedStatusQuickQuestion(message: string) {
   return PERSONALIZED_STATUS_QUICK_QUESTIONS.has(normalizeQuickQuestion(message));
 }
 
+function getPersonalizedStatusKind(message: string): PersonalizedStatusKind | null {
+  const normalized = message.toLowerCase();
+  if (
+    ["入库", "到仓", "到库", "仓库"].some((keyword) =>
+      normalized.includes(keyword),
+    )
+  ) {
+    return "warehouse";
+  }
+  if (
+    ["到哪", "物流", "发货", "追踪", "单号"].some((keyword) =>
+      normalized.includes(keyword),
+    )
+  ) {
+    return "tracking";
+  }
+  if (
+    normalized.includes("押金") &&
+    ["退", "状态", "到账"].some((keyword) => normalized.includes(keyword))
+  ) {
+    return "deposit";
+  }
+  return null;
+}
+
 function shouldPassPersonalizedStatusToBridge(
   message: string,
   body: Record<string, unknown>,
 ) {
-  return hasTrustedH5UserId(body) && isPersonalizedStatusQuickQuestion(message);
+  return (
+    hasTrustedH5UserId(body) &&
+    (isPersonalizedStatusQuickQuestion(message) ||
+      getPersonalizedStatusKind(message) !== null)
+  );
+}
+
+function personalizedStatusFallbackResponse(kind: PersonalizedStatusKind) {
+  const replyByKind: Record<PersonalizedStatusKind, string> = {
+    warehouse:
+      "商品是否入库需要以小程序订单状态为准。若你已经登录并从订单入口进入客服，袋鼠酱可以继续帮你核对；未登录时请联系人工客服确认。",
+    tracking:
+      "订单当前状态需要以小程序里的订单和物流信息为准。若你已经登录并从订单入口进入客服，袋鼠酱可以继续帮你核对；未登录时请联系人工客服确认。",
+    deposit:
+      "押金退款状态需要结合你的登录身份和押金记录核对。未登录或无法确认身份时，会转人工客服继续处理。",
+  };
+
+  return NextResponse.json({
+    code: 0,
+    data: {
+      action: "answered",
+      type: "answered",
+      reply: replyByKind[kind],
+      reason: "quick_question_identity_required",
+      sourceIds: [QUICK_REPLY_SOURCE_ID, "identity-required-status-fallback"],
+      answeredBy: QUICK_REPLY_SOURCE_ID,
+      requiresTicket: false,
+      isHighRisk: false,
+    },
+  });
 }
 
 function quickReplyResponse(message: string, body: Record<string, unknown>) {
   if (!isQuickReplyEnabled()) return null;
+  const personalizedStatusKind = getPersonalizedStatusKind(message);
   if (shouldPassPersonalizedStatusToBridge(message, body)) return null;
 
   const quickReply = QUICK_REPLIES.get(normalizeQuickQuestion(message));
+  if (!quickReply && personalizedStatusKind) {
+    return personalizedStatusFallbackResponse(personalizedStatusKind);
+  }
   if (!quickReply) return null;
 
   if (quickReply.action === "transfer_human") {

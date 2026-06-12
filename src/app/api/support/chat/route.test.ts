@@ -236,7 +236,7 @@ test("personalized status quick questions with userId pass through to Hermes bri
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: "入库了吗？",
+        message: "我的东西入库了吗",
         language: "zh",
         userId: "4",
         externalSessionId: "uid4-smoke",
@@ -284,7 +284,7 @@ test("personalized status quick questions without userId still use local quick r
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: "入库了吗？",
+        message: "我的东西入库了吗",
         language: "zh",
       }),
     });
