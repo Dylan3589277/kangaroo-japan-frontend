@@ -216,6 +216,7 @@ export default function MiniProgramSupportH5Page() {
   const [visualViewportHeight, setVisualViewportHeight] = useState<
     number | null
   >(null);
+  const [wxReady, setWxReady] = useState(false);
   const kf53ChatUrl = getKf53ChatUrl();
 
   const externalSessionId = useMemo(
@@ -248,6 +249,25 @@ export default function MiniProgramSupportH5Page() {
     }, 3000);
     return () => window.clearInterval(timer);
   }, [conversationId, loadConversationMessages]);
+
+  useEffect(() => {
+    const win = window as MiniProgramWindow;
+    if (win.wx?.miniProgram?.navigateTo) {
+      setWxReady(true);
+      return;
+    }
+    const existing = document.getElementById("jweixin-sdk");
+    if (existing) {
+      existing.addEventListener("load", () => setWxReady(true));
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "jweixin-sdk";
+    script.src = "https://res.wx.qq.com/open/js/jweixin-1.6.0.js";
+    script.async = true;
+    script.onload = () => setWxReady(true);
+    document.body.appendChild(script);
+  }, []);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -408,7 +428,7 @@ export default function MiniProgramSupportH5Page() {
             ? `（约 ${item.orderRef.amount} 日元）`
             : "";
           const canNavigateOrder = Boolean(
-            item.orderRef?.order_id && isMiniProgramWebview(),
+            item.orderRef?.order_id && wxReady && isMiniProgramWebview(),
           );
 
           return (
