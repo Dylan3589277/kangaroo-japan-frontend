@@ -542,7 +542,9 @@ test("Hermes bridge payload includes 2026-06 storage, photo, box, and exchange-r
       id: string;
       text: string;
     }>;
-    const storage = knowledgeBase.find((entry) => entry.id === "kb-storage-001");
+    const storage = knowledgeBase.find(
+      (entry) => entry.id === "kb-storage-001",
+    );
     const fee = knowledgeBase.find((entry) => entry.id === "kb-fee-001");
 
     assert.ok(storage);
@@ -557,8 +559,14 @@ test("Hermes bridge payload includes 2026-06 storage, photo, box, and exchange-r
     assert.doesNotMatch(storage.text, /5\s*CNY|5\s*元|350 JPY/);
 
     assert.ok(fee);
-    assert.match(fee.text, /\+0\.0025 daytime \/ \+0\.0023 nighttime for ALL users/);
-    assert.match(fee.text, /official Japan EMS fee x \(partner rate \+ 0\.003\)/);
+    assert.match(
+      fee.text,
+      /\+0\.0025 daytime \/ \+0\.0023 nighttime for ALL users/,
+    );
+    assert.match(
+      fee.text,
+      /official Japan EMS fee x \(partner rate \+ 0\.003\)/,
+    );
     assert.doesNotMatch(fee.text, /\+0\.025|0\.006/);
   } finally {
     globalThis.fetch = originalFetch;
@@ -663,7 +671,9 @@ test("unrelated short questions remain blocked by business guardrail", async () 
 
       assert.equal(response.status, 200);
       assert.equal(payload.data.reason, "guardrail_out_of_business_scope");
-      assert.deepEqual(payload.data.sourceIds, ["local-customer-service-guardrail"]);
+      assert.deepEqual(payload.data.sourceIds, [
+        "local-customer-service-guardrail",
+      ]);
     }
 
     assert.equal(fetchCalls, 0);
@@ -704,6 +714,57 @@ test("customer-facing bridge replies do not expose internal agent names", async 
     const payload = await (await POST(request)).json();
     assert.equal(payload.data.reply, "袋鼠酱下线，请稍后再试。");
     assert.doesNotMatch(payload.data.reply, /Hermes|Claude|GPT|模型/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("Hermes bridge answered responses pass through order_ref unchanged", async () => {
+  const originalFetch = globalThis.fetch;
+  const orderRef = {
+    order_id: "89969",
+    goods_name: "【...】Apple Mac mini m4 16g 256gssd",
+    amount: "97600.00",
+    amount_rmb: "4471.00",
+  };
+
+  globalThis.fetch = async () => {
+    return Response.json({
+      action: "answered",
+      reply: "我帮您查到这笔订单了。",
+      source_ids: ["backend-selfservice:order_lookup"],
+      answered_by: "backend-order-status-selfservice",
+      order_ref: orderRef,
+    });
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    const { POST } = await import("./route");
+
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "帮我看一下这个订单",
+        language: "zh",
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.action, "answered");
+    assert.deepEqual(payload.data.order_ref, orderRef);
   } finally {
     globalThis.fetch = originalFetch;
     delete process.env.HERMES_BRIDGE_URL;
@@ -788,20 +849,26 @@ test("deposit refund quick reply describes process without claiming verification
     const quickPayload = await (await POST(quickRequest)).json();
     const reply = quickPayload.data.reply as string;
     assert.match(reply, /小程序内提交押金退款申请/);
-    assert.match(reply, /最终是否可退、退款金额和到账处理仍以人工及财务审核为准/);
+    assert.match(
+      reply,
+      /最终是否可退、退款金额和到账处理仍以人工及财务审核为准/,
+    );
     assert.doesNotMatch(reply, /符合条件|可以退|会退给您/);
     assert.equal(fetchCalls, 0);
 
-    const followUpRequest = new NextRequest("http://localhost/api/support/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const followUpRequest = new NextRequest(
+      "http://localhost/api/support/chat",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: "帮我查一下押金退款",
+          language: "zh",
+        }),
       },
-      body: JSON.stringify({
-        message: "帮我查一下押金退款",
-        language: "zh",
-      }),
-    });
+    );
 
     const followUpPayload = await (await POST(followUpRequest)).json();
     assert.equal(followUpPayload.data.reply, "Bridge fallback");

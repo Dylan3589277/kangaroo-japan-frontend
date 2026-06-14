@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Headset,
   MessageCircle,
+  ShoppingBag,
   Send,
   UserRoundCheck,
 } from "lucide-react";
@@ -23,15 +24,23 @@ type ChatItem = {
   id?: string;
   role: "assistant" | "user" | "support";
   content: string;
+  orderRef?: OrderRef;
   createdAt?: string;
+};
+
+type OrderRef = {
+  order_id?: string;
+  goods_name?: string;
+  amount?: string;
+  amount_rmb?: string;
 };
 
 type SupportParsedResponse = {
   text: string;
   transferHuman: boolean;
-  reason?: string;
   conversationId?: string;
   queuedForHuman?: boolean;
+  orderRef?: OrderRef;
 };
 
 type MiniProgramWindow = Window & {
@@ -75,18 +84,30 @@ function getString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
+function getOrderRef(value: unknown): OrderRef | undefined {
+  const record = getRecord(value);
+  const orderId = getString(record.order_id);
+  if (!orderId) return undefined;
+
+  return {
+    order_id: orderId,
+    goods_name: getString(record.goods_name),
+    amount: getString(record.amount),
+    amount_rmb: getString(record.amount_rmb),
+  };
+}
+
 function parseSupportResponse(payload: unknown): SupportParsedResponse {
   const root = getRecord(payload);
   const data = getRecord(root.data) || root;
   const action = data.action || root.action;
   const type = data.type || root.type;
   const fallback = data.fallback || root.fallback;
-  const reason =
-    data.transfer_reason || data.transferReason || data.reason || root.reason;
   const transferHuman =
     action === "transfer_human" ||
     type === "transfer_human" ||
     fallback === "53kf";
+  const orderRef = getOrderRef(data.order_ref || root.order_ref);
 
   const text =
     getString(data.reply) ||
@@ -100,9 +121,9 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
   return {
     text,
     transferHuman,
-    reason: getString(reason),
     conversationId: getString(data.conversationId),
     queuedForHuman: Boolean(data.queuedForHuman),
+    orderRef,
   };
 }
 
@@ -142,6 +163,16 @@ function navigateToMiniProgramHumanKefu() {
   const win = window as MiniProgramWindow;
   if (!win.wx?.miniProgram?.navigateTo) return false;
   win.wx.miniProgram.navigateTo({ url: MINI_PROGRAM_REAL_KEFU_PATH });
+  return true;
+}
+
+function navigateToMiniProgramOrderDetail(orderId: string) {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  win.wx.miniProgram.navigateTo({
+    url: "/pages/daishujun/mine/orderDetail?id=" + orderId,
+  });
   return true;
 }
 
@@ -288,12 +319,16 @@ export default function MiniProgramSupportH5Page() {
       }
       if (parsed.transferHuman || parsed.queuedForHuman) {
         setHumanTransferVisible(true);
-        setHumanTransferNote(parsed.reason || parsed.text);
+        setHumanTransferNote(parsed.text || HUMAN_TRANSFER_MESSAGE);
       }
       if (parsed.text && !parsed.queuedForHuman) {
         setItems((current) => [
           ...current,
-          { role: "assistant", content: parsed.text },
+          {
+            role: "assistant",
+            content: parsed.text,
+            orderRef: parsed.orderRef,
+          },
         ]);
       }
       if (parsed.conversationId || conversationId) {
@@ -329,6 +364,16 @@ export default function MiniProgramSupportH5Page() {
     );
   }
 
+  function openOrderDetail(orderRef: OrderRef) {
+    if (!orderRef.order_id) return;
+    if (navigateToMiniProgramOrderDetail(orderRef.order_id)) return;
+
+    setHumanTransferVisible(true);
+    setHumanTransferNote(
+      "请在袋鼠君小程序内打开本页面，再点击订单卡片查看或支付订单。",
+    );
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -355,31 +400,82 @@ export default function MiniProgramSupportH5Page() {
       </header>
 
       <section className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-4">
-        {items.map((item, index) => (
-          <div
-            key={item.id || `${item.role}-${index}`}
-            className={`flex ${
-              item.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
+        {items.map((item, index) => {
+          const amountText = item.orderRef?.amount_rmb
+            ? `¥${item.orderRef.amount_rmb}`
+            : undefined;
+          const jpyText = item.orderRef?.amount
+            ? `（约 ${item.orderRef.amount} 日元）`
+            : "";
+          const canNavigateOrder = Boolean(
+            item.orderRef?.order_id && isMiniProgramWebview(),
+          );
+
+          return (
             <div
-              className={`max-w-[82%] rounded-lg px-3 py-2 text-sm leading-6 shadow-sm ${
-                item.role === "user"
-                  ? "bg-[#4f67ff] text-white"
-                  : item.role === "support"
-                    ? "border border-orange-100 bg-white text-slate-800"
-                    : "bg-white text-slate-800"
+              key={item.id || `${item.role}-${index}`}
+              className={`flex flex-col ${
+                item.role === "user" ? "items-end" : "items-start"
               }`}
             >
-              {item.role === "support" ? (
-                <div className="mb-1 text-[11px] font-medium text-orange-600">
-                  人工客服
+              <div
+                className={`max-w-[82%] rounded-lg px-3 py-2 text-sm leading-6 shadow-sm ${
+                  item.role === "user"
+                    ? "bg-[#4f67ff] text-white"
+                    : item.role === "support"
+                      ? "border border-orange-100 bg-white text-slate-800"
+                      : "bg-white text-slate-800"
+                }`}
+              >
+                {item.role === "support" ? (
+                  <div className="mb-1 text-[11px] font-medium text-orange-600">
+                    人工客服
+                  </div>
+                ) : null}
+                {item.content}
+              </div>
+              {item.orderRef?.order_id ? (
+                <div
+                  className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+                  data-testid="support-order-card"
+                >
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <ShoppingBag className="h-4 w-4 text-orange-500" />
+                    订单信息
+                  </div>
+                  {item.orderRef.goods_name ? (
+                    <div className="line-clamp-2 text-sm leading-5 text-slate-700">
+                      {item.orderRef.goods_name}
+                    </div>
+                  ) : null}
+                  {amountText ? (
+                    <div className="mt-2 text-sm font-medium text-slate-900">
+                      应付金额：{amountText}
+                      {jpyText ? (
+                        <span className="font-normal text-slate-500">
+                          {jpyText}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                    onClick={() => openOrderDetail(item.orderRef as OrderRef)}
+                    disabled={!canNavigateOrder}
+                  >
+                    去支付 / 查看订单
+                  </button>
+                  {!canNavigateOrder ? (
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      请在小程序内打开后查看或支付订单。
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
-              {item.content}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {pollingError ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">

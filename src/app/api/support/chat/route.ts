@@ -374,10 +374,14 @@ function hasTrustedH5UserId(body: Record<string, unknown>) {
 }
 
 function isPersonalizedStatusQuickQuestion(message: string) {
-  return PERSONALIZED_STATUS_QUICK_QUESTIONS.has(normalizeQuickQuestion(message));
+  return PERSONALIZED_STATUS_QUICK_QUESTIONS.has(
+    normalizeQuickQuestion(message),
+  );
 }
 
-function getPersonalizedStatusKind(message: string): PersonalizedStatusKind | null {
+function getPersonalizedStatusKind(
+  message: string,
+): PersonalizedStatusKind | null {
   const normalized = message.toLowerCase();
   if (
     ["入库", "到仓", "到库", "仓库"].some((keyword) =>
@@ -509,7 +513,10 @@ function guardCustomerServiceScope(body: Record<string, unknown>) {
   if (!message) return null;
 
   if (includesAnyKeyword(message, FORBIDDEN_SCOPE_KEYWORDS)) {
-    return guardedReply("guardrail_privacy_or_secret", PRIVACY_AND_SECRET_REPLY);
+    return guardedReply(
+      "guardrail_privacy_or_secret",
+      PRIVACY_AND_SECRET_REPLY,
+    );
   }
 
   if (includesAnyKeyword(message, GREETING_KEYWORDS)) {
@@ -517,7 +524,10 @@ function guardCustomerServiceScope(body: Record<string, unknown>) {
   }
 
   if (!includesAnyKeyword(message, BUSINESS_KEYWORDS)) {
-    return guardedReply("guardrail_out_of_business_scope", BUSINESS_SCOPE_REPLY);
+    return guardedReply(
+      "guardrail_out_of_business_scope",
+      BUSINESS_SCOPE_REPLY,
+    );
   }
 
   return null;
@@ -637,6 +647,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
   const reason = getString(bridge.reason);
   const sourceIds = Array.isArray(bridge.source_ids) ? bridge.source_ids : [];
   const answeredBy = getString(bridge.answered_by);
+  const orderRef = bridge.order_ref;
 
   if (action === "transfer_human") {
     return transferHumanResponse(reason || "hermes_transfer_human", reply);
@@ -652,6 +663,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
       action,
       reply: sanitizeCustomerReply(reply),
       reason,
+      order_ref: orderRef,
       sourceIds,
       answeredBy: answeredBy || "m4-hermes-customer-support",
       requiresTicket: false,
@@ -718,4 +730,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
