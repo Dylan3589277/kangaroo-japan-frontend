@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { unstable_rethrow } from "next/navigation";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -156,6 +158,9 @@ const PERSONALIZED_STATUS_QUICK_QUESTIONS = new Set([
 ]);
 
 type PersonalizedStatusKind = "warehouse" | "tracking" | "deposit";
+type ContextUserIdState = "missing" | "numeric" | "non_numeric";
+
+const NUMERIC_USER_ID_PATTERN = /^\d+$/;
 
 const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
   {
@@ -315,6 +320,20 @@ function getString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function getH5UserIdCandidate(body: Record<string, unknown>) {
+  return getString(body.userId) || getString(body.user_id);
+}
+
+function getContextUserIdState(userId: string | undefined): ContextUserIdState {
+  if (!userId) return "missing";
+  return NUMERIC_USER_ID_PATTERN.test(userId) ? "numeric" : "non_numeric";
+}
+
+function getTrustedH5UserId(body: Record<string, unknown>) {
+  const userId = getH5UserIdCandidate(body);
+  return getContextUserIdState(userId) === "numeric" ? userId : undefined;
+}
+
 function normalizeQuickQuestion(message: string) {
   return message
     .normalize("NFKC")
@@ -351,7 +370,7 @@ function transferHumanResponse(
 }
 
 function hasTrustedH5UserId(body: Record<string, unknown>) {
-  return Boolean(getString(body.userId));
+  return Boolean(getTrustedH5UserId(body));
 }
 
 function isPersonalizedStatusQuickQuestion(message: string) {
@@ -512,7 +531,9 @@ function buildBridgePayload(body: Record<string, unknown>) {
     `mini-h5-${crypto.randomUUID()}`;
   const sourcePlatform = getString(body.sourcePlatform);
   const sourceGoodsId = getString(body.sourceGoodsId);
-  const userId = getString(body.userId) || getString(body.user_id);
+  const rawUserId = getH5UserIdCandidate(body);
+  const contextUserIdState = getContextUserIdState(rawUserId);
+  const userId = contextUserIdState === "numeric" ? rawUserId : undefined;
 
   return {
     session_id: sessionId,
@@ -521,6 +542,7 @@ function buildBridgePayload(body: Record<string, unknown>) {
     site: getString(body.site) || "kangaroo-japan",
     context: {
       user_id: userId,
+      context_user_id_state: contextUserIdState,
       shop: sourcePlatform,
       gid: sourceGoodsId,
       source_channel: getString(body.sourceChannel),
@@ -528,6 +550,39 @@ function buildBridgePayload(body: Record<string, unknown>) {
     },
     knowledge_base: CUSTOMER_SERVICE_KNOWLEDGE_BASE,
   };
+}
+
+function getHashTail(value: unknown) {
+  const text = getString(value);
+  if (!text) return undefined;
+  return createHash("sha256").update(text).digest("hex").slice(-6);
+}
+
+function getBridgeIntent(body: Record<string, unknown>) {
+  const explicitIntent = getString(body.intent) || getString(body.intentName);
+  if (explicitIntent) return explicitIntent;
+  const message = getString(body.message);
+  return message ? getPersonalizedStatusKind(message) || undefined : undefined;
+}
+
+function logBridgePayloadDiagnostic(
+  payload: ReturnType<typeof buildBridgePayload>,
+  body: Record<string, unknown>,
+) {
+  const context = getRecord(payload.context);
+  const rawUserId = getH5UserIdCandidate(body);
+  const trustedUserId = getTrustedH5UserId(body);
+
+  console.info("support_chat_bridge_payload", {
+    timestamp: new Date().toISOString(),
+    session_hash_tail: getHashTail(payload.session_id),
+    source_channel: getString(context.source_channel),
+    shop: getString(context.shop),
+    intent: getBridgeIntent(body),
+    context_user_id_state: context.context_user_id_state,
+    user_id_length: rawUserId?.length,
+    user_id_last_digit: trustedUserId?.slice(-1),
+  });
 }
 
 function buildBridgeUrl(baseUrl: string) {
@@ -550,13 +605,15 @@ async function callHermesBridge(body: Record<string, unknown>) {
   const timeoutTimer = setTimeout(() => timeoutController.abort(), timeoutMs);
   try {
     const bridgeUrl = buildBridgeUrl(HERMES_BRIDGE_URL);
+    const bridgePayload = buildBridgePayload(body);
+    logBridgePayloadDiagnostic(bridgePayload, body);
     response = await fetch(bridgeUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-kangaroo-agent-token": HERMES_BRIDGE_TOKEN,
       },
-      body: JSON.stringify(buildBridgePayload(body)),
+      body: JSON.stringify(bridgePayload),
       cache: "no-store",
       signal: timeoutController.signal,
     });

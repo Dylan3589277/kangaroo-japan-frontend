@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import {
   ExternalLink,
@@ -9,6 +16,8 @@ import {
   Send,
   UserRoundCheck,
 } from "lucide-react";
+
+import { getNumericH5UserId } from "./identity";
 
 type ChatItem = {
   id?: string;
@@ -154,7 +163,7 @@ export default function MiniProgramSupportH5Page() {
   const searchParams = useSearchParams();
   const lang = params?.lang || "zh";
   const initialSessionId = searchParams.get("session_id") || undefined;
-  const userId = searchParams.get("user_id") || undefined;
+  const userId = getNumericH5UserId(searchParams);
   const sourceGoodsId = searchParams.get("gid") || undefined;
   const rawShop = searchParams.get("shop") || "mercari";
   const sourcePlatform = SUPPORTED_PLATFORMS.has(rawShop) ? rawShop : "mercari";
@@ -173,6 +182,9 @@ export default function MiniProgramSupportH5Page() {
     initialTransferHuman ? "袋鼠酱暂时接不上，我先帮你转人工客服～" : "",
   );
   const [items, setItems] = useState<ChatItem[]>([WELCOME_ITEM]);
+  const [visualViewportHeight, setVisualViewportHeight] = useState<
+    number | null
+  >(null);
   const kf53ChatUrl = getKf53ChatUrl();
 
   const externalSessionId = useMemo(
@@ -205,6 +217,25 @@ export default function MiniProgramSupportH5Page() {
     }, 3000);
     return () => window.clearInterval(timer);
   }, [conversationId, loadConversationMessages]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const updateViewportHeight = () => {
+      const height = viewport?.height || window.innerHeight;
+      setVisualViewportHeight(Math.floor(height));
+    };
+
+    updateViewportHeight();
+    viewport?.addEventListener("resize", updateViewportHeight);
+    viewport?.addEventListener("scroll", updateViewportHeight);
+    window.addEventListener("resize", updateViewportHeight);
+
+    return () => {
+      viewport?.removeEventListener("resize", updateViewportHeight);
+      viewport?.removeEventListener("scroll", updateViewportHeight);
+      window.removeEventListener("resize", updateViewportHeight);
+    };
+  }, []);
 
   async function sendMessage(message: string) {
     const content = message.trim();
@@ -305,8 +336,17 @@ export default function MiniProgramSupportH5Page() {
     void sendMessage(typeof formMessage === "string" ? formMessage : draft);
   }
 
+  const viewportStyle = {
+    "--support-h5-viewport-height": visualViewportHeight
+      ? `${visualViewportHeight}px`
+      : "100dvh",
+  } as CSSProperties;
+
   return (
-    <main className="min-h-screen bg-[#f5f7fb] text-slate-900">
+    <main
+      className="flex h-[var(--support-h5-viewport-height)] min-h-0 flex-col overflow-hidden bg-[#f5f7fb] text-slate-900"
+      style={viewportStyle}
+    >
       <header className="sticky top-0 z-10 border-b bg-white/95 px-4 py-3 backdrop-blur">
         <div className="text-center text-base font-semibold">袋鼠酱</div>
         <div className="mt-1 text-center text-xs text-slate-500">
@@ -314,7 +354,7 @@ export default function MiniProgramSupportH5Page() {
         </div>
       </header>
 
-      <section className="space-y-3 px-3 pb-32 pt-4">
+      <section className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-4">
         {items.map((item, index) => (
           <div
             key={item.id || `${item.role}-${index}`}
@@ -417,7 +457,7 @@ export default function MiniProgramSupportH5Page() {
 
       <form
         onSubmit={submit}
-        className="fixed inset-x-0 bottom-0 flex gap-2 border-t bg-white p-3"
+        className="sticky bottom-0 flex shrink-0 gap-2 border-t bg-white px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3"
       >
         <input
           name="message"

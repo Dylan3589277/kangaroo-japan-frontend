@@ -256,6 +256,51 @@ test("personalized status quick questions with userId pass through to Hermes bri
       (capturedBridgeBodies[0].context as Record<string, unknown>).user_id,
       "4",
     );
+    assert.equal(
+      (capturedBridgeBodies[0].context as Record<string, unknown>)
+        .context_user_id_state,
+      "numeric",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("personalized status with non-numeric userId fails closed before Hermes bridge", async () => {
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("Bridge fetch must not be called for non-numeric userId");
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "我的东西入库了吗",
+        language: "zh",
+        userId: "openid-abc",
+      }),
+    });
+
+    const payload = await (await POST(request)).json();
+
+    assert.equal(payload.data.action, "answered");
+    assert.equal(payload.data.reason, "quick_question_identity_required");
+    assert.equal(payload.data.answeredBy, "local-quick-reply");
+    assert.equal(fetchCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
     delete process.env.HERMES_BRIDGE_URL;
@@ -297,6 +342,112 @@ test("personalized status quick questions without userId still use local quick r
     assert.equal(fetchCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("Hermes bridge diagnostics report context_user_id_state without logging raw identifiers", async () => {
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  const originalConsoleInfo = console.info;
+  const capturedBridgeBodies: Array<Record<string, unknown>> = [];
+  const capturedLogs: Array<unknown[]> = [];
+
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBodies.push(JSON.parse(String(init?.body)));
+    return Response.json({
+      action: "answered",
+      reply: "Bridge fallback",
+    });
+  };
+  console.info = (...args: unknown[]) => {
+    capturedLogs.push(args);
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    const cases = [
+      {
+        body: {},
+        state: "missing",
+        expectedUserId: undefined,
+        expectedLength: undefined,
+        expectedLastDigit: undefined,
+      },
+      {
+        body: { user_id: "42" },
+        state: "numeric",
+        expectedUserId: "42",
+        expectedLength: 2,
+        expectedLastDigit: "2",
+      },
+      {
+        body: { userId: "openid-abc" },
+        state: "non_numeric",
+        expectedUserId: undefined,
+        expectedLength: 10,
+        expectedLastDigit: undefined,
+      },
+    ] as const;
+
+    for (const item of cases) {
+      const request = new NextRequest("http://localhost/api/support/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: "帮我看一下这个商品",
+          language: "zh",
+          externalSessionId: "session-secret-abcdef",
+          sourceChannel: "mini_program_ai_webview",
+          sourcePlatform: "mercari",
+          ...item.body,
+        }),
+      });
+
+      const payload = await (await POST(request)).json();
+      assert.equal(payload.data.reply, "Bridge fallback");
+    }
+
+    assert.equal(capturedBridgeBodies.length, cases.length);
+    assert.equal(capturedLogs.length, cases.length);
+
+    cases.forEach((item, index) => {
+      const bridgeContext = capturedBridgeBodies[index].context as Record<
+        string,
+        unknown
+      >;
+      assert.equal(bridgeContext.context_user_id_state, item.state);
+      assert.equal(bridgeContext.user_id, item.expectedUserId);
+
+      const [eventName, logFields] = capturedLogs[index] as [
+        string,
+        Record<string, unknown>,
+      ];
+      assert.equal(eventName, "support_chat_bridge_payload");
+      assert.equal(logFields.context_user_id_state, item.state);
+      assert.equal(logFields.source_channel, "mini_program_ai_webview");
+      assert.equal(logFields.shop, "mercari");
+      assert.equal(logFields.user_id_length, item.expectedLength);
+      assert.equal(logFields.user_id_last_digit, item.expectedLastDigit);
+      assert.match(String(logFields.timestamp), /^\d{4}-\d{2}-\d{2}T/);
+      assert.equal(typeof logFields.session_hash_tail, "string");
+      assert.equal(String(logFields.session_hash_tail).length, 6);
+    });
+
+    assert.doesNotMatch(
+      JSON.stringify(capturedLogs),
+      /session-secret-abcdef|openid-abc|"user_id":"42"/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.info = originalConsoleInfo;
     delete process.env.HERMES_BRIDGE_URL;
     delete process.env.KANGAROO_AGENT_TOKEN;
     delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
