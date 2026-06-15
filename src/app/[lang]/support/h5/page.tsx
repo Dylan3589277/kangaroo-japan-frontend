@@ -10,11 +10,13 @@ import {
 } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import {
+  AlertTriangle,
   ExternalLink,
   Headset,
   MessageCircle,
   ShoppingBag,
   Send,
+  Tag,
   UserRoundCheck,
 } from "lucide-react";
 
@@ -25,6 +27,7 @@ type ChatItem = {
   role: "assistant" | "user" | "support";
   content: string;
   orderRef?: OrderRef;
+  quoteRef?: QuoteRef;
   createdAt?: string;
 };
 
@@ -35,12 +38,28 @@ type OrderRef = {
   amount_rmb?: string;
 };
 
+type QuoteRef = {
+  platform?: string;
+  item_id?: string;
+  goods_name?: string;
+  cover?: string;
+  price_jpy?: number;
+  purchasable?: boolean;
+  unpurchasable_reason?: string;
+  fee_service_jpy?: number;
+  fee_agent_jpy?: number;
+  domestic_shipping_note?: string;
+  est_goods_rmb?: string;
+  rate_note?: string;
+};
+
 type SupportParsedResponse = {
   text: string;
   transferHuman: boolean;
   conversationId?: string;
   queuedForHuman?: boolean;
   orderRef?: OrderRef;
+  quoteRef?: QuoteRef;
 };
 
 type MiniProgramWindow = Window & {
@@ -84,6 +103,14 @@ function getString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
+function getNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function getBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
 function getOrderRef(value: unknown): OrderRef | undefined {
   const record = getRecord(value);
   const orderId = getString(record.order_id);
@@ -94,6 +121,30 @@ function getOrderRef(value: unknown): OrderRef | undefined {
     goods_name: getString(record.goods_name),
     amount: getString(record.amount),
     amount_rmb: getString(record.amount_rmb),
+  };
+}
+
+function getQuoteRef(value: unknown): QuoteRef | undefined {
+  const record = getRecord(value);
+  const itemId = getString(record.item_id);
+  const goodsName = getString(record.goods_name);
+  const priceJpy = getNumber(record.price_jpy);
+  // Need at least one substantive field to bother rendering a card.
+  if (!itemId && !goodsName && priceJpy === undefined) return undefined;
+
+  return {
+    platform: getString(record.platform),
+    item_id: itemId,
+    goods_name: goodsName,
+    cover: getString(record.cover),
+    price_jpy: priceJpy,
+    purchasable: getBoolean(record.purchasable),
+    unpurchasable_reason: getString(record.unpurchasable_reason),
+    fee_service_jpy: getNumber(record.fee_service_jpy),
+    fee_agent_jpy: getNumber(record.fee_agent_jpy),
+    domestic_shipping_note: getString(record.domestic_shipping_note),
+    est_goods_rmb: getString(record.est_goods_rmb),
+    rate_note: getString(record.rate_note),
   };
 }
 
@@ -108,6 +159,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
     type === "transfer_human" ||
     fallback === "53kf";
   const orderRef = getOrderRef(data.order_ref || root.order_ref);
+  const quoteRef = getQuoteRef(data.quote_ref || root.quote_ref);
 
   const text =
     getString(data.reply) ||
@@ -124,6 +176,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
     conversationId: getString(data.conversationId),
     queuedForHuman: Boolean(data.queuedForHuman),
     orderRef,
+    quoteRef,
   };
 }
 
@@ -365,6 +418,7 @@ export default function MiniProgramSupportH5Page() {
             role: "assistant",
             content: parsed.text,
             orderRef: parsed.orderRef,
+            quoteRef: parsed.quoteRef,
           },
         ]);
       }
@@ -512,6 +566,82 @@ export default function MiniProgramSupportH5Page() {
                       请在小程序内打开后查看或支付订单。
                     </p>
                   ) : null}
+                </div>
+              ) : null}
+              {item.quoteRef ? (
+                <div
+                  className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+                  data-testid="support-quote-card"
+                >
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <Tag className="h-4 w-4 text-orange-500" />
+                    报价确认
+                  </div>
+                  {item.quoteRef.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.quoteRef.cover}
+                      alt={item.quoteRef.goods_name || "商品图片"}
+                      className="mb-2 h-32 w-full rounded-md object-cover"
+                      loading="lazy"
+                    />
+                  ) : null}
+                  {item.quoteRef.goods_name ? (
+                    <div className="line-clamp-2 text-sm leading-5 text-slate-700">
+                      {item.quoteRef.goods_name}
+                    </div>
+                  ) : null}
+                  {item.quoteRef.price_jpy !== undefined ? (
+                    <div className="mt-2 text-sm font-medium text-slate-900">
+                      现价 ¥{item.quoteRef.price_jpy.toLocaleString("ja-JP")} 日元
+                    </div>
+                  ) : null}
+                  {item.quoteRef.fee_service_jpy !== undefined ? (
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                      支付手续费：¥
+                      {item.quoteRef.fee_service_jpy.toLocaleString("ja-JP")} 日元
+                    </div>
+                  ) : null}
+                  {item.quoteRef.fee_agent_jpy !== undefined ? (
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                      代拍手续费：¥
+                      {item.quoteRef.fee_agent_jpy.toLocaleString("ja-JP")} 日元
+                    </div>
+                  ) : null}
+                  {item.quoteRef.domestic_shipping_note ? (
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                      {item.quoteRef.domestic_shipping_note}
+                    </div>
+                  ) : null}
+                  {item.quoteRef.est_goods_rmb ? (
+                    <div className="mt-2 text-sm font-medium text-slate-900">
+                      约 ¥{item.quoteRef.est_goods_rmb}
+                      <span className="font-normal text-slate-500">
+                        （不含运费）
+                      </span>
+                    </div>
+                  ) : null}
+                  {item.quoteRef.rate_note ? (
+                    <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                      {item.quoteRef.rate_note}
+                    </p>
+                  ) : null}
+                  {item.quoteRef.purchasable === false ? (
+                    <div
+                      className="mt-3 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium leading-5 text-red-700"
+                      data-testid="support-quote-unpurchasable"
+                    >
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      {item.quoteRef.unpurchasable_reason || "该商品暂时无法购买"}
+                    </div>
+                  ) : (
+                    <p
+                      className="mt-3 rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700"
+                      data-testid="support-quote-cta"
+                    >
+                      核对无误后回复『确认』，我为您录入订单。
+                    </p>
+                  )}
                 </div>
               ) : null}
             </div>

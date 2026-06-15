@@ -3,7 +3,6 @@ import { useTranslations } from "next-intl";
 
 import { useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
@@ -101,8 +100,6 @@ export default function CommunityCreatePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <Header showSearch={false} />
-
       <main className="container mx-auto px-4 py-6 max-w-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

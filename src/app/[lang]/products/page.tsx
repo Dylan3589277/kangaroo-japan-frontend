@@ -6,7 +6,6 @@ import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { extractPagination, extractProducts, getProductImage, type NormalizedProduct, type ProductLike } from "@/lib/product-utils";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -199,30 +198,6 @@ export default function ProductsPage() {
     }
   }, [initialSearch]);
 
-  // 直接搜索函数（不依赖表单事件）
-  const handleSearchDirectly = async (query: string) => {
-    if (!query.trim()) {
-      setIsSearchMode(false);
-      fetchProducts();
-      return;
-    }
-
-    setIsSearchMode(true);
-    setLoading(true);
-    try {
-      // 使用内部搜索 API（不需要认证）
-      const res = await api.searchProducts(query, lang, 1, 20);
-      if (res.success && res.data) {
-        setProducts(extractProducts<ProductLike>(res.data));
-        setPagination((prev) => extractPagination(res.data, prev));
-      }
-    } catch (error) {
-      console.error("Failed to search products:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) {
@@ -289,19 +264,6 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* 全局 Header */}
-      <Header
-        showSearch
-        initialSearchQuery={initialSearch}
-        onSearch={(query) => {
-          setSearchQuery(query);
-          if (query.trim()) {
-            // 直接触发搜索，不依赖表单提交
-            handleSearchDirectly(query);
-          }
-        }}
-      />
-
       {/* BreadcrumbList JSON-LD Structured Data */}
       <script
         type="application/ld+json"

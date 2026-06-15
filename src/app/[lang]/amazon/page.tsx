@@ -6,7 +6,6 @@ import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { useTranslations } from "next-intl";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -251,8 +250,6 @@ export default function AmazonPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <Header />
-
       <div className="container mx-auto py-6 px-4">
         {/* Page Title */}
         <h1 className="text-2xl font-bold mb-4">

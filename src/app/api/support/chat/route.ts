@@ -652,6 +652,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
   const sourceIds = Array.isArray(bridge.source_ids) ? bridge.source_ids : [];
   const answeredBy = getString(bridge.answered_by);
   const orderRef = bridge.order_ref;
+  const quoteRef = bridge.quote_ref;
 
   if (action === "transfer_human") {
     return transferHumanResponse(reason || "hermes_transfer_human", reply);
@@ -668,6 +669,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
       reply: sanitizeCustomerReply(reply),
       reason,
       order_ref: orderRef,
+      quote_ref: quoteRef,
       sourceIds,
       answeredBy: answeredBy || "m4-hermes-customer-support",
       requiresTicket: false,

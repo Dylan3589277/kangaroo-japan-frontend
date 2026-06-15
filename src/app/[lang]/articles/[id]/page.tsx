@@ -3,7 +3,6 @@ import { useTranslations } from "next-intl";
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -66,8 +65,6 @@ export default function ArticleDetailPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <Header showSearch={false} />
-
       <main className="container mx-auto px-4 py-6 max-w-3xl">
         {/* Back button */}
         <Button

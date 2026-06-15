@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -142,7 +141,6 @@ export default function CategoryPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-50">
-        <Header showSearch />
         <main className="mx-auto max-w-7xl px-4 py-8">
           <Skeleton className="h-8 w-64 mb-6" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -164,7 +162,6 @@ export default function CategoryPage() {
   if (error || !category) {
     return (
       <div className="min-h-screen bg-zinc-50">
-        <Header showSearch />
         <main className="mx-auto max-w-7xl px-4 py-16 text-center">
           <h1 className="text-2xl font-bold text-zinc-900 mb-4">
             {lang === "zh"
@@ -198,8 +195,6 @@ export default function CategoryPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <Header showSearch />
-
       <main className="mx-auto max-w-7xl px-4 py-8">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-sm text-zinc-500 mb-6">

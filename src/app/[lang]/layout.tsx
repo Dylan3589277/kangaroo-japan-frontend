@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { routing } from "@/i18n/routing";
 import { isIndexable } from "@/lib/seo";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import "@/app/globals.css";
 
 export async function generateMetadata({
@@ -49,6 +50,7 @@ export default async function LocaleLayout({
 
   return (
     <div className="min-h-screen flex flex-col">
+      <SiteHeader />
       {children}
     </div>
   );

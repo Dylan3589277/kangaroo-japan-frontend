@@ -3,7 +3,6 @@ import { useTranslations } from "next-intl";
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Check, Copy } from "lucide-react";
@@ -27,8 +26,6 @@ export default function MnpPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <Header showSearch={false} />
-
       <main className="container mx-auto px-4 py-12 max-w-lg">
         <Card className="overflow-hidden">
           {/* Hero section */}

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Header } from "@/components/layout/Header";
 
 type Locale = "zh" | "en" | "ja";
 
@@ -483,8 +482,6 @@ export default function HelpPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <Header showSearch={false} />
-
       <main className="container mx-auto px-4 py-12 max-w-3xl">
         {/* Page header */}
         <div className="text-center mb-10">

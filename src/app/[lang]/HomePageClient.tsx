@@ -9,7 +9,6 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { extractProducts } from "@/lib/product-utils";
 import { useAuthStore } from "@/lib/auth";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -153,9 +152,6 @@ export function HomePageClient() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* 全局 Header - 固定顶部 */}
-      <Header showSearch={false} />
-
       {/* BreadcrumbList JSON-LD Structured Data */}
       <script
         type="application/ld+json"

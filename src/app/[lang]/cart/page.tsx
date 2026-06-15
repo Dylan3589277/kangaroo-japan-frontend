@@ -6,7 +6,6 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -308,9 +307,6 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* 全局 Header */}
-      <Header />
-
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold">{tr("shoppingCart")}</h1>

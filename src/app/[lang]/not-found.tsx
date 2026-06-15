@@ -3,7 +3,6 @@
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
-import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
@@ -66,8 +65,6 @@ export default function NotFoundPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col">
-      <Header showSearch />
-
       <main className="flex-1 flex flex-col items-center justify-center py-16 md:py-24 px-4">
         {/* 404 Icon */}
         <div className="mb-8">

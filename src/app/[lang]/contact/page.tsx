@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Header } from "@/components/layout/Header";
 import { ContactButtons, WechatQRModal } from "@/components/contact/ContactButtons";
 
 export default function ContactPage() {
@@ -60,8 +59,6 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <Header showSearch={false} />
-      
       <main className="container mx-auto px-4 py-12 max-w-2xl">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold mb-2">{text.title}</h1>

@@ -1,4 +1,3 @@
-import { Header } from "@/components/layout/Header";
 import { YahooSearchPage } from "@/components/yahoo/yahoo-search-page";
 
 type YahooSearchParams = {
@@ -22,7 +21,6 @@ export default async function YahooPage({
 
   return (
     <div className="min-h-screen bg-muted/20">
-      <Header />
       <YahooSearchPage
         locale={lang}
         initialKeyword={firstValue(query.keyword)}
