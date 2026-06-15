@@ -544,6 +544,8 @@ function buildBridgePayload(body: Record<string, unknown>) {
   const rawUserId = getH5UserIdCandidate(body);
   const contextUserIdState = getContextUserIdState(rawUserId);
   const userId = contextUserIdState === "numeric" ? rawUserId : undefined;
+  const uidSignTs = getString(body.ts);
+  const uidSignSig = getString(body.sig);
 
   return {
     session_id: sessionId,
@@ -552,6 +554,8 @@ function buildBridgePayload(body: Record<string, unknown>) {
     site: getString(body.site) || "kangaroo-japan",
     context: {
       user_id: userId,
+      ts: uidSignTs,
+      sig: uidSignSig,
       context_user_id_state: contextUserIdState,
       shop: sourcePlatform,
       gid: sourceGoodsId,

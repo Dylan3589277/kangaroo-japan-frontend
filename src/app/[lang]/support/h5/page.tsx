@@ -18,7 +18,7 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 
-import { getNumericH5UserId } from "./identity";
+import { getH5UidSignature, getNumericH5UserId } from "./identity";
 
 type ChatItem = {
   id?: string;
@@ -195,6 +195,7 @@ export default function MiniProgramSupportH5Page() {
   const lang = params?.lang || "zh";
   const initialSessionId = searchParams.get("session_id") || undefined;
   const userId = getNumericH5UserId(searchParams);
+  const uidSignature = getH5UidSignature(searchParams);
   const sourceGoodsId = searchParams.get("gid") || undefined;
   const rawShop = searchParams.get("shop") || "mercari";
   const sourcePlatform = SUPPORTED_PLATFORMS.has(rawShop) ? rawShop : "mercari";
@@ -329,6 +330,8 @@ export default function MiniProgramSupportH5Page() {
             sourceChannel: "mini_program_ai_webview",
             externalSessionId,
             userId,
+            ts: uidSignature.ts,
+            sig: uidSignature.sig,
             sourceGoodsId,
             sourcePlatform,
             sourcePage:
