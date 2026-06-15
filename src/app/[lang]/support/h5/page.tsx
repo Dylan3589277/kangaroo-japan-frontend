@@ -213,9 +213,12 @@ export default function MiniProgramSupportH5Page() {
     initialTransferHuman ? "袋鼠酱暂时接不上，我先帮你转人工客服～" : "",
   );
   const [items, setItems] = useState<ChatItem[]>([WELCOME_ITEM]);
-  const [visualViewportHeight, setVisualViewportHeight] = useState<
-    number | null
-  >(null);
+  const [vpRect, setVpRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [wxReady, setWxReady] = useState(false);
   const kf53ChatUrl = getKf53ChatUrl();
 
@@ -271,20 +274,31 @@ export default function MiniProgramSupportH5Page() {
 
   useEffect(() => {
     const viewport = window.visualViewport;
-    const updateViewportHeight = () => {
-      const height = viewport?.height || window.innerHeight;
-      setVisualViewportHeight(Math.floor(height));
+    // iOS 微信 webview：键盘弹出时 visualViewport 会缩小并带 offsetTop（页面被顶上去）。
+    // 把容器 position:fixed 钉到"当前可视区"（top=offsetTop, height=可视高度），
+    // 这样 body 怎么滚，聊天容器始终贴着可见区域，输入条永远浮在键盘上方、不再空白。
+    const updateRect = () => {
+      if (!viewport) {
+        setVpRect(null);
+        return;
+      }
+      setVpRect({
+        top: Math.round(viewport.offsetTop),
+        left: Math.round(viewport.offsetLeft),
+        width: Math.round(viewport.width),
+        height: Math.round(viewport.height),
+      });
     };
 
-    updateViewportHeight();
-    viewport?.addEventListener("resize", updateViewportHeight);
-    viewport?.addEventListener("scroll", updateViewportHeight);
-    window.addEventListener("resize", updateViewportHeight);
+    updateRect();
+    viewport?.addEventListener("resize", updateRect);
+    viewport?.addEventListener("scroll", updateRect);
+    window.addEventListener("resize", updateRect);
 
     return () => {
-      viewport?.removeEventListener("resize", updateViewportHeight);
-      viewport?.removeEventListener("scroll", updateViewportHeight);
-      window.removeEventListener("resize", updateViewportHeight);
+      viewport?.removeEventListener("resize", updateRect);
+      viewport?.removeEventListener("scroll", updateRect);
+      window.removeEventListener("resize", updateRect);
     };
   }, []);
 
@@ -401,15 +415,19 @@ export default function MiniProgramSupportH5Page() {
     void sendMessage(typeof formMessage === "string" ? formMessage : draft);
   }
 
-  const viewportStyle = {
-    "--support-h5-viewport-height": visualViewportHeight
-      ? `${visualViewportHeight}px`
-      : "100dvh",
-  } as CSSProperties;
+  const viewportStyle: CSSProperties = vpRect
+    ? {
+        position: "fixed",
+        top: vpRect.top,
+        left: vpRect.left,
+        width: vpRect.width,
+        height: vpRect.height,
+      }
+    : { position: "fixed", inset: 0, height: "100dvh" };
 
   return (
     <main
-      className="flex h-[var(--support-h5-viewport-height)] min-h-0 flex-col overflow-hidden bg-[#f5f7fb] text-slate-900"
+      className="flex min-h-0 flex-col overflow-hidden bg-[#f5f7fb] text-slate-900"
       style={viewportStyle}
     >
       <header className="sticky top-0 z-10 border-b bg-white/95 px-4 py-3 backdrop-blur">
