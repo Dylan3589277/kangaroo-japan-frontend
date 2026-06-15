@@ -45,5 +45,13 @@
   "sellerRatingCount": "（{count} 件）",
   "domesticShipping": "日本国内送料",
   "bidHistory": "入札履歴",
-  "approxCny": "≈ {amount} 元"
+  "approxCny": "≈ {amount} 元",
+  "buyNowPrice": "即決価格",
+  "buyNowPriceShort": "即決 JPY {amount}",
+  "auctionOnly": "オークションのみ",
+  "sellerShort": "出品者 {name}",
+  "sellerLocation": "所在地：{location}",
+  "bidCountLabel": "入札数",
+  "specs": "商品仕様",
+  "description": "商品説明"
 }

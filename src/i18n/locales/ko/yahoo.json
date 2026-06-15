@@ -45,5 +45,13 @@
   "sellerRatingCount": "（{count}건）",
   "domesticShipping": "일본 내 배송비",
   "bidHistory": "입찰 내역",
-  "approxCny": "≈ {amount} 위안"
+  "approxCny": "≈ {amount} 위안",
+  "buyNowPrice": "즉시 구매가",
+  "buyNowPriceShort": "즉시구매 JPY {amount}",
+  "auctionOnly": "경매 전용",
+  "sellerShort": "판매자 {name}",
+  "sellerLocation": "소재지: {location}",
+  "bidCountLabel": "입찰 수",
+  "specs": "상품 사양",
+  "description": "상품 설명"
 }

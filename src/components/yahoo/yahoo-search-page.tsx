@@ -427,6 +427,22 @@ export function YahooSearchPage({
                               </span>
                             )}
                           </p>
+                          {/* 一口价（直接购买）—— 无则显示「仅竞拍」 */}
+                          <p className="mt-0.5 text-[11px]">
+                            {item.buyNowPrice !== undefined ? (
+                              <span className="text-blue-700 dark:text-blue-400">
+                                {t("buyNowPriceShort", {
+                                  amount: numberFormatter.format(
+                                    item.buyNowPrice,
+                                  ),
+                                })}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {t("auctionOnly")}
+                              </span>
+                            )}
+                          </p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                             <span
                               className={`inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium ${URGENCY_PILL_CLASS[urgency]}`}
@@ -443,6 +459,21 @@ export function YahooSearchPage({
                                 : t("bidCount", { count: item.bidCount })}
                             </span>
                           </div>
+                          {/* 卖家名 + 所在地 —— 每段独立判空 */}
+                          {(item.sellerName || item.sellerLocation) && (
+                            <div className="mt-2 flex items-center justify-between gap-2 border-t pt-2 text-[11px] text-muted-foreground">
+                              {item.sellerName && (
+                                <span className="truncate">
+                                  {t("sellerShort", { name: item.sellerName })}
+                                </span>
+                              )}
+                              {item.sellerLocation && (
+                                <span className="shrink-0">
+                                  {item.sellerLocation}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </Card>
                     </Link>

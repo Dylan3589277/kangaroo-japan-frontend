@@ -45,5 +45,13 @@
   "sellerRatingCount": "({count} ulasan)",
   "domesticShipping": "Ongkir dalam negeri Jepang",
   "bidHistory": "Riwayat tawaran",
-  "approxCny": "≈ ¥{amount} CNY"
+  "approxCny": "≈ ¥{amount} CNY",
+  "buyNowPrice": "Harga beli langsung",
+  "buyNowPriceShort": "Beli langsung JPY {amount}",
+  "auctionOnly": "Hanya lelang",
+  "sellerShort": "Penjual {name}",
+  "sellerLocation": "Lokasi: {location}",
+  "bidCountLabel": "Jumlah tawaran",
+  "specs": "Spesifikasi",
+  "description": "Deskripsi"
 }

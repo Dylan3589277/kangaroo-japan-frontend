@@ -45,5 +45,13 @@
   "sellerRatingCount": "({count} đánh giá)",
   "domesticShipping": "Phí vận chuyển nội địa Nhật",
   "bidHistory": "Lịch sử đấu giá",
-  "approxCny": "≈ {amount} CNY"
+  "approxCny": "≈ {amount} CNY",
+  "buyNowPrice": "Giá mua ngay",
+  "buyNowPriceShort": "Mua ngay JPY {amount}",
+  "auctionOnly": "Chỉ đấu giá",
+  "sellerShort": "Người bán {name}",
+  "sellerLocation": "Vị trí: {location}",
+  "bidCountLabel": "Số lượt đấu",
+  "specs": "Thông số",
+  "description": "Mô tả sản phẩm"
 }

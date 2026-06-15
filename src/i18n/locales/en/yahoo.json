@@ -45,5 +45,13 @@
   "sellerRatingCount": "({count} ratings)",
   "domesticShipping": "Domestic shipping",
   "bidHistory": "Bid history",
-  "approxCny": "≈ ¥{amount} CNY"
+  "approxCny": "≈ ¥{amount} CNY",
+  "buyNowPrice": "Buy now price",
+  "buyNowPriceShort": "Buy now JPY {amount}",
+  "auctionOnly": "Auction only",
+  "sellerShort": "Seller {name}",
+  "sellerLocation": "Location: {location}",
+  "bidCountLabel": "Bid count",
+  "specs": "Specifications",
+  "description": "Description"
 }

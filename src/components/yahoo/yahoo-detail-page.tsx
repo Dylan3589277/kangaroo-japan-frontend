@@ -160,42 +160,61 @@ export function YahooDetailPage({
                 </p>
               )}
 
-              <div className="mt-7 border-y py-5">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {t("currentPrice")}
-                </p>
-                <div className="mt-1 flex flex-wrap items-baseline gap-3">
-                  <p className="text-3xl font-bold tracking-tight tabular-nums text-orange-600">
-                    {detail.currentPrice === undefined
-                      ? t("priceUnavailable")
-                      : `JPY ${numberFormatter.format(detail.currentPrice)}`}
+              <div className="mt-7 overflow-hidden rounded-2xl border">
+                <div className="bg-orange-50 px-4 py-4 dark:bg-orange-950/30">
+                  <p className="text-xs font-medium text-orange-700 dark:text-orange-400">
+                    {t("currentPrice")}
                   </p>
-                  {detail.priceCnyApprox !== undefined && (
-                    <span className="text-sm text-muted-foreground">
-                      {t("approxCny", {
-                        amount: numberFormatter.format(detail.priceCnyApprox),
-                      })}
-                    </span>
-                  )}
-                </div>
-
-                {(detail.startPrice !== undefined || detail.condition) && (
-                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                    {detail.startPrice !== undefined && (
-                      <span>
-                        {t("startPrice")}:{" "}
-                        <span className="font-medium text-foreground">
-                          {`JPY ${numberFormatter.format(detail.startPrice)}`}
-                        </span>
+                  <div className="mt-1 flex flex-wrap items-baseline gap-3">
+                    <p className="text-3xl font-bold tracking-tight tabular-nums text-orange-600">
+                      {detail.currentPrice === undefined
+                        ? t("priceUnavailable")
+                        : `JPY ${numberFormatter.format(detail.currentPrice)}`}
+                    </p>
+                    {detail.priceCnyApprox !== undefined && (
+                      <span className="text-sm text-orange-700 dark:text-orange-400">
+                        {t("approxCny", {
+                          amount: numberFormatter.format(detail.priceCnyApprox),
+                        })}
                       </span>
                     )}
-                    {detail.condition && (
-                      <span>
-                        {t("condition")}:{" "}
-                        <span className="font-medium text-foreground">
-                          {detail.condition}
-                        </span>
-                      </span>
+                  </div>
+                </div>
+
+                {/* 价格盒下半区：一口价 / 起拍价 / 出价次数，逐格判空 */}
+                {(detail.buyNowPrice !== undefined ||
+                  detail.startPrice !== undefined ||
+                  detail.bidCount !== undefined) && (
+                  <div className="flex flex-wrap divide-x border-t text-sm">
+                    {detail.buyNowPrice !== undefined && (
+                      <div className="flex-1 px-4 py-3">
+                        <p className="text-[11px] text-muted-foreground">
+                          {t("buyNowPrice")}
+                        </p>
+                        <p className="mt-0.5 font-semibold tabular-nums text-blue-700 dark:text-blue-400">
+                          {`JPY ${numberFormatter.format(detail.buyNowPrice)}`}
+                        </p>
+                      </div>
+                    )}
+                    {detail.startPrice !== undefined && (
+                      <div className="flex-1 px-4 py-3">
+                        <p className="text-[11px] text-muted-foreground">
+                          {t("startPrice")}
+                        </p>
+                        <p className="mt-0.5 font-semibold tabular-nums">
+                          {`JPY ${numberFormatter.format(detail.startPrice)}`}
+                        </p>
+                      </div>
+                    )}
+                    {detail.bidCount !== undefined && (
+                      <div className="flex-1 px-4 py-3">
+                        <p className="text-[11px] text-muted-foreground">
+                          {t("bidCountLabel")}
+                        </p>
+                        <p className="mt-0.5 font-semibold tabular-nums">
+                          {t("bidCount", { count: detail.bidCount })}
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -215,49 +234,104 @@ export function YahooDetailPage({
                 </div>
               </div>
 
-              {/* 商品信息 — seller rating + domestic shipping. Each row
-                  renders only when its field is present. */}
-              {(detail.sellerRating ||
-                detail.sellerRatingCount !== undefined ||
+              {/* 卖家卡 — 名 + 所在地 + 好评率 + 评价件数。整块判空。 */}
+              {(detail.sellerName ||
+                detail.sellerLocation ||
+                detail.sellerRating ||
+                detail.sellerRatingCount !== undefined) && (
+                <div className="mt-5 flex items-center gap-3 rounded-xl border px-4 py-3">
+                  {detail.sellerName && (
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-lg font-bold text-orange-600 dark:bg-orange-950/30">
+                      {detail.sellerName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    {detail.sellerName && (
+                      <p className="truncate font-semibold">
+                        {detail.sellerName}
+                      </p>
+                    )}
+                    {detail.sellerLocation && (
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {t("sellerLocation", { location: detail.sellerLocation })}
+                      </p>
+                    )}
+                  </div>
+                  {(detail.sellerRating ||
+                    detail.sellerRatingCount !== undefined) && (
+                    <div className="shrink-0 text-right">
+                      {detail.sellerRating && (
+                        <p className="font-bold text-teal-700 dark:text-teal-400">
+                          {t("sellerRatingValue", {
+                            percent: detail.sellerRating,
+                          })}
+                        </p>
+                      )}
+                      {detail.sellerRatingCount !== undefined && (
+                        <p className="text-xs text-muted-foreground">
+                          {t("sellerRatingCount", {
+                            count: detail.sellerRatingCount,
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 规格参数表 — extras 逐行；附加成色/日本运费（缺失不渲染）。 */}
+              {(detail.extras?.length ||
+                detail.condition ||
                 detail.domesticShipping) && (
                 <div className="mt-7">
-                  <h2 className="mb-3 text-sm font-semibold">
-                    {t("productInfo")}
-                  </h2>
-                  <dl className="space-y-2 text-sm">
-                    {(detail.sellerRating ||
-                      detail.sellerRatingCount !== undefined) && (
-                      <div className="flex gap-3">
-                        <dt className="w-20 shrink-0 text-muted-foreground">
-                          {t("sellerRating")}
+                  <h2 className="mb-3 text-sm font-semibold">{t("specs")}</h2>
+                  <dl className="overflow-hidden rounded-xl border text-sm">
+                    {detail.condition && (
+                      <div className="flex gap-3 border-b px-4 py-2.5 last:border-b-0">
+                        <dt className="w-24 shrink-0 text-muted-foreground">
+                          {t("condition")}
                         </dt>
-                        <dd className="flex flex-wrap items-baseline gap-x-2">
-                          {detail.sellerRating && (
-                            <span className="font-medium text-teal-700 dark:text-teal-400">
-                              {t("sellerRatingValue", {
-                                percent: detail.sellerRating,
-                              })}
-                            </span>
-                          )}
-                          {detail.sellerRatingCount !== undefined && (
-                            <span className="text-muted-foreground">
-                              {t("sellerRatingCount", {
-                                count: detail.sellerRatingCount,
-                              })}
-                            </span>
-                          )}
+                        <dd className="min-w-0 flex-1 break-words">
+                          {detail.condition}
                         </dd>
                       </div>
                     )}
                     {detail.domesticShipping && (
-                      <div className="flex gap-3">
-                        <dt className="w-20 shrink-0 text-muted-foreground">
+                      <div className="flex gap-3 border-b px-4 py-2.5 last:border-b-0">
+                        <dt className="w-24 shrink-0 text-muted-foreground">
                           {t("domesticShipping")}
                         </dt>
-                        <dd>{detail.domesticShipping}</dd>
+                        <dd className="min-w-0 flex-1 break-words">
+                          {detail.domesticShipping}
+                        </dd>
                       </div>
                     )}
+                    {detail.extras?.map((spec, index) => (
+                      <div
+                        key={`${spec.name}-${index}`}
+                        className="flex gap-3 border-b px-4 py-2.5 last:border-b-0"
+                      >
+                        <dt className="w-24 shrink-0 text-muted-foreground">
+                          {spec.name}
+                        </dt>
+                        <dd className="min-w-0 flex-1 break-words">
+                          {spec.value}
+                        </dd>
+                      </div>
+                    ))}
                   </dl>
+                </div>
+              )}
+
+              {/* 商品描述 — 纯文本（后端已转），保留换行。缺失不渲染。 */}
+              {detail.description && (
+                <div className="mt-7">
+                  <h2 className="mb-2 text-sm font-semibold">
+                    {t("description")}
+                  </h2>
+                  <p className="rounded-xl border bg-muted/30 px-4 py-3 text-sm leading-7 whitespace-pre-line text-muted-foreground">
+                    {detail.description}
+                  </p>
                 </div>
               )}
 

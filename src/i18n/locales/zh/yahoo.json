@@ -45,5 +45,13 @@
   "sellerRatingCount": "（{count} 件）",
   "domesticShipping": "日本运费",
   "bidHistory": "出价记录",
-  "approxCny": "≈ {amount} 元"
+  "approxCny": "≈ {amount} 元",
+  "buyNowPrice": "一口价（直接买）",
+  "buyNowPriceShort": "一口价 JPY {amount}",
+  "auctionOnly": "仅竞拍",
+  "sellerShort": "卖家 {name}",
+  "sellerLocation": "所在地：{location}",
+  "bidCountLabel": "出价次数",
+  "specs": "规格参数",
+  "description": "商品描述"
 }

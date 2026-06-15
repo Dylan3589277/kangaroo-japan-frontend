@@ -45,5 +45,13 @@
   "sellerRatingCount": "（{count} รายการ）",
   "domesticShipping": "ค่าส่งในญี่ปุ่น",
   "bidHistory": "ประวัติการประมูล",
-  "approxCny": "≈ {amount} หยวน"
+  "approxCny": "≈ {amount} หยวน",
+  "buyNowPrice": "ราคาซื้อทันที",
+  "buyNowPriceShort": "ซื้อทันที JPY {amount}",
+  "auctionOnly": "ประมูลเท่านั้น",
+  "sellerShort": "ผู้ขาย {name}",
+  "sellerLocation": "ที่ตั้ง: {location}",
+  "bidCountLabel": "จำนวนประมูล",
+  "specs": "ข้อมูลจำเพาะ",
+  "description": "รายละเอียดสินค้า"
 }

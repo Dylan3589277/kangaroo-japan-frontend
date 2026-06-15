@@ -9,6 +9,14 @@ export type YahooItem = {
   titleJa?: string;
   condition?: string;
   priceCnyApprox?: number;
+  buyNowPrice?: number;
+  sellerName?: string;
+  sellerLocation?: string;
+};
+
+export type YahooSpec = {
+  name: string;
+  value: string;
 };
 
 export type YahooBidHistoryEntry = {
@@ -37,12 +45,18 @@ export type YahooDetail = {
   currentPrice?: number;
   remaining?: string;
   endTimestamp?: number;
+  bidCount?: number;
   // 富字段（后端 live-legacy 透传，全部容错 optional；stale 缓存回退时缺省）
   titleJa?: string;
   condition?: string;
+  sellerName?: string;
+  sellerLocation?: string;
   sellerRating?: string;
   sellerRatingCount?: number;
   startPrice?: number;
+  buyNowPrice?: number;
+  description?: string;
+  extras?: YahooSpec[];
   images?: string[];
   bidHistory?: YahooBidHistoryEntry[];
   domesticShipping?: string;
@@ -256,7 +270,39 @@ function normalizeItem(value: unknown): YahooItem | null {
       "bid_price_rmb",
       "price_rmb",
     ]),
+    buyNowPrice: positiveNumber(
+      firstNumber(record, [
+        "buyNowPrice",
+        "buy_now_price",
+        "fastprice",
+        "buynowprice",
+      ]),
+    ),
+    sellerName: firstString(record, ["sellerName", "seller_name", "seller"]),
+    sellerLocation: firstString(record, [
+      "sellerLocation",
+      "seller_location",
+      "seller_address",
+    ]),
   };
+}
+
+// 一口价 0 或缺失视为「仅竞拍」，不渲染金额。
+function positiveNumber(value: number | undefined): number | undefined {
+  return value !== undefined && value > 0 ? value : undefined;
+}
+
+function normalizeSpecs(record: UnknownRecord): YahooSpec[] | undefined {
+  const list = firstArray(record, ["extras", "specs", "attributes"]);
+  const specs = list
+    .map((value): YahooSpec | null => {
+      const entry = asRecord(value);
+      const name = firstString(entry, ["name", "key", "label"]);
+      const specValue = firstString(entry, ["value", "val", "text"]);
+      return name && specValue ? { name, value: specValue } : null;
+    })
+    .filter((spec): spec is YahooSpec => spec !== null);
+  return specs.length > 0 ? specs : undefined;
 }
 
 export function normalizeYahooList(
@@ -417,6 +463,13 @@ export function normalizeYahooDetail(
     ]),
     remaining: normalizeRemaining(record),
     endTimestamp: normalizeEndTimestamp(record),
+    bidCount: firstNumber(record, [
+      "bidCount",
+      "bid_count",
+      "bidNum",
+      "bid_num",
+      "bids",
+    ]),
     titleJa: firstString(record, [
       "titleJa",
       "title_ja",
@@ -427,6 +480,12 @@ export function normalizeYahooDetail(
       "condition",
       "cond",
       "status_text",
+    ]),
+    sellerName: firstString(record, ["sellerName", "seller_name", "seller"]),
+    sellerLocation: firstString(record, [
+      "sellerLocation",
+      "seller_location",
+      "seller_address",
     ]),
     sellerRating: firstString(record, [
       "sellerRating",
@@ -443,6 +502,16 @@ export function normalizeYahooDetail(
       "start_price",
       "init_price",
     ]),
+    buyNowPrice: positiveNumber(
+      firstNumber(record, [
+        "buyNowPrice",
+        "buy_now_price",
+        "fastprice",
+        "buynowprice",
+      ]),
+    ),
+    description: firstString(record, ["description", "desc"]),
+    extras: normalizeSpecs(record),
     images: normalizeImageList(record),
     bidHistory: normalizeBidHistory(record),
     domesticShipping: firstString(record, [
