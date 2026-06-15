@@ -53,5 +53,8 @@
   "sellerLocation": "Vị trí: {location}",
   "bidCountLabel": "Số lượt đấu",
   "specs": "Thông số",
-  "description": "Mô tả sản phẩm"
+  "description": "Mô tả sản phẩm",
+  "translationNote": "Bản dịch chỉ mang tính tham khảo. Chúng tôi không chịu trách nhiệm về sai sót dịch thuật. Vui lòng liên hệ CSKH để biết thông tin chính xác.",
+  "showOriginal": "Xem bản gốc tiếng Nhật",
+  "relatedTitle": "Sản phẩm liên quan"
 }

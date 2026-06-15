@@ -1,0 +1,35 @@
+{
+  "title": "价格对比",
+  "subtitle": "输入关键词、设置条件并选择站点，在所选站点同时搜索并对比价格。",
+  "searchLabel": "商品关键词",
+  "searchPlaceholder": "输入要对比的商品关键词",
+  "searchButton": "对比",
+  "priceMinLabel": "最低价（JPY）",
+  "priceMaxLabel": "最高价（JPY）",
+  "pricePlaceholderMin": "如 1000",
+  "pricePlaceholderMax": "如 50000",
+  "sortLabel": "排序方式",
+  "sort": {
+    "relevance": "默认（相关度）",
+    "price_asc": "价格从低到高",
+    "price_desc": "价格从高到低"
+  },
+  "sitesLabel": "选择对比站点",
+  "noSiteSelected": "请至少选择一个站点。",
+  "platform": {
+    "mercari": "Mercari",
+    "amazon": "Amazon",
+    "yahoo": "Yahoo 竞拍"
+  },
+  "idleTitle": "开始对比价格",
+  "idleHint": "输入关键词、选择站点，然后点击「对比」。",
+  "loadError": "暂时无法加载对比结果，请稍后重试。",
+  "referenceNotice": "价格仅供参考，以实际下单为准。各站汇率、运费与手续费可能不同。",
+  "resultCount": "{count} 条结果",
+  "siteError": "该站暂时无法加载",
+  "siteEmpty": "该站没有找到匹配商品",
+  "noImage": "暂无图片",
+  "bestPrice": "全场最低价",
+  "priceUnavailable": "价格待更新",
+  "approxCny": "≈ {amount} 元"
+}

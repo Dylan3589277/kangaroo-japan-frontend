@@ -1,0 +1,35 @@
+{
+  "title": "Perbandingan Harga",
+  "subtitle": "Masukkan kata kunci, atur kondisi, dan pilih situs untuk mencari serta membandingkan harga di situs terpilih sekaligus.",
+  "searchLabel": "Kata kunci produk",
+  "searchPlaceholder": "Masukkan kata kunci produk untuk dibandingkan",
+  "searchButton": "Bandingkan",
+  "priceMinLabel": "Harga min (JPY)",
+  "priceMaxLabel": "Harga maks (JPY)",
+  "pricePlaceholderMin": "mis. 1000",
+  "pricePlaceholderMax": "mis. 50000",
+  "sortLabel": "Urutkan",
+  "sort": {
+    "relevance": "Default (relevansi)",
+    "price_asc": "Harga: rendah ke tinggi",
+    "price_desc": "Harga: tinggi ke rendah"
+  },
+  "sitesLabel": "Situs untuk dibandingkan",
+  "noSiteSelected": "Pilih setidaknya satu situs.",
+  "platform": {
+    "mercari": "Mercari",
+    "amazon": "Amazon",
+    "yahoo": "Yahoo Auctions"
+  },
+  "idleTitle": "Mulai bandingkan harga",
+  "idleHint": "Masukkan kata kunci, pilih situs, lalu tekan \"Bandingkan\".",
+  "loadError": "Tidak dapat memuat hasil perbandingan. Coba lagi nanti.",
+  "referenceNotice": "Harga hanya untuk referensi; harga pesanan sebenarnya yang berlaku. Kurs, ongkir, dan biaya dapat berbeda tiap situs.",
+  "resultCount": "{count} hasil",
+  "siteError": "Situs ini sementara tidak tersedia",
+  "siteEmpty": "Tidak ada produk yang cocok di situs ini",
+  "noImage": "Tanpa gambar",
+  "bestPrice": "Harga terbaik",
+  "priceUnavailable": "Harga menunggu",
+  "approxCny": "≈ CNY {amount}"
+}

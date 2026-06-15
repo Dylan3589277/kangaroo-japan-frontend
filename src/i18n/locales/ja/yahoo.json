@@ -53,5 +53,8 @@
   "sellerLocation": "所在地：{location}",
   "bidCountLabel": "入札数",
   "specs": "商品仕様",
-  "description": "商品説明"
+  "description": "商品説明",
+  "translationNote": "翻訳は参考用です。翻訳の誤りによる損害について当社は責任を負いません。正確な商品情報はカスタマーサービスにお問い合わせください。",
+  "showOriginal": "日本語の原文を表示",
+  "relatedTitle": "関連商品"
 }

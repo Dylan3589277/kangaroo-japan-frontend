@@ -2,10 +2,23 @@
   "nav": {
     "home": "Trang chủ",
     "products": "Sản phẩm",
+    "sites": "Trang web",
     "cart": "Giỏ hàng",
     "orders": "Đơn hàng",
     "profile": "Tài khoản",
     "about": "Về chúng tôi"
+  },
+  "siteMenu": {
+    "comingSoon": "Sắp ra mắt",
+    "mercari": "Mercari",
+    "yahooShopping": "Yahoo Shopping",
+    "yahooAuction": "Yahoo Auctions",
+    "rakuten": "Rakuten",
+    "rakuma": "Rakuma",
+    "yahooFrima": "PayPay Frima",
+    "amazon": "Amazon",
+    "surugaya": "Surugaya",
+    "zozotown": "ZOZOTOWN"
   },
   "home": {
     "title": "Kangaroo Japan",

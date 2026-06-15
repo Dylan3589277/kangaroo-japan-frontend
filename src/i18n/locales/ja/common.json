@@ -2,10 +2,23 @@
   "nav": {
     "home": "ホーム",
     "products": "商品",
+    "sites": "サイト",
     "cart": "カート",
     "orders": "注文履歴",
     "profile": "マイページ",
     "about": "私たちについて"
+  },
+  "siteMenu": {
+    "comingSoon": "近日公開",
+    "mercari": "メルカリ",
+    "yahooShopping": "Yahoo!ショッピング",
+    "yahooAuction": "ヤフオク!",
+    "rakuten": "楽天市場",
+    "rakuma": "ラクマ",
+    "yahooFrima": "PayPayフリマ",
+    "amazon": "Amazon",
+    "surugaya": "駿河屋",
+    "zozotown": "ZOZOTOWN"
   },
   "home": {
     "title": "カンガルー日本",

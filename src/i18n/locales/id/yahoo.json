@@ -53,5 +53,8 @@
   "sellerLocation": "Lokasi: {location}",
   "bidCountLabel": "Jumlah tawaran",
   "specs": "Spesifikasi",
-  "description": "Deskripsi"
+  "description": "Deskripsi",
+  "translationNote": "Terjemahan hanya untuk referensi. Kami tidak bertanggung jawab atas kesalahan terjemahan. Silakan hubungi layanan pelanggan untuk detail produk yang akurat.",
+  "showOriginal": "Lihat teks asli bahasa Jepang",
+  "relatedTitle": "Produk terkait"
 }

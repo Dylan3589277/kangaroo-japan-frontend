@@ -2,10 +2,23 @@
   "nav": {
     "home": "Home",
     "products": "Products",
+    "sites": "Sites",
     "cart": "Cart",
     "orders": "My Orders",
     "profile": "Profile",
     "about": "About Us"
+  },
+  "siteMenu": {
+    "comingSoon": "Coming soon",
+    "mercari": "Mercari",
+    "yahooShopping": "Yahoo Shopping",
+    "yahooAuction": "Yahoo Auctions",
+    "rakuten": "Rakuten",
+    "rakuma": "Rakuma",
+    "yahooFrima": "PayPay Frima",
+    "amazon": "Amazon",
+    "surugaya": "Surugaya",
+    "zozotown": "ZOZOTOWN"
   },
   "home": {
     "title": "Kangaroo Japan",

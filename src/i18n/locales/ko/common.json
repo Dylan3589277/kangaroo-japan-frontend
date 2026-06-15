@@ -2,10 +2,23 @@
   "nav": {
     "home": "홈",
     "products": "상품",
+    "sites": "사이트",
     "cart": "장바구니",
     "orders": "주문내역",
     "profile": "마이페이지",
     "about": "회사소개"
+  },
+  "siteMenu": {
+    "comingSoon": "준비 중",
+    "mercari": "메루카리 Mercari",
+    "yahooShopping": "야후 쇼핑",
+    "yahooAuction": "야후 옥션",
+    "rakuten": "라쿠텐 Rakuten",
+    "rakuma": "라쿠마 Rakuma",
+    "yahooFrima": "PayPay 프리마",
+    "amazon": "아마존 Amazon",
+    "surugaya": "스루가야 Surugaya",
+    "zozotown": "ZOZOTOWN"
   },
   "home": {
     "title": "캥거루 재팬",

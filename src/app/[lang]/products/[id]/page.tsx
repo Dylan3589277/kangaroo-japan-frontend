@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
+import { Header } from "@/components/layout/Header";
 
 type Product = NormalizedProduct<ProductLike> & {
   platformProductId?: string | number | null;
@@ -217,13 +218,16 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <Skeleton className="h-96 w-full" />
-          <div className="space-y-4">
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-6 w-1/2" />
-            <Skeleton className="h-24 w-full" />
+      <div className="min-h-screen bg-muted/20">
+        <Header />
+        <div className="container mx-auto py-8 px-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Skeleton className="h-96 w-full" />
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-6 w-1/2" />
+              <Skeleton className="h-24 w-full" />
+            </div>
           </div>
         </div>
       </div>
@@ -232,13 +236,16 @@ export default function ProductDetailPage() {
 
   if (!product) {
     return (
-      <div className="container mx-auto py-8 px-4 text-center">
-        <h1 className="text-2xl font-bold mb-4">
-          {lang === "zh" ? "商品未找到" : lang === "en" ? "Product Not Found" : "商品が見つかりません"}
-        </h1>
-        <Button onClick={() => router.back()}>
-          {lang === "zh" ? "返回" : lang === "en" ? "Go Back" : "戻る"}
-        </Button>
+      <div className="min-h-screen bg-muted/20">
+        <Header />
+        <div className="container mx-auto py-8 px-4 text-center">
+          <h1 className="text-2xl font-bold mb-4">
+            {lang === "zh" ? "商品未找到" : lang === "en" ? "Product Not Found" : "商品が見つかりません"}
+          </h1>
+          <Button onClick={() => router.back()}>
+            {lang === "zh" ? "返回" : lang === "en" ? "Go Back" : "戻る"}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -283,7 +290,9 @@ export default function ProductDetailPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="min-h-screen bg-muted/20">
+      <Header />
+      <div className="container mx-auto py-8 px-4">
       {/* BreadcrumbList JSON-LD Structured Data */}
       <script
         type="application/ld+json"
@@ -609,6 +618,7 @@ export default function ProductDetailPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

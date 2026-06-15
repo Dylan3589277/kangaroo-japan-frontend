@@ -2,10 +2,23 @@
   "nav": {
     "home": "หน้าแรก",
     "products": "สินค้า",
+    "sites": "เว็บไซต์",
     "cart": "ตะกร้า",
     "orders": "คำสั่งซื้อของฉัน",
     "profile": "โปรไฟล์",
     "about": "เกี่ยวกับเรา"
+  },
+  "siteMenu": {
+    "comingSoon": "เร็วๆ นี้",
+    "mercari": "Mercari",
+    "yahooShopping": "Yahoo Shopping",
+    "yahooAuction": "Yahoo Auctions",
+    "rakuten": "Rakuten",
+    "rakuma": "Rakuma",
+    "yahooFrima": "PayPay Frima",
+    "amazon": "Amazon",
+    "surugaya": "Surugaya",
+    "zozotown": "ZOZOTOWN"
   },
   "home": {
     "title": "Kangaroo Japan",

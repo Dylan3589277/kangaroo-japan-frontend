@@ -2,10 +2,23 @@
   "nav": {
     "home": "首页",
     "products": "商品",
+    "sites": "站点",
     "cart": "购物车",
     "orders": "我的订单",
     "profile": "个人中心",
     "about": "关于我们"
+  },
+  "siteMenu": {
+    "comingSoon": "敬请期待",
+    "mercari": "煤炉 Mercari",
+    "yahooShopping": "雅虎购物",
+    "yahooAuction": "雅虎竞拍",
+    "rakuten": "乐天 Rakuten",
+    "rakuma": "乐天 Rakuma",
+    "yahooFrima": "PayPay/雅虎 Frima",
+    "amazon": "亚马逊 Amazon",
+    "surugaya": "骏河屋 Surugaya",
+    "zozotown": "ZOZOTOWN"
   },
   "home": {
     "title": "袋鼠君日本站",

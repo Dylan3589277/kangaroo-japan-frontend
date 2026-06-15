@@ -1,425 +1,299 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useParams, useSearchParams } from "next/navigation";
-import { Link } from "@/i18n/navigation";
-import Image from "next/image";
+import {
+  FormEvent,
+  Suspense,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CompareResults } from "@/components/compare/compare-results";
+import {
+  COMPARE_PLATFORMS,
+  cheapestAcross,
+  filterByPriceRange,
+  groupUnifiedItems,
+  sortCompareItems,
+  type CompareItem,
+  type ComparePlatform,
+  type CompareSort,
+  type ComparePlatformResult,
+} from "@/components/compare/compare-data";
 
-interface ComparedProduct {
-  id: string;
-  platform: string;
-  platformName: string;
-  platformUrl: string;
-  title: string;
-  priceJpy: number;
-  priceCny: number;
-  priceUsd: number;
-  currency: string;
-  images: string[];
-  imagesCount: number;
-  rating: number | null;
-  reviewCount: number;
-  salesCount: number;
-  inStock: boolean;
-  status: string;
-  sellerName: string;
+const SORT_OPTIONS: CompareSort[] = ["relevance", "price_asc", "price_desc"];
+const PER_SITE_LIMIT = 8;
+
+function parsePrice(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed.replaceAll(",", ""));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
-
-interface CompareResult {
-  products: ComparedProduct[];
-  cheapest: {
-    platform: string;
-    priceCny: number;
-    priceJpy: number;
-    savingsCny: number;
-    savingsPercent: number;
-  } | null;
-}
-
-const PLATFORM_COLORS: Record<string, string> = {
-  amazon: "bg-yellow-500",
-  mercari: "bg-red-500",
-  rakuten: "bg-red-600",
-  yahoo: "bg-purple-500",
-};
-
-const PLATFORM_NAMES: Record<string, Record<string, string>> = {
-  amazon: { zh: "亚马逊", en: "Amazon", ja: "Amazon" },
-  mercari: { zh: "Mercari", en: "Mercari", ja: "Mercari" },
-  rakuten: { zh: "乐天", en: "Rakuten", ja: "楽天" },
-  yahoo: { zh: "Yahoo", en: "Yahoo", ja: "Yahoo" },
-};
 
 function CompareContent() {
   const params = useParams();
-  const searchParams = useSearchParams();
-  const lang = (params.lang as string) || "zh";
+  const locale = (params.lang as string) || "zh";
+  const t = useTranslations("compare");
 
-  const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [productIds, setProductIds] = useState<string[]>([]);
+  const [keyword, setKeyword] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [sort, setSort] = useState<CompareSort>("relevance");
+  const [selectedSites, setSelectedSites] = useState<ComparePlatform[]>([
+    ...COMPARE_PLATFORMS,
+  ]);
 
-  useEffect(() => {
-    const ids = searchParams.get("ids");
-    if (ids) {
-      const idArray = ids.split(",").filter(Boolean);
-      setProductIds(idArray);
-      fetchCompare(idArray);
-    } else {
-      setLoading(false);
-    }
-  }, [searchParams]);
+  const [results, setResults] = useState<ComparePlatformResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const requestVersionRef = useRef(0);
 
-  const fetchCompare = async (ids: string[]) => {
-    if (ids.length === 0) {
-      setLoading(false);
-      return;
-    }
+  const toggleSite = (site: ComparePlatform) => {
+    setSelectedSites((previous) =>
+      previous.includes(site)
+        ? previous.filter((value) => value !== site)
+        : [...previous, site],
+    );
+  };
 
-    setLoading(true);
-    try {
-      const res = await api.compareProducts(ids, lang);
-      if (res.success && res.data) {
-        setCompareResult(res.data as CompareResult);
+  const runSearch = useCallback(
+    async (
+      term: string,
+      sites: ComparePlatform[],
+      min: number | undefined,
+      max: number | undefined,
+      currentSort: CompareSort,
+    ) => {
+      const version = requestVersionRef.current + 1;
+      requestVersionRef.current = version;
+      setLoading(true);
+      setSearched(true);
+      setGlobalError(null);
+
+      try {
+        const response = await api.unifiedSearch({
+          keyword: term,
+          page: 1,
+          limit: PER_SITE_LIMIT * sites.length,
+          platforms: sites.join(","),
+        });
+
+        if (version !== requestVersionRef.current) return;
+
+        if (!response.success) {
+          setResults([]);
+          setGlobalError(response.error?.message || t("loadError"));
+          return;
+        }
+
+        // 后端聚合接口已并发各站；此处按站归并 + 前端筛选/排序。
+        // 某站无结果只显示空态，不影响其它站（allSettled 思路）。
+        const grouped = groupUnifiedItems(response.data, sites).map(
+          (result): ComparePlatformResult => {
+            const filtered: CompareItem[] = filterByPriceRange(
+              result.items,
+              min,
+              max,
+            );
+            const sorted = sortCompareItems(filtered, currentSort).slice(
+              0,
+              PER_SITE_LIMIT,
+            );
+            return {
+              ...result,
+              items: sorted,
+              status: sorted.length > 0 ? "ok" : "empty",
+            };
+          },
+        );
+        setResults(grouped);
+      } catch (error) {
+        if (version !== requestVersionRef.current) return;
+        console.error("Compare search failed:", error);
+        setResults([]);
+        setGlobalError(t("loadError"));
+      } finally {
+        if (version === requestVersionRef.current) setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch compare:", error);
-    } finally {
-      setLoading(false);
-    }
+    },
+    [t],
+  );
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const term = keyword.trim();
+    if (!term || selectedSites.length === 0) return;
+    void runSearch(
+      term,
+      selectedSites,
+      parsePrice(priceMin),
+      parsePrice(priceMax),
+      sort,
+    );
   };
 
-  const getPriceByCurrency = (priceJpy: number, priceCny: number, priceUsd: number) => {
-    switch (lang) {
-      case "en":
-        return { main: `$${priceUsd.toFixed(2)}`, secondary: `¥${priceJpy.toLocaleString()}` };
-      case "ja":
-        return { main: `¥${priceJpy.toLocaleString()}`, secondary: `(¥${priceCny.toFixed(2)})` };
-      default:
-        return { main: `¥${priceCny.toFixed(2)}`, secondary: `¥${priceJpy.toLocaleString()}` };
-    }
-  };
-
-  const getCheapestPlatform = () => {
-    if (!compareResult?.cheapest) return null;
-    return PLATFORM_NAMES[compareResult.cheapest.platform]?.[lang] || compareResult.cheapest.platform;
-  };
-
-  if (loading) {
-    return (
-      <div className="container mx-auto py-8 px-4">
-        <Skeleton className="h-12 w-1/2 mb-8" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-96 w-full" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (productIds.length === 0) {
-    return (
-      <div className="container mx-auto py-8 px-4 text-center">
-        <h1 className="text-2xl font-bold mb-4">
-          {lang === "zh" ? "请选择要比较的商品" : lang === "en" ? "Please select products to compare" : "比較する商品を選択してください"}
-        </h1>
-        <Link href="/products">
-          <Button>
-            {lang === "zh" ? "浏览商品" : lang === "en" ? "Browse Products" : "商品を見る"}
-          </Button>
-        </Link>
-      </div>
-    );
-  }
-
-  if (!compareResult || compareResult.products.length === 0) {
-    return (
-      <div className="container mx-auto py-8 px-4 text-center">
-        <h1 className="text-2xl font-bold mb-4">
-          {lang === "zh" ? "未找到商品" : lang === "en" ? "Products Not Found" : "商品が見つかりません"}
-        </h1>
-        <Link href="/products">
-          <Button>
-            {lang === "zh" ? "浏览商品" : lang === "en" ? "Browse Products" : "商品を見る"}
-          </Button>
-        </Link>
-      </div>
-    );
-  }
+  const cheapest = useMemo(() => cheapestAcross(results), [results]);
+  const canSearch = keyword.trim().length > 0 && selectedSites.length > 0;
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">
-          {lang === "zh" ? "商品比价" : lang === "en" ? "Price Comparison" : "価格比較"}
-        </h1>
-        <p className="text-muted-foreground">
-          {lang === "zh"
-            ? "比较同一商品在不同平台的价格"
-            : lang === "en"
-            ? "Compare prices for the same product across different platforms"
-            : "同じ商品の異なるプラットフォームでの価格を比較"}
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mb-5 flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          {t("subtitle")}
         </p>
       </div>
 
-      {/* Cheapest Summary */}
-      {compareResult.cheapest && (
-        <Card className="mb-8 border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-green-800 dark:text-green-200 mb-1">
-                  {lang === "zh" ? "最低价" : lang === "en" ? "Best Price" : "最安値"}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <Badge className={`${PLATFORM_COLORS[compareResult.cheapest.platform]} text-white text-lg px-3 py-1`}>
-                    {getCheapestPlatform()}
-                  </Badge>
-                  <span className="text-2xl font-bold text-green-700 dark:text-green-300">
-                    ¥{compareResult.cheapest.priceCny.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              {compareResult.cheapest.savingsCny > 0 && (
-                <div className="text-right">
-                  <p className="text-sm text-green-600 dark:text-green-400">
-                    {lang === "zh" ? "可节省" : lang === "en" ? "You save" : "節約可能"}
-                  </p>
-                  <p className="text-xl font-bold text-green-700 dark:text-green-300">
-                    ¥{compareResult.cheapest.savingsCny.toFixed(2)} ({compareResult.cheapest.savingsPercent}%)
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <form
+        onSubmit={handleSubmit}
+        className="mb-6 flex flex-col gap-4 rounded-2xl border bg-card p-4"
+      >
+        {/* 搜索栏 */}
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label={t("searchLabel")}
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              placeholder={t("searchPlaceholder")}
+              className="h-10 rounded-full pl-9"
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={!canSearch}
+            className="h-10 rounded-full px-6"
+          >
+            {t("searchButton")}
+          </Button>
+        </div>
+
+        {/* 条件栏：价格区间 + 排序 */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="compare-price-min" className="text-xs">
+              {t("priceMinLabel")}
+            </Label>
+            <Input
+              id="compare-price-min"
+              inputMode="numeric"
+              value={priceMin}
+              onChange={(event) => setPriceMin(event.target.value)}
+              placeholder={t("pricePlaceholderMin")}
+              className="h-9"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="compare-price-max" className="text-xs">
+              {t("priceMaxLabel")}
+            </Label>
+            <Input
+              id="compare-price-max"
+              inputMode="numeric"
+              value={priceMax}
+              onChange={(event) => setPriceMax(event.target.value)}
+              placeholder={t("pricePlaceholderMax")}
+              className="h-9"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
+            <Label className="text-xs">{t("sortLabel")}</Label>
+            <Select
+              value={sort}
+              onValueChange={(value) => value && setSort(value as CompareSort)}
+            >
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue>
+                  {(value) => t(`sort.${value ?? "relevance"}`)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {t(`sort.${option}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* 站点选择 */}
+        <div className="flex flex-col gap-2">
+          <Label className="text-xs">{t("sitesLabel")}</Label>
+          <div className="flex flex-wrap gap-2">
+            {COMPARE_PLATFORMS.map((site) => {
+              const active = selectedSites.includes(site);
+              return (
+                <button
+                  key={site}
+                  type="button"
+                  onClick={() => toggleSite(site)}
+                  aria-pressed={active}
+                  className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {t(`platform.${site}`)}
+                </button>
+              );
+            })}
+          </div>
+          {selectedSites.length === 0 && (
+            <p className="text-xs text-destructive">{t("noSiteSelected")}</p>
+          )}
+        </div>
+      </form>
+
+      {globalError && (
+        <div className="mb-6 rounded-2xl border bg-card px-4 py-8 text-center">
+          <p className="text-sm font-medium">{globalError}</p>
+        </div>
       )}
 
-      {/* Product Comparison Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {compareResult.products.map((product) => {
-          const priceDisplay = getPriceByCurrency(product.priceJpy, product.priceCny, product.priceUsd);
-          const isCheapest = compareResult.cheapest?.platform === product.platform;
-
-          return (
-            <Card
-              key={product.id}
-              className={`overflow-hidden ${
-                isCheapest ? "border-green-500 border-2 shadow-lg" : ""
-              }`}
-            >
-              {isCheapest && (
-                <div className="bg-green-500 text-white text-center py-1 text-sm font-medium">
-                  {lang === "zh" ? "最低价 ✓" : lang === "en" ? "Best Price ✓" : "最安値 ✓"}
-                </div>
-              )}
-
-              {/* Image */}
-              <div className="relative h-48 bg-muted">
-                {product.images && product.images[0] ? (
-                  <img
-                    src={product.images[0]}
-                    alt={product.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    {lang === "zh" ? "无图片" : lang === "en" ? "No Image" : "画像なし"}
-                  </div>
-                )}
-                <Badge
-                  className={`absolute top-3 left-3 ${PLATFORM_COLORS[product.platform] || "bg-gray-500"} text-white`}
-                >
-                  {product.platformName}
-                </Badge>
-              </div>
-
-              <CardContent className="p-4">
-                {/* Title */}
-                <h3 className="font-medium line-clamp-2 mb-3 min-h-[3rem]">{product.title}</h3>
-
-                {/* Price */}
-                <div className="mb-4">
-                  <span className="text-2xl font-bold text-primary">{priceDisplay.main}</span>
-                  {lang !== "ja" && (
-                    <span className="text-sm text-muted-foreground ml-2">{priceDisplay.secondary}</span>
-                  )}
-                  {lang === "ja" && (
-                    <span className="text-sm text-muted-foreground ml-1">{priceDisplay.secondary}</span>
-                  )}
-                </div>
-
-                {/* Meta */}
-                <div className="space-y-2 mb-4 text-sm">
-                  {product.rating && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-yellow-500">★</span>
-                      <span>{Number(product.rating).toFixed(1)}</span>
-                      <span className="text-muted-foreground">({product.reviewCount})</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Badge variant={product.inStock ? "default" : "destructive"} className="text-xs">
-                      {product.inStock
-                        ? lang === "zh" ? "有货" : lang === "en" ? "In Stock" : "在庫あり"
-                        : lang === "zh" ? "售罄" : lang === "en" ? "Sold Out" : "売り切れ"}
-                    </Badge>
-                    {product.salesCount > 0 && (
-                      <span className="text-muted-foreground">
-                        {lang === "zh" ? "销量" : lang === "en" ? "Sales" : "売上"}: {product.salesCount}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <Separator className="my-4" />
-
-                {/* Actions */}
-                <div className="flex flex-col gap-2">
-                  {product.platformUrl && (
-                    <a href={product.platformUrl} target="_blank" rel="noopener noreferrer">
-                      <Button className="w-full" size="sm">
-                        {lang === "zh" ? "去购买" : lang === "en" ? "Buy Now" : "購入"}
-                      </Button>
-                    </a>
-                  )}
-                  <Link href={`/products/${product.id}`}>
-                    <Button variant="outline" className="w-full" size="sm">
-                      {lang === "zh" ? "查看详情" : lang === "en" ? "View Details" : "詳細を見る"}
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Comparison Table */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>
-            {lang === "zh" ? "详细对比" : lang === "en" ? "Detailed Comparison" : "詳細比較"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium">
-                    {lang === "zh" ? "平台" : lang === "en" ? "Platform" : "プラットフォーム"}
-                  </th>
-                  <th className="text-right py-3 px-4 font-medium">
-                    {lang === "zh" ? "价格" : lang === "en" ? "Price" : "価格"}
-                  </th>
-                  <th className="text-right py-3 px-4 font-medium">
-                    {lang === "zh" ? "评分" : lang === "en" ? "Rating" : "評価"}
-                  </th>
-                  <th className="text-right py-3 px-4 font-medium">
-                    {lang === "zh" ? "评论数" : lang === "en" ? "Reviews" : "レビュー数"}
-                  </th>
-                  <th className="text-right py-3 px-4 font-medium">
-                    {lang === "zh" ? "销量" : lang === "en" ? "Sales" : "売上"}
-                  </th>
-                  <th className="text-right py-3 px-4 font-medium">
-                    {lang === "zh" ? "状态" : lang === "en" ? "Status" : "状態"}
-                  </th>
-                  <th className="text-right py-3 px-4 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {compareResult.products.map((product) => {
-                  const priceDisplay = getPriceByCurrency(product.priceJpy, product.priceCny, product.priceUsd);
-                  const isCheapest = compareResult.cheapest?.platform === product.platform;
-
-                  return (
-                    <tr
-                      key={product.id}
-                      className={`border-b ${isCheapest ? "bg-green-50 dark:bg-green-950/30" : ""}`}
-                    >
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <Badge className={`${PLATFORM_COLORS[product.platform]} text-white`}>
-                            {product.platformName}
-                          </Badge>
-                          {isCheapest && (
-                            <Badge variant="outline" className="text-green-600 border-green-600">
-                              {lang === "zh" ? "最低" : lang === "en" ? "Best" : "最安"}
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-                      <td className="text-right py-3 px-4">
-                        <span className="font-bold">{priceDisplay.main}</span>
-                        <span className="text-sm text-muted-foreground ml-1">{priceDisplay.secondary}</span>
-                      </td>
-                      <td className="text-right py-3 px-4">
-                        {product.rating ? (
-                          <span className="text-yellow-500">★</span>
-                        ) : (
-                          "-"
-                        )}{" "}
-                        {product.rating ? Number(product.rating).toFixed(1) : "-"}
-                      </td>
-                      <td className="text-right py-3 px-4">{product.reviewCount || "-"}</td>
-                      <td className="text-right py-3 px-4">{product.salesCount || "-"}</td>
-                      <td className="text-right py-3 px-4">
-                        <Badge variant={product.inStock ? "default" : "destructive"}>
-                          {product.inStock
-                            ? lang === "zh" ? "有货" : lang === "en" ? "In Stock" : "在庫"
-                            : lang === "zh" ? "售罄" : lang === "en" ? "Sold Out" : "売り切れ"}
-                        </Badge>
-                      </td>
-                      <td className="text-right py-3 px-4">
-                        <Link href={`/products/${product.id}`}>
-                          <Button variant="ghost" size="sm">
-                            {lang === "zh" ? "详情" : lang === "en" ? "Details" : "詳細"}
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Back Button */}
-      <div className="text-center">
-        <Link href="/products">
-          <Button variant="outline">
-            {lang === "zh" ? "返回商品列表" : lang === "en" ? "Back to Products" : "商品リストに戻る"}
-          </Button>
-        </Link>
-      </div>
-    </div>
+      {!searched && !loading && !globalError ? (
+        <div className="rounded-2xl border bg-card px-4 py-16 text-center">
+          <Search className="mx-auto size-8 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium">{t("idleTitle")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("idleHint")}</p>
+        </div>
+      ) : (
+        !globalError && (
+          <CompareResults
+            locale={locale}
+            loading={loading}
+            results={results}
+            cheapestPlatform={cheapest?.platform}
+            cheapestPriceJpy={cheapest?.priceJpy}
+          />
+        )
+      )}
+    </main>
   );
 }
 
 export default function ComparePage() {
   return (
-    <Suspense fallback={
-      <div className="container mx-auto py-8 px-4">
-        <Skeleton className="h-12 w-1/2 mb-8" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-96 w-full" />
-          ))}
-        </div>
-      </div>
-    }>
+    <Suspense fallback={null}>
       <CompareContent />
     </Suspense>
   );

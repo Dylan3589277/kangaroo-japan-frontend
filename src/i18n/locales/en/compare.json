@@ -1,0 +1,35 @@
+{
+  "title": "Price Comparison",
+  "subtitle": "Enter a keyword, set conditions and choose sites to search and compare prices across the selected sites at once.",
+  "searchLabel": "Product keyword",
+  "searchPlaceholder": "Enter a product keyword to compare",
+  "searchButton": "Compare",
+  "priceMinLabel": "Min price (JPY)",
+  "priceMaxLabel": "Max price (JPY)",
+  "pricePlaceholderMin": "e.g. 1000",
+  "pricePlaceholderMax": "e.g. 50000",
+  "sortLabel": "Sort by",
+  "sort": {
+    "relevance": "Default (relevance)",
+    "price_asc": "Price: low to high",
+    "price_desc": "Price: high to low"
+  },
+  "sitesLabel": "Sites to compare",
+  "noSiteSelected": "Please select at least one site.",
+  "platform": {
+    "mercari": "Mercari",
+    "amazon": "Amazon",
+    "yahoo": "Yahoo Auctions"
+  },
+  "idleTitle": "Start comparing prices",
+  "idleHint": "Enter a keyword, pick sites, then tap \"Compare\".",
+  "loadError": "Unable to load comparison results. Please try again later.",
+  "referenceNotice": "Prices are for reference only; the actual order price prevails. Exchange rates, shipping and fees may differ per site.",
+  "resultCount": "{count} results",
+  "siteError": "This site is temporarily unavailable",
+  "siteEmpty": "No matching items on this site",
+  "noImage": "No image",
+  "bestPrice": "Best price",
+  "priceUnavailable": "Price pending",
+  "approxCny": "≈ CNY {amount}"
+}

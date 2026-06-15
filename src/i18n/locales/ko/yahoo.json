@@ -53,5 +53,8 @@
   "sellerLocation": "소재지: {location}",
   "bidCountLabel": "입찰 수",
   "specs": "상품 사양",
-  "description": "상품 설명"
+  "description": "상품 설명",
+  "translationNote": "번역은 참고용이며 번역 오류로 인한 손실에 대해 책임지지 않습니다. 정확한 상품 정보는 고객센터에 문의해 주세요.",
+  "showOriginal": "일본어 원문 보기",
+  "relatedTitle": "관련 상품"
 }

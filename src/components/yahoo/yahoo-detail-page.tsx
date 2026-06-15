@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { normalizeYahooDetail, type YahooDetail } from "./yahoo-data";
+import { YahooRelated } from "./yahoo-related";
 import {
   URGENCY_COUNTDOWN_CLASS,
   urgencyFromTimestamp,
@@ -34,7 +35,9 @@ export function YahooDetailPage({
     let active = true;
 
     void api
-      .request<unknown>(`/yahoo/goods/${encodeURIComponent(goodsNo)}`)
+      .request<unknown>(
+        `/yahoo/goods/${encodeURIComponent(goodsNo)}?lng=${encodeURIComponent(locale)}`,
+      )
       .then((response) => {
         if (!active) return;
         if (!response.success) {
@@ -55,7 +58,7 @@ export function YahooDetailPage({
     return () => {
       active = false;
     };
-  }, [goodsNo]);
+  }, [goodsNo, locale]);
 
   useEffect(() => {
     if (!detail?.endTimestamp) return;
@@ -152,11 +155,18 @@ export function YahooDetailPage({
 
             <section className="flex flex-col">
               <h1 className="text-xl leading-8 font-semibold tracking-tight sm:text-2xl">
-                {detail.title}
+                {detail.titleTranslated || detail.title}
               </h1>
-              {detail.titleJa && (
+              {/* 原日文标题作为副标题：优先 titleJa，回退到 title（当译文已替换主标题）。 */}
+              {(detail.titleJa ||
+                (detail.titleTranslated && detail.title)) && (
                 <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                  {detail.titleJa}
+                  {detail.titleJa || detail.title}
+                </p>
+              )}
+              {detail.titleTranslated && (
+                <p className="mt-1 text-[11px] text-muted-foreground/80">
+                  {t("translationNote")}
                 </p>
               )}
 
@@ -323,15 +333,31 @@ export function YahooDetailPage({
                 </div>
               )}
 
-              {/* 商品描述 — 纯文本（后端已转），保留换行。缺失不渲染。 */}
-              {detail.description && (
+              {/* 商品描述 — 纯文本（后端已转），保留换行。缺失不渲染。
+                  有 locale 译文时优先展示译文，原日文描述作为折叠副文。 */}
+              {(detail.descriptionTranslated || detail.description) && (
                 <div className="mt-7">
                   <h2 className="mb-2 text-sm font-semibold">
                     {t("description")}
                   </h2>
+                  {detail.descriptionTranslated && (
+                    <p className="mb-2 text-[11px] text-muted-foreground/80">
+                      {t("translationNote")}
+                    </p>
+                  )}
                   <p className="rounded-xl border bg-muted/30 px-4 py-3 text-sm leading-7 whitespace-pre-line text-muted-foreground">
-                    {detail.description}
+                    {detail.descriptionTranslated || detail.description}
                   </p>
+                  {detail.descriptionTranslated && detail.description && (
+                    <details className="mt-2 text-xs text-muted-foreground">
+                      <summary className="cursor-pointer select-none">
+                        {t("showOriginal")}
+                      </summary>
+                      <p className="mt-2 rounded-xl border bg-muted/20 px-4 py-3 leading-7 whitespace-pre-line">
+                        {detail.description}
+                      </p>
+                    </details>
+                  )}
                 </div>
               )}
 
@@ -375,6 +401,9 @@ export function YahooDetailPage({
               </p>
             </section>
           </div>
+
+          {/* 相关商品 — read-only 横向卡片条，无结果整块隐藏。 */}
+          <YahooRelated goodsNo={goodsNo} locale={locale} />
         </>
       )}
 

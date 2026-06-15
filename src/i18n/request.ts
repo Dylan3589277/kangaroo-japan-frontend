@@ -6,6 +6,7 @@ const namespaces = [
   "mercari",
   "yahoo",
   "amazon",
+  "compare",
   "bids",
   "deposit",
   "vip",

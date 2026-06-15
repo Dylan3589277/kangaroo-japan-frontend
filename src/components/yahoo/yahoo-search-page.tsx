@@ -82,6 +82,7 @@ export function YahooSearchPage({
       if (keyword.trim()) query.set("kw", keyword.trim());
       if (category) query.set("cat", category);
       query.set("sort", sort);
+      query.set("lng", locale);
 
       try {
         const response = await api.request<unknown>(
@@ -127,7 +128,7 @@ export function YahooSearchPage({
         loadingMoreRef.current = false;
       }
     },
-    [category, keyword, sort],
+    [category, keyword, sort, locale],
   );
 
   useEffect(() => {
@@ -399,11 +400,13 @@ export function YahooSearchPage({
                         </div>
                         <div className="flex min-w-0 flex-1 flex-col p-3 lg:min-h-32">
                           <h2 className="line-clamp-2 min-h-10 text-sm leading-5 font-medium">
-                            {item.title}
+                            {item.titleTranslated || item.title}
                           </h2>
-                          {item.titleJa && (
+                          {/* 原日文标题副标题：有 titleJa 用之，否则当主标题是译文时回退 title。 */}
+                          {(item.titleJa ||
+                            (item.titleTranslated && item.title)) && (
                             <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                              {item.titleJa}
+                              {item.titleJa || item.title}
                             </p>
                           )}
                           {item.condition && (

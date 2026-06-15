@@ -6,8 +6,9 @@ import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/lib/auth";
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Menu, Search, X } from "lucide-react";
+import { SITE_MENU } from "./siteMenu";
 
 const LOCALE_PREFIX_RE = new RegExp(`^/(${routing.locales.join("|")})(?=/|$)`);
 type Locale = (typeof routing.locales)[number];
@@ -41,9 +42,30 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
   const { isAuthenticated, user } = useAuthStore();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [sitesOpen, setSitesOpen] = useState(false);
+  const sitesRef = useRef<HTMLDivElement>(null);
+  const sitesMenuId = useId();
+
+  useEffect(() => {
+    if (!sitesOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (sitesRef.current && !sitesRef.current.contains(event.target as Node)) {
+        setSitesOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSitesOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [sitesOpen]);
+
   const navItems = [
     { key: "home", href: "/", label: t("nav.home") },
-    { key: "products", href: "/products", label: t("nav.products") },
     { key: "cart", href: "/cart", label: t("nav.cart") },
     { key: "compare", href: "/compare", label: t("home.priceCompare") },
   ];
@@ -103,15 +125,78 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
             />
           </Link>
           <nav className="hidden items-center gap-5 lg:flex">
-            {navItems.map((item) => (
-              <Link
-                key={item.key}
-                href={item.href}
-                className="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
+            <Link
+              href="/"
+              className="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
+            >
+              {t("nav.home")}
+            </Link>
+
+            <div
+              ref={sitesRef}
+              className="relative"
+              onMouseEnter={() => setSitesOpen(true)}
+              onMouseLeave={() => setSitesOpen(false)}
+            >
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={sitesOpen}
+                aria-controls={sitesMenuId}
+                onClick={() => setSitesOpen((open) => !open)}
+                className="flex items-center gap-1 whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
               >
-                {item.label}
-              </Link>
-            ))}
+                {t("nav.sites")}
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform ${sitesOpen ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                />
+              </button>
+              <ul
+                id={sitesMenuId}
+                role="menu"
+                aria-label={t("nav.sites")}
+                className={`absolute left-0 top-full z-50 mt-2 w-56 rounded-lg border bg-white py-1.5 shadow-xl ${sitesOpen ? "block" : "hidden"}`}
+              >
+                {SITE_MENU.map((site) => (
+                  <li key={site.key} role="none">
+                    {site.href ? (
+                      <Link
+                        href={site.href}
+                        role="menuitem"
+                        onClick={() => setSitesOpen(false)}
+                        className="block px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                      >
+                        {t(`siteMenu.${site.key}`)}
+                      </Link>
+                    ) : (
+                      <span
+                        role="menuitem"
+                        aria-disabled="true"
+                        className="flex cursor-not-allowed items-center justify-between gap-2 px-4 py-2 text-sm font-medium text-zinc-400"
+                      >
+                        {t(`siteMenu.${site.key}`)}
+                        <span className="text-[10px] font-normal text-zinc-400">
+                          {t("siteMenu.comingSoon")}
+                        </span>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {navItems
+              .filter((item) => item.key !== "home")
+              .map((item) => (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className="whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
+                >
+                  {item.label}
+                </Link>
+              ))}
           </nav>
         </div>
 
@@ -152,15 +237,60 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
             </summary>
             <div className="absolute right-0 top-12 z-50 w-72 rounded-lg border bg-white p-3 shadow-xl">
               <nav className="flex flex-col gap-1">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.key}
-                    href={item.href}
-                    className="rounded px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                <Link
+                  href="/"
+                  className="rounded px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                >
+                  {t("nav.home")}
+                </Link>
+
+                <details className="group/sites">
+                  <summary className="flex cursor-pointer list-none items-center justify-between rounded px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-rose-50 hover:text-rose-600 [&::-webkit-details-marker]:hidden">
+                    {t("nav.sites")}
+                    <ChevronDown
+                      className="h-4 w-4 transition-transform group-open/sites:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <ul className="mt-1 flex flex-col gap-0.5 pl-3" role="menu" aria-label={t("nav.sites")}>
+                    {SITE_MENU.map((site) => (
+                      <li key={site.key} role="none">
+                        {site.href ? (
+                          <Link
+                            href={site.href}
+                            role="menuitem"
+                            className="block rounded px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                          >
+                            {t(`siteMenu.${site.key}`)}
+                          </Link>
+                        ) : (
+                          <span
+                            role="menuitem"
+                            aria-disabled="true"
+                            className="flex cursor-not-allowed items-center justify-between gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-400"
+                          >
+                            {t(`siteMenu.${site.key}`)}
+                            <span className="text-[10px] font-normal text-zinc-400">
+                              {t("siteMenu.comingSoon")}
+                            </span>
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+
+                {navItems
+                  .filter((item) => item.key !== "home")
+                  .map((item) => (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      className="rounded px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
                 <div className="my-2 border-t pt-2" />
                 {authNavItems.map((item) => (
                   <Link

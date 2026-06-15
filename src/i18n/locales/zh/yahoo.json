@@ -53,5 +53,8 @@
   "sellerLocation": "所在地：{location}",
   "bidCountLabel": "出价次数",
   "specs": "规格参数",
-  "description": "商品描述"
+  "description": "商品描述",
+  "translationNote": "翻译仅做参考，不承担因翻译功能失误造成的损失。如需准确了解商品详情请咨询客服。",
+  "showOriginal": "查看日文原文",
+  "relatedTitle": "相关商品"
 }

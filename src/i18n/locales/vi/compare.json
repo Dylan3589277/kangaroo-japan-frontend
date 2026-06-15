@@ -1,0 +1,35 @@
+{
+  "title": "So Sánh Giá",
+  "subtitle": "Nhập từ khóa, đặt điều kiện và chọn trang web để tìm kiếm và so sánh giá trên các trang đã chọn cùng lúc.",
+  "searchLabel": "Từ khóa sản phẩm",
+  "searchPlaceholder": "Nhập từ khóa sản phẩm để so sánh",
+  "searchButton": "So sánh",
+  "priceMinLabel": "Giá tối thiểu (JPY)",
+  "priceMaxLabel": "Giá tối đa (JPY)",
+  "pricePlaceholderMin": "vd: 1000",
+  "pricePlaceholderMax": "vd: 50000",
+  "sortLabel": "Sắp xếp theo",
+  "sort": {
+    "relevance": "Mặc định (liên quan)",
+    "price_asc": "Giá: thấp đến cao",
+    "price_desc": "Giá: cao đến thấp"
+  },
+  "sitesLabel": "Trang web để so sánh",
+  "noSiteSelected": "Vui lòng chọn ít nhất một trang web.",
+  "platform": {
+    "mercari": "Mercari",
+    "amazon": "Amazon",
+    "yahoo": "Yahoo Auctions"
+  },
+  "idleTitle": "Bắt đầu so sánh giá",
+  "idleHint": "Nhập từ khóa, chọn trang web, rồi nhấn \"So sánh\".",
+  "loadError": "Không thể tải kết quả so sánh. Vui lòng thử lại sau.",
+  "referenceNotice": "Giá chỉ mang tính tham khảo; giá đặt hàng thực tế được ưu tiên. Tỷ giá, phí vận chuyển và phí dịch vụ có thể khác nhau giữa các trang.",
+  "resultCount": "{count} kết quả",
+  "siteError": "Trang web này tạm thời không khả dụng",
+  "siteEmpty": "Không có sản phẩm phù hợp trên trang này",
+  "noImage": "Không có ảnh",
+  "bestPrice": "Giá tốt nhất",
+  "priceUnavailable": "Giá đang cập nhật",
+  "approxCny": "≈ {amount} CNY"
+}

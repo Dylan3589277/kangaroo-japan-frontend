@@ -7,6 +7,8 @@ export type YahooItem = {
   bidCount?: number;
   // 富字段（后端 live-legacy 透传，全部容错 optional）
   titleJa?: string;
+  // 按当前 locale 的标题译文（后端 translate 网关，带缓存）。缺失则展示 title 原文。
+  titleTranslated?: string;
   condition?: string;
   priceCnyApprox?: number;
   buyNowPrice?: number;
@@ -48,6 +50,9 @@ export type YahooDetail = {
   bidCount?: number;
   // 富字段（后端 live-legacy 透传，全部容错 optional；stale 缓存回退时缺省）
   titleJa?: string;
+  // 按当前 locale 的标题/描述译文（后端 translate 网关，带缓存）。缺失展示原文。
+  titleTranslated?: string;
+  descriptionTranslated?: string;
   condition?: string;
   sellerName?: string;
   sellerLocation?: string;
@@ -256,6 +261,10 @@ function normalizeItem(value: unknown): YahooItem | null {
       "title_ja",
       "goods_name_ja",
       "jp_name",
+    ]),
+    titleTranslated: firstString(record, [
+      "titleTranslated",
+      "title_translated",
     ]),
     condition: firstString(record, [
       "condition",
@@ -475,6 +484,14 @@ export function normalizeYahooDetail(
       "title_ja",
       "goods_name_ja",
       "jp_name",
+    ]),
+    titleTranslated: firstString(record, [
+      "titleTranslated",
+      "title_translated",
+    ]),
+    descriptionTranslated: firstString(record, [
+      "descriptionTranslated",
+      "description_translated",
     ]),
     condition: firstString(record, [
       "condition",

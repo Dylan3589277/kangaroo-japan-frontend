@@ -1,0 +1,35 @@
+{
+  "title": "価格比較",
+  "subtitle": "キーワードを入力し、条件を設定してサイトを選ぶと、選択したサイトで同時に検索し価格を比較します。",
+  "searchLabel": "商品キーワード",
+  "searchPlaceholder": "比較したい商品のキーワードを入力",
+  "searchButton": "比較する",
+  "priceMinLabel": "最低価格（JPY）",
+  "priceMaxLabel": "最高価格（JPY）",
+  "pricePlaceholderMin": "例: 1000",
+  "pricePlaceholderMax": "例: 50000",
+  "sortLabel": "並び替え",
+  "sort": {
+    "relevance": "標準（関連度）",
+    "price_asc": "価格が安い順",
+    "price_desc": "価格が高い順"
+  },
+  "sitesLabel": "比較するサイト",
+  "noSiteSelected": "サイトを1つ以上選択してください。",
+  "platform": {
+    "mercari": "Mercari",
+    "amazon": "Amazon",
+    "yahoo": "Yahoo オークション"
+  },
+  "idleTitle": "価格比較を始める",
+  "idleHint": "キーワードを入力し、サイトを選んで「比較する」を押してください。",
+  "loadError": "比較結果を読み込めませんでした。後でもう一度お試しください。",
+  "referenceNotice": "価格は参考用です。実際のご注文価格が優先されます。為替・送料・手数料はサイトごとに異なる場合があります。",
+  "resultCount": "{count} 件",
+  "siteError": "このサイトは一時的に利用できません",
+  "siteEmpty": "このサイトに一致する商品がありません",
+  "noImage": "画像なし",
+  "bestPrice": "最安値",
+  "priceUnavailable": "価格未更新",
+  "approxCny": "≈ {amount} 元"
+}
