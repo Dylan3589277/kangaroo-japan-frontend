@@ -3,9 +3,11 @@
 import {
   type CSSProperties,
   FormEvent,
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useParams, useSearchParams } from "next/navigation";
@@ -186,18 +188,35 @@ function mapServerRole(role: unknown): ChatItem["role"] {
   return "assistant";
 }
 
-function mapServerMessages(payload: unknown): ChatItem[] {
+function mapServerMessages(
+  payload: unknown,
+  // 自动报价那条链接的原文：用于把它从历史轮询里剔除，避免被补成 user 气泡。
+  autoQuoteMessage?: string,
+): ChatItem[] {
   const root = getRecord(payload);
   const data = getRecord(root.data);
   const messages = Array.isArray(data.messages) ? data.messages : [];
+  // 只过滤"最早那条"内容完全等于自动报价链接的 visitor 消息，且只过滤一次：
+  // 这样即便买家后续真的自己粘了同一条链接，也只吞掉自动发出的那一条。
+  let autoQuoteFilterUsed = false;
   return messages
     .map((item) => {
       const record = getRecord(item);
       const content = getString(record.content);
       if (!content) return null;
+      const role = mapServerRole(record.role);
+      if (
+        !autoQuoteFilterUsed &&
+        autoQuoteMessage &&
+        role === "user" &&
+        content === autoQuoteMessage
+      ) {
+        autoQuoteFilterUsed = true;
+        return null;
+      }
       return {
         id: getString(record.id),
-        role: mapServerRole(record.role),
+        role,
         content,
         createdAt: getString(record.createdAt),
       } satisfies ChatItem;
@@ -267,6 +286,11 @@ export default function MiniProgramSupportH5Page() {
     initialTransferHuman ? "袋鼠酱暂时接不上，我先帮你转人工客服～" : "",
   );
   const [items, setItems] = useState<ChatItem[]>([WELCOME_ITEM]);
+  // 自动报价开场卡：作为独立 state 渲染在消息列表最上方，完全脱离 `items`。
+  // 这样历史轮询的 setItems(整体替换) 永远碰不到它，报价卡不会被服务端历史冲掉。
+  const [autoQuoteOpening, setAutoQuoteOpening] = useState<ChatItem | null>(
+    null,
+  );
   const [vpRect, setVpRect] = useState<{
     top: number;
     left: number;
@@ -274,6 +298,12 @@ export default function MiniProgramSupportH5Page() {
     height: number;
   } | null>(null);
   const [wxReady, setWxReady] = useState(false);
+  // 自动报价：从 mercari 商品页进客服时零输入拉一次报价卡片
+  const [autoQuoteLoading, setAutoQuoteLoading] = useState(false);
+  const autoQuoteTriggeredRef = useRef(false);
+  // 自动报价那次发出的链接原文。历史轮询拉回时据此把这条 visitor 消息剔除，
+  // 避免"零输入无链接气泡"被打破。仅在自动报价路径里写入。
+  const autoQuoteMessageRef = useRef<string | undefined>(undefined);
   const kf53ChatUrl = getKf53ChatUrl();
 
   const externalSessionId = useMemo(
@@ -290,7 +320,10 @@ export default function MiniProgramSupportH5Page() {
       );
       if (!response.ok) throw new Error("message polling failed");
       const payload = await response.json().catch(() => null);
-      const serverItems = mapServerMessages(payload);
+      const serverItems = mapServerMessages(
+        payload,
+        autoQuoteMessageRef.current,
+      );
       setItems([WELCOME_ITEM, ...serverItems]);
       setPollingError("");
     } catch {
@@ -354,6 +387,78 @@ export default function MiniProgramSupportH5Page() {
       viewport?.removeEventListener("scroll", updateRect);
       window.removeEventListener("resize", updateRect);
     };
+  }, []);
+
+  // 自动报价：仅挂载时执行一次。从 mercari 商品页（带 ?gid=mXXX）进客服时，
+  // 零输入地用商品链接拉一次报价，把 assistant 回复 + 报价卡作为开场消息渲染，
+  // 但**不**追加 user 角色气泡（不显示"用户发了一条链接"）。失败则静默，不影响正常聊天。
+  useEffect(() => {
+    if (autoQuoteTriggeredRef.current) return;
+    if (!sourceGoodsId || sourcePlatform !== "mercari") return;
+    // 已有会话历史（如刷新带 conversation_id）时不重复自动报价。
+    if (conversationId) return;
+    autoQuoteTriggeredRef.current = true;
+
+    const itemUrl = `https://jp.mercari.com/item/${sourceGoodsId}`;
+    // 记下自动报价发出的链接原文，供历史轮询剔除这条 visitor 消息（防止它被补成 user 气泡）。
+    autoQuoteMessageRef.current = itemUrl;
+    let cancelled = false;
+    setAutoQuoteLoading(true);
+
+    (async () => {
+      try {
+        const response = await fetch("/api/support/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept-Language": lang,
+          },
+          body: JSON.stringify({
+            message: itemUrl,
+            conversationId: undefined,
+            site: "kangaroo-japan",
+            language: lang === "ja" ? "ja" : lang === "en" ? "en" : "zh",
+            sourceChannel: "mini_program_ai_webview",
+            externalSessionId,
+            userId,
+            ts: uidSignature.ts,
+            sig: uidSignature.sig,
+            sourceGoodsId,
+            sourcePlatform,
+            sourcePage:
+              typeof window === "undefined" ? undefined : window.location.href,
+          }),
+        });
+        if (!response.ok) throw new Error("auto quote api failed");
+        const payload = await response.json().catch(() => null);
+        const parsed = parseSupportResponse(payload);
+        if (cancelled) return;
+
+        if (parsed.conversationId) {
+          setConversationId(parsed.conversationId);
+        }
+        // 只有真的拿到报价卡才渲染开场卡；否则静默（避免无意义气泡/误转人工）。
+        // 写进独立的 autoQuoteOpening state（不进 items），渲染在列表最上方，
+        // 这样后续历史轮询的 setItems 整体替换永远冲不掉它。
+        if (parsed.quoteRef) {
+          setAutoQuoteOpening({
+            role: "assistant",
+            content: parsed.text || "已为您调取该商品信息：",
+            quoteRef: parsed.quoteRef,
+          });
+        }
+      } catch {
+        // 自动报价失败彻底静默：不弹错误、不转人工、不阻塞后续手动聊天。
+      } finally {
+        if (!cancelled) setAutoQuoteLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // 仅挂载时跑一次：依赖刻意省略，配合 autoQuoteTriggeredRef 防 StrictMode 双挂载重复发。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function sendMessage(message: string) {
@@ -472,6 +577,157 @@ export default function MiniProgramSupportH5Page() {
     void sendMessage(typeof formMessage === "string" ? formMessage : draft);
   }
 
+  const renderChatItem = (item: ChatItem, key: string) => {
+    const amountText = item.orderRef?.amount_rmb
+      ? `¥${item.orderRef.amount_rmb}`
+      : undefined;
+    const jpyText = item.orderRef?.amount
+      ? `（约 ${item.orderRef.amount} 日元）`
+      : "";
+    const canNavigateOrder = Boolean(
+      item.orderRef?.order_id && wxReady && isMiniProgramWebview(),
+    );
+
+    return (
+      <div
+        key={key}
+        className={`flex flex-col ${
+          item.role === "user" ? "items-end" : "items-start"
+        }`}
+      >
+        <div
+          className={`max-w-[82%] rounded-lg px-3 py-2 text-sm leading-6 shadow-sm ${
+            item.role === "user"
+              ? "bg-[#4f67ff] text-white"
+              : item.role === "support"
+                ? "border border-orange-100 bg-white text-slate-800"
+                : "bg-white text-slate-800"
+          }`}
+        >
+          {item.role === "support" ? (
+            <div className="mb-1 text-[11px] font-medium text-orange-600">
+              人工客服
+            </div>
+          ) : null}
+          {item.content}
+        </div>
+        {item.orderRef?.order_id ? (
+          <div
+            className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+            data-testid="support-order-card"
+          >
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <ShoppingBag className="h-4 w-4 text-orange-500" />
+              订单信息
+            </div>
+            {item.orderRef.goods_name ? (
+              <div className="line-clamp-2 text-sm leading-5 text-slate-700">
+                {item.orderRef.goods_name}
+              </div>
+            ) : null}
+            {amountText ? (
+              <div className="mt-2 text-sm font-medium text-slate-900">
+                应付金额：{amountText}
+                {jpyText ? (
+                  <span className="font-normal text-slate-500">{jpyText}</span>
+                ) : null}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+              onClick={() => openOrderDetail(item.orderRef as OrderRef)}
+              disabled={!canNavigateOrder}
+            >
+              去支付 / 查看订单
+            </button>
+            {!canNavigateOrder ? (
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                请在小程序内打开后查看或支付订单。
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {item.quoteRef ? (
+          <div
+            className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+            data-testid="support-quote-card"
+          >
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <Tag className="h-4 w-4 text-orange-500" />
+              报价确认
+            </div>
+            {item.quoteRef.cover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.quoteRef.cover}
+                alt={item.quoteRef.goods_name || "商品图片"}
+                className="mb-2 h-32 w-full rounded-md object-cover"
+                loading="lazy"
+              />
+            ) : null}
+            {item.quoteRef.goods_name ? (
+              <div className="line-clamp-2 text-sm leading-5 text-slate-700">
+                {item.quoteRef.goods_name}
+              </div>
+            ) : null}
+            {item.quoteRef.price_jpy !== undefined ? (
+              <div className="mt-2 text-sm font-medium text-slate-900">
+                现价 ¥{item.quoteRef.price_jpy.toLocaleString("ja-JP")} 日元
+              </div>
+            ) : null}
+            {item.quoteRef.fee_service_jpy !== undefined ? (
+              <div className="mt-1 text-xs leading-5 text-slate-500">
+                支付手续费：¥
+                {item.quoteRef.fee_service_jpy.toLocaleString("ja-JP")} 日元
+              </div>
+            ) : null}
+            {item.quoteRef.fee_agent_jpy !== undefined ? (
+              <div className="mt-1 text-xs leading-5 text-slate-500">
+                代拍手续费：¥
+                {item.quoteRef.fee_agent_jpy.toLocaleString("ja-JP")} 日元
+              </div>
+            ) : null}
+            {item.quoteRef.domestic_shipping_note ? (
+              <div className="mt-1 text-xs leading-5 text-slate-500">
+                {item.quoteRef.domestic_shipping_note}
+              </div>
+            ) : null}
+            {item.quoteRef.est_goods_rmb ? (
+              <div className="mt-2 text-sm font-medium text-slate-900">
+                约 ¥{item.quoteRef.est_goods_rmb}
+                <span className="font-normal text-slate-500">
+                  （不含运费）
+                </span>
+              </div>
+            ) : null}
+            {item.quoteRef.rate_note ? (
+              <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                {item.quoteRef.rate_note}
+              </p>
+            ) : null}
+            {item.quoteRef.purchasable === false ? (
+              <div
+                className="mt-3 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium leading-5 text-red-700"
+                data-testid="support-quote-unpurchasable"
+              >
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {item.quoteRef.unpurchasable_reason || "该商品暂时无法购买"}
+              </div>
+            ) : (
+              <p
+                className="mt-3 rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700"
+                data-testid="support-quote-cta"
+              >
+                核对无误后回复『确认』，我为您录入订单。
+              </p>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
   const viewportStyle: CSSProperties = vpRect
     ? {
         position: "fixed",
@@ -496,161 +752,34 @@ export default function MiniProgramSupportH5Page() {
 
       <section className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-4">
         {items.map((item, index) => {
-          const amountText = item.orderRef?.amount_rmb
-            ? `¥${item.orderRef.amount_rmb}`
-            : undefined;
-          const jpyText = item.orderRef?.amount
-            ? `（约 ${item.orderRef.amount} 日元）`
-            : "";
-          const canNavigateOrder = Boolean(
-            item.orderRef?.order_id && wxReady && isMiniProgramWebview(),
+          const node = renderChatItem(
+            item,
+            item.id || `${item.role}-${index}`,
           );
-
-          return (
-            <div
-              key={item.id || `${item.role}-${index}`}
-              className={`flex flex-col ${
-                item.role === "user" ? "items-end" : "items-start"
-              }`}
-            >
-              <div
-                className={`max-w-[82%] rounded-lg px-3 py-2 text-sm leading-6 shadow-sm ${
-                  item.role === "user"
-                    ? "bg-[#4f67ff] text-white"
-                    : item.role === "support"
-                      ? "border border-orange-100 bg-white text-slate-800"
-                      : "bg-white text-slate-800"
-                }`}
-              >
-                {item.role === "support" ? (
-                  <div className="mb-1 text-[11px] font-medium text-orange-600">
-                    人工客服
-                  </div>
-                ) : null}
-                {item.content}
-              </div>
-              {item.orderRef?.order_id ? (
-                <div
-                  className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
-                  data-testid="support-order-card"
-                >
-                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
-                    <ShoppingBag className="h-4 w-4 text-orange-500" />
-                    订单信息
-                  </div>
-                  {item.orderRef.goods_name ? (
-                    <div className="line-clamp-2 text-sm leading-5 text-slate-700">
-                      {item.orderRef.goods_name}
-                    </div>
-                  ) : null}
-                  {amountText ? (
-                    <div className="mt-2 text-sm font-medium text-slate-900">
-                      应付金额：{amountText}
-                      {jpyText ? (
-                        <span className="font-normal text-slate-500">
-                          {jpyText}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
-                    onClick={() => openOrderDetail(item.orderRef as OrderRef)}
-                    disabled={!canNavigateOrder}
-                  >
-                    去支付 / 查看订单
-                  </button>
-                  {!canNavigateOrder ? (
-                    <p className="mt-2 text-xs leading-5 text-slate-500">
-                      请在小程序内打开后查看或支付订单。
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              {item.quoteRef ? (
-                <div
-                  className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
-                  data-testid="support-quote-card"
-                >
-                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
-                    <Tag className="h-4 w-4 text-orange-500" />
-                    报价确认
-                  </div>
-                  {item.quoteRef.cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.quoteRef.cover}
-                      alt={item.quoteRef.goods_name || "商品图片"}
-                      className="mb-2 h-32 w-full rounded-md object-cover"
-                      loading="lazy"
-                    />
-                  ) : null}
-                  {item.quoteRef.goods_name ? (
-                    <div className="line-clamp-2 text-sm leading-5 text-slate-700">
-                      {item.quoteRef.goods_name}
-                    </div>
-                  ) : null}
-                  {item.quoteRef.price_jpy !== undefined ? (
-                    <div className="mt-2 text-sm font-medium text-slate-900">
-                      现价 ¥{item.quoteRef.price_jpy.toLocaleString("ja-JP")} 日元
-                    </div>
-                  ) : null}
-                  {item.quoteRef.fee_service_jpy !== undefined ? (
-                    <div className="mt-1 text-xs leading-5 text-slate-500">
-                      支付手续费：¥
-                      {item.quoteRef.fee_service_jpy.toLocaleString("ja-JP")} 日元
-                    </div>
-                  ) : null}
-                  {item.quoteRef.fee_agent_jpy !== undefined ? (
-                    <div className="mt-1 text-xs leading-5 text-slate-500">
-                      代拍手续费：¥
-                      {item.quoteRef.fee_agent_jpy.toLocaleString("ja-JP")} 日元
-                    </div>
-                  ) : null}
-                  {item.quoteRef.domestic_shipping_note ? (
-                    <div className="mt-1 text-xs leading-5 text-slate-500">
-                      {item.quoteRef.domestic_shipping_note}
-                    </div>
-                  ) : null}
-                  {item.quoteRef.est_goods_rmb ? (
-                    <div className="mt-2 text-sm font-medium text-slate-900">
-                      约 ¥{item.quoteRef.est_goods_rmb}
-                      <span className="font-normal text-slate-500">
-                        （不含运费）
-                      </span>
-                    </div>
-                  ) : null}
-                  {item.quoteRef.rate_note ? (
-                    <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                      {item.quoteRef.rate_note}
-                    </p>
-                  ) : null}
-                  {item.quoteRef.purchasable === false ? (
-                    <div
-                      className="mt-3 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium leading-5 text-red-700"
-                      data-testid="support-quote-unpurchasable"
-                    >
-                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      {item.quoteRef.unpurchasable_reason || "该商品暂时无法购买"}
-                    </div>
-                  ) : (
-                    <p
-                      className="mt-3 rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700"
-                      data-testid="support-quote-cta"
-                    >
-                      核对无误后回复『确认』，我为您录入订单。
-                    </p>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          );
+          // 自动报价开场卡紧跟欢迎语（items[0]）渲染，独立于 items：
+          // 历史轮询的 setItems 整体替换 items 时永远碰不到它，报价卡稳定留存。
+          if (index === 0 && autoQuoteOpening) {
+            return (
+              <Fragment key="welcome-with-auto-quote">
+                {node}
+                {renderChatItem(autoQuoteOpening, "auto-quote-opening")}
+              </Fragment>
+            );
+          }
+          return node;
         })}
 
         {pollingError ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
             {pollingError}
+          </div>
+        ) : null}
+
+        {autoQuoteLoading ? (
+          <div className="flex justify-start" data-testid="support-auto-quote-loading">
+            <div className="max-w-[82%] rounded-lg border border-orange-100 bg-white px-3 py-2 text-xs leading-5 text-slate-500 shadow-sm">
+              正在为您调取该商品信息，请稍等…
+            </div>
           </div>
         ) : null}
 
