@@ -66,9 +66,98 @@ test.describe("support H5 quote_ref card", () => {
       card.getByText("人民币按当日汇率，下单支付时为准"),
     ).toBeVisible();
     await expect(page.getByTestId("support-quote-cta")).toContainText(
-      "核对无误后回复『确认』",
+      "回复『确认』",
     );
+    // 可购卡：展示"咨询"和"我要购买"两个按钮
+    await expect(page.getByTestId("support-quote-btn-consult")).toBeVisible();
+    await expect(page.getByTestId("support-quote-btn-buy")).toBeVisible();
     await expect(page.getByTestId("support-quote-unpurchasable")).toHaveCount(0);
+  });
+
+  test("consult button only focuses/prefills the input, never auto-sends", async ({
+    page,
+  }) => {
+    let chatCalls = 0;
+    await mockChatWithQuoteRef(page, {
+      platform: "mercari",
+      item_id: "m12345678901",
+      goods_name: "テスト商品",
+      price_jpy: 12800,
+      purchasable: true,
+    });
+    // 计数自动报价之外的发送次数；本用例不带 gid，所以首条发送来自手动 fill。
+    await page.route("**/api/support/conversations/**/messages", (route) =>
+      json(route, { code: 0, data: { messages: [] } }),
+    );
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page.getByPlaceholder("请输入问题").fill("https://jp.mercari.com/item/m12345678901");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+
+    // 记录点"咨询"之前的 /api/support/chat 调用次数
+    await page.route("**/api/support/chat", async (route) => {
+      chatCalls += 1;
+      return json(route, {
+        code: 0,
+        data: { action: "answered", reply: "ok" },
+      });
+    });
+
+    await page.getByTestId("support-quote-btn-consult").click();
+    // 点"咨询"不发送任何消息，仅预填+聚焦
+    await expect(page.getByPlaceholder("请输入问题")).toHaveValue(
+      "我想咨询这个商品",
+    );
+    await expect(page.getByPlaceholder("请输入问题")).toBeFocused();
+    expect(chatCalls).toBe(0);
+  });
+
+  test("buy button sends a single explicit purchase-intent message", async ({
+    page,
+  }) => {
+    const buyMessages: string[] = [];
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/conversations/**/messages", (route) =>
+      json(route, { code: 0, data: { messages: [] } }),
+    );
+    await page.route("**/api/support/chat", async (route) => {
+      const body = route.request().postDataJSON() as { message?: string };
+      if (body.message) buyMessages.push(body.message);
+      // 首条（手动 fill 的链接）返回报价卡；之后的购买意图随便回个文本即可
+      const isItemLink = (body.message || "").includes("/item/");
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: isItemLink ? "这是报价" : "好的，我帮您转人工录入订单～",
+          quote_ref: isItemLink
+            ? {
+                platform: "mercari",
+                item_id: "m12345678901",
+                goods_name: "テスト商品",
+                price_jpy: 12800,
+                purchasable: true,
+              }
+            : undefined,
+        },
+      });
+    });
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page.getByPlaceholder("请输入问题").fill("https://jp.mercari.com/item/m12345678901");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+
+    await page.getByTestId("support-quote-btn-buy").click();
+
+    // 购买意图作为 user 气泡出现，且只发了这一条购买消息
+    await expect(
+      page.locator(".bg-\\[\\#4f67ff\\]").filter({ hasText: "我要购买此商品" }),
+    ).toBeVisible();
+    const purchaseSends = buyMessages.filter((m) => m === "我要购买此商品");
+    expect(purchaseSends).toHaveLength(1);
   });
 
   test("auto-fires a quote from ?gid and shows the card with NO user bubble", async ({
@@ -300,6 +389,132 @@ test.describe("support H5 quote_ref card", () => {
     await expect(page.getByTestId("support-quote-unpurchasable")).toContainText(
       "已售出",
     );
+    await expect(page.getByTestId("support-quote-cta")).toHaveCount(0);
+    // 不可购卡：两个按钮都不显示
+    await expect(page.getByTestId("support-quote-btn-consult")).toHaveCount(0);
+    await expect(page.getByTestId("support-quote-btn-buy")).toHaveCount(0);
+  });
+});
+
+test.describe("support H5 quote_ref card · yahoo", () => {
+  test("yahoo 即決(sokketsu): shows contact-kefu notice, no buy/confirm buttons", async ({
+    page,
+  }) => {
+    await mockChatWithQuoteRef(page, {
+      platform: "yahoo",
+      sale_type: "sokketsu",
+      item_id: "y12345",
+      goods_name: "ヤフオク即決テスト商品",
+      price_jpy: 8800,
+      purchasable: true,
+      fee_service_jpy: 0,
+      fee_agent_jpy: 220,
+      est_goods_rmb: "450",
+      action_hint: "contact_kefu",
+      action_text: "即決商品需联系客服直接下单",
+    });
+
+    await page.goto("/zh/support/h5?shop=yahoo");
+    await page.getByPlaceholder("请输入问题").fill("https://page.auctions.yahoo.co.jp/jp/auction/y12345");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    const card = page.getByTestId("support-quote-card");
+    await expect(card).toBeVisible();
+    await expect(card.getByText("ヤフオク即決テスト商品")).toBeVisible();
+    await expect(card.getByText(/现价 ¥8,?800 日元/)).toBeVisible();
+    await expect(card.getByText(/代拍手续费：¥220 日元/)).toBeVisible();
+    // 即決 CTA：联系客服下单，且无购买/确认按钮
+    await expect(page.getByTestId("support-quote-sokketsu-cta")).toContainText(
+      "联系客服",
+    );
+    await expect(page.getByTestId("support-quote-cta")).toHaveCount(0);
+    await expect(page.getByTestId("support-quote-btn-buy")).toHaveCount(0);
+    await expect(page.getByTestId("support-quote-btn-consult")).toHaveCount(0);
+  });
+
+  test("yahoo 竞拍(auction) deposit ok: shows bid ceiling, no buy/confirm buttons", async ({
+    page,
+  }) => {
+    await mockChatWithQuoteRef(page, {
+      platform: "yahoo",
+      sale_type: "auction",
+      item_id: "y67890",
+      goods_name: "ヤフオク竞拍テスト商品",
+      price_jpy: 3000,
+      current_bid: 3000,
+      buyout_jpy: 12000,
+      left_time: "6月17日 21:30",
+      bid_num: 5,
+      deposit_state: "ok",
+      deposit_balance_rmb: 500,
+      max_bid_allowed_jpy: 60000,
+    });
+
+    await page.goto("/zh/support/h5?shop=yahoo");
+    await page.getByPlaceholder("请输入问题").fill("https://page.auctions.yahoo.co.jp/jp/auction/y67890");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    const card = page.getByTestId("support-quote-card");
+    await expect(card).toBeVisible();
+    await expect(page.getByTestId("support-quote-auction-info")).toContainText(
+      "当前出价",
+    );
+    await expect(page.getByTestId("support-quote-auction-info")).toContainText(
+      "一口价",
+    );
+    await expect(page.getByTestId("support-quote-auction-info")).toContainText(
+      "6月17日 21:30",
+    );
+    // 押金充足：显示可出价上限
+    const okBar = page.getByTestId("support-quote-deposit-ok");
+    await expect(okBar).toBeVisible();
+    await expect(okBar).toContainText("可出价上限");
+    await expect(okBar).toContainText(/¥60,?000/);
+    // 竞拍卡不走录单：无购买/确认/咨询按钮
+    await expect(page.getByTestId("support-quote-cta")).toHaveCount(0);
+    await expect(page.getByTestId("support-quote-btn-buy")).toHaveCount(0);
+    await expect(page.getByTestId("support-quote-btn-recharge")).toHaveCount(0);
+  });
+
+  test("yahoo 竞拍(auction) deposit insufficient: suggests recharge + recharge entry", async ({
+    page,
+  }) => {
+    await mockChatWithQuoteRef(page, {
+      platform: "yahoo",
+      sale_type: "auction",
+      item_id: "y55555",
+      goods_name: "押金不足テスト商品",
+      price_jpy: 20000,
+      current_bid: 20000,
+      buyout_jpy: 0,
+      left_time: "6月18日 12:00",
+      bid_num: 12,
+      deposit_state: "insufficient",
+      suggest_recharge_rmb: 200,
+      max_bid_allowed_jpy: 0,
+    });
+
+    await page.goto("/zh/support/h5?shop=yahoo");
+    await page.getByPlaceholder("请输入问题").fill("https://page.auctions.yahoo.co.jp/jp/auction/y55555");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    const card = page.getByTestId("support-quote-card");
+    await expect(card).toBeVisible();
+    // 无一口价(buyout=0)时不显示一口价行
+    await expect(page.getByTestId("support-quote-auction-info")).not.toContainText(
+      "一口价",
+    );
+    const bar = page.getByTestId("support-quote-deposit-insufficient");
+    await expect(bar).toBeVisible();
+    await expect(bar).toContainText("建议充值");
+    await expect(bar).toContainText(/¥200/);
+    // 充值入口存在；path 未配置时按钮禁用并显示「充值入口待配置」
+    const rechargeBtn = page.getByTestId("support-quote-btn-recharge");
+    await expect(rechargeBtn).toBeVisible();
+    await expect(rechargeBtn).toBeDisabled();
+    await expect(rechargeBtn).toContainText("充值入口待配置");
+    // 竞拍卡不走录单
+    await expect(page.getByTestId("support-quote-btn-buy")).toHaveCount(0);
     await expect(page.getByTestId("support-quote-cta")).toHaveCount(0);
   });
 });

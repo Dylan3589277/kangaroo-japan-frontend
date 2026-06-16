@@ -53,6 +53,21 @@ type QuoteRef = {
   domestic_shipping_note?: string;
   est_goods_rmb?: string;
   rate_note?: string;
+  // 雅虎新增（全部 optional，mercari 不传即不渲染，零回归）。
+  // 字段契约见 .team/artifacts/yahoo-quote-frontend-fields.md
+  sale_type?: string; // 'sokketsu' | 'auction'
+  action_hint?: string; // 'contact_kefu' | 'bid' | 'recharge_deposit' | 'login_required'
+  action_text?: string; // 即決 CTA 文案
+  // 竞拍（auction）专有
+  current_bid?: number; // 当前出价（= price_jpy）
+  buyout_jpy?: number; // 一口价；0=无
+  left_time?: string; // 剩余/终了时间文案（日文原样）
+  bid_num?: number; // 出价数
+  deposit_state?: string; // 'ok' | 'insufficient' | 'unknown'
+  deposit_balance_rmb?: number; // 押金余额（元，仅查到会员时下发）
+  deposit_locked_jpy?: number; // 已在拍占用额度（日元，仅查到会员时下发）
+  max_bid_allowed_jpy?: number; // 本次可出价上限（日元）
+  suggest_recharge_rmb?: number; // 建议充值额（元，仅 insufficient 下发）
 };
 
 type SupportParsedResponse = {
@@ -88,6 +103,11 @@ const RESPONSE_TIME_NOTE =
   "我会尽量快点回复；复杂问题可能需要十几秒整理，请稍等一下。";
 const MINI_PROGRAM_REAL_KEFU_PATH = "/pages/bundle/realkefu/realkefu";
 const KF53_CHAT_URL = process.env.NEXT_PUBLIC_KF53_CHAT_URL || "";
+// 雅虎竞拍押金不足时「去充押金」跳转的小程序充值页 path。
+// 真实 path（形如 /pages/deposit/...）待花哥给，先用环境变量占位：
+// 未配置时按钮禁用并显示「充值入口待配置」，绝不写死错误 path。
+const YAHOO_DEPOSIT_RECHARGE_PAGE_PATH =
+  process.env.NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH || "";
 
 const WELCOME_ITEM: ChatItem = {
   role: "assistant",
@@ -147,6 +167,19 @@ function getQuoteRef(value: unknown): QuoteRef | undefined {
     domestic_shipping_note: getString(record.domestic_shipping_note),
     est_goods_rmb: getString(record.est_goods_rmb),
     rate_note: getString(record.rate_note),
+    // 雅虎新增字段：缺省即 undefined，前端按存在性渲染。
+    sale_type: getString(record.sale_type),
+    action_hint: getString(record.action_hint),
+    action_text: getString(record.action_text),
+    current_bid: getNumber(record.current_bid),
+    buyout_jpy: getNumber(record.buyout_jpy),
+    left_time: getString(record.left_time),
+    bid_num: getNumber(record.bid_num),
+    deposit_state: getString(record.deposit_state),
+    deposit_balance_rmb: getNumber(record.deposit_balance_rmb),
+    deposit_locked_jpy: getNumber(record.deposit_locked_jpy),
+    max_bid_allowed_jpy: getNumber(record.max_bid_allowed_jpy),
+    suggest_recharge_rmb: getNumber(record.suggest_recharge_rmb),
   };
 }
 
@@ -248,6 +281,15 @@ function navigateToMiniProgramOrderDetail(orderId: string) {
   return true;
 }
 
+function navigateToMiniProgramDepositRecharge() {
+  if (!YAHOO_DEPOSIT_RECHARGE_PAGE_PATH) return false;
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  win.wx.miniProgram.navigateTo({ url: YAHOO_DEPOSIT_RECHARGE_PAGE_PATH });
+  return true;
+}
+
 function getKf53ChatUrl() {
   const rawUrl = KF53_CHAT_URL.trim();
   if (!rawUrl) return null;
@@ -304,6 +346,8 @@ export default function MiniProgramSupportH5Page() {
   // 自动报价那次发出的链接原文。历史轮询拉回时据此把这条 visitor 消息剔除，
   // 避免"零输入无链接气泡"被打破。仅在自动报价路径里写入。
   const autoQuoteMessageRef = useRef<string | undefined>(undefined);
+  // 聊天输入框 ref：报价卡"咨询"按钮点了之后聚焦输入框，让买家自己打字提问。
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const kf53ChatUrl = getKf53ChatUrl();
 
   const externalSessionId = useMemo(
@@ -577,6 +621,37 @@ export default function MiniProgramSupportH5Page() {
     void sendMessage(typeof formMessage === "string" ? formMessage : draft);
   }
 
+  // 报价卡"咨询"：不替买家发任何内容，只把输入框预填一句并聚焦，
+  // 让买家自己改/补充后再发。避免自动发送敏感或不准确的咨询文本。
+  function consultQuote() {
+    setDraft((current) => current || "我想咨询这个商品");
+    // 等 setDraft 触发的重渲染落地后再聚焦，确保光标停在输入框尾部。
+    window.setTimeout(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    }, 0);
+  }
+
+  // 报价卡"购买"：报价阶段还没有订单。这里**只**走现有 sendMessage 发一条明确
+  // 购买意图，由现有后端按话术转人工/引导录单。绝不自动下单、不扣款、不跳支付、
+  // 不调任何下单接口。
+  function buyQuote() {
+    void sendMessage("我要购买此商品");
+  }
+
+  // 雅虎竞拍「去充押金」：仅跳转小程序充值页，不触发任何金钱动作。
+  // path 未配置（占位）时按钮本就禁用，这里再兜底：跳不动就引导回小程序。
+  function goRechargeDeposit() {
+    if (navigateToMiniProgramDepositRecharge()) return;
+    setHumanTransferVisible(true);
+    setHumanTransferNote(
+      "请在袋鼠君小程序内打开『我的-我的押金』充值押金后再参与竞拍。",
+    );
+  }
+
   const renderChatItem = (item: ChatItem, key: string) => {
     const amountText = item.orderRef?.amount_rmb
       ? `¥${item.orderRef.amount_rmb}`
@@ -587,6 +662,15 @@ export default function MiniProgramSupportH5Page() {
     const canNavigateOrder = Boolean(
       item.orderRef?.order_id && wxReady && isMiniProgramWebview(),
     );
+
+    // 雅虎分流：platform==='yahoo' 且 sale_type 决定模板。
+    // 非雅虎（mercari 等）一律走老逻辑，零回归。
+    const quote = item.quoteRef;
+    const isYahoo = quote?.platform === "yahoo";
+    const isYahooAuction = isYahoo && quote?.sale_type === "auction";
+    const isYahooSokketsu = isYahoo && quote?.sale_type === "sokketsu";
+    // 「去充押金」入口是否可用：仅当配置了充值页 path 才可点。
+    const depositRechargeEnabled = Boolean(YAHOO_DEPOSIT_RECHARGE_PAGE_PATH);
 
     return (
       <div
@@ -706,7 +790,101 @@ export default function MiniProgramSupportH5Page() {
                 {item.quoteRef.rate_note}
               </p>
             ) : null}
-            {item.quoteRef.purchasable === false ? (
+
+            {/* 雅虎竞拍：现价/一口价/剩余时间/出价数（缺字段不显示对应行） */}
+            {isYahooAuction ? (
+              <div
+                className="mt-2 space-y-1 rounded-md bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-600"
+                data-testid="support-quote-auction-info"
+              >
+                {item.quoteRef.current_bid !== undefined ? (
+                  <div className="text-sm font-medium text-slate-900">
+                    当前出价 ¥
+                    {item.quoteRef.current_bid.toLocaleString("ja-JP")} 日元
+                  </div>
+                ) : null}
+                {item.quoteRef.buyout_jpy !== undefined &&
+                item.quoteRef.buyout_jpy > 0 ? (
+                  <div>
+                    一口价 ¥
+                    {item.quoteRef.buyout_jpy.toLocaleString("ja-JP")} 日元
+                  </div>
+                ) : null}
+                {item.quoteRef.left_time ? (
+                  <div>剩余时间：{item.quoteRef.left_time}</div>
+                ) : null}
+                {item.quoteRef.bid_num !== undefined ? (
+                  <div>出价数：{item.quoteRef.bid_num}</div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {isYahooAuction ? (
+              // 竞拍卡：押金区，不放「立即出价/我要购买/确认录入」（出价走小程序竞拍流程）
+              <div className="mt-3" data-testid="support-quote-auction-deposit">
+                {item.quoteRef.deposit_state === "ok" ? (
+                  <div
+                    className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs leading-5 text-emerald-700"
+                    data-testid="support-quote-deposit-ok"
+                  >
+                    押金余额
+                    {item.quoteRef.deposit_balance_rmb !== undefined
+                      ? `≈¥${item.quoteRef.deposit_balance_rmb.toLocaleString(
+                          "zh-CN",
+                        )}`
+                      : ""}
+                    ，本商品可出价上限
+                    {item.quoteRef.max_bid_allowed_jpy !== undefined
+                      ? `≈¥${item.quoteRef.max_bid_allowed_jpy.toLocaleString(
+                          "ja-JP",
+                        )}（日元）`
+                      : "请回小程序查看"}
+                    。
+                  </div>
+                ) : item.quoteRef.deposit_state === "insufficient" ? (
+                  <div
+                    className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs leading-5 text-amber-800"
+                    data-testid="support-quote-deposit-insufficient"
+                  >
+                    您暂无足够押金，建议充值
+                    {item.quoteRef.suggest_recharge_rmb !== undefined
+                      ? `≈¥${item.quoteRef.suggest_recharge_rmb.toLocaleString(
+                          "zh-CN",
+                        )}`
+                      : ""}
+                    后参与竞拍。
+                    <button
+                      type="button"
+                      className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-amber-200"
+                      onClick={goRechargeDeposit}
+                      disabled={!depositRechargeEnabled}
+                      data-testid="support-quote-btn-recharge"
+                    >
+                      {depositRechargeEnabled ? "去充押金" : "充值入口待配置"}
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-500"
+                    data-testid="support-quote-deposit-unknown"
+                  >
+                    登录后可查看你的押金额度。
+                  </div>
+                )}
+              </div>
+            ) : isYahooSokketsu && item.quoteRef.purchasable !== false ? (
+              // 雅虎即決：联系客服下单，不显示自动下单/购买按钮
+              <div
+                className="mt-3 rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700"
+                data-testid="support-quote-sokketsu-cta"
+              >
+                {item.quoteRef.action_hint === "contact_kefu" ||
+                !item.quoteRef.action_hint
+                  ? item.quoteRef.action_text ||
+                    "此商品为即決，请联系客服为您下单。"
+                  : item.quoteRef.action_text || "此商品请联系客服处理。"}
+              </div>
+            ) : item.quoteRef.purchasable === false ? (
               <div
                 className="mt-3 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium leading-5 text-red-700"
                 data-testid="support-quote-unpurchasable"
@@ -715,12 +893,36 @@ export default function MiniProgramSupportH5Page() {
                 {item.quoteRef.unpurchasable_reason || "该商品暂时无法购买"}
               </div>
             ) : (
-              <p
-                className="mt-3 rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700"
-                data-testid="support-quote-cta"
-              >
-                核对无误后回复『确认』，我为您录入订单。
-              </p>
+              <div className="mt-3" data-testid="support-quote-cta">
+                <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
+                  核对无误后可点下方按钮，或回复『确认』，我为您录入订单。
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                    onClick={consultQuote}
+                    disabled={loading}
+                    data-testid="support-quote-btn-consult"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    咨询
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                    onClick={buyQuote}
+                    disabled={loading}
+                    data-testid="support-quote-btn-buy"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    我要购买
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
+                  点『我要购买』将转人工为您录入订单，不会自动下单或扣款。
+                </p>
+              </div>
             )}
           </div>
         ) : null}
@@ -856,6 +1058,7 @@ export default function MiniProgramSupportH5Page() {
         className="sticky bottom-0 flex shrink-0 gap-2 border-t bg-white px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3"
       >
         <input
+          ref={inputRef}
           name="message"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
