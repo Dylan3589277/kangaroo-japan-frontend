@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
+import MercariCheckout from "@/components/checkout/mercari-checkout";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,6 +96,15 @@ function formatCurrency(amount: number, currency: string = "CNY"): string {
 }
 
 export default function CheckoutPage() {
+  const searchParams = useSearchParams();
+  // Mercari 网页结算（type=mercari&id=...）走专用流程：委托下单 → NewAge 在线全额支付。
+  if (searchParams.get("type") === "mercari") {
+    return <MercariCheckout />;
+  }
+  return <CartCheckoutPage />;
+}
+
+function CartCheckoutPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";

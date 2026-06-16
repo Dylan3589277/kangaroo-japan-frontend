@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import Image from "next/image";
 import { api } from "@/lib/api";
@@ -117,34 +118,71 @@ function getStatusLabel(status: string, lang: string): string {
   return labels[lang as keyof typeof labels] || labels.zh;
 }
 
+// 付款后回单轮询的非终态：付款确认→入队→购买中。终态停止轮询。
+const POLLING_STATUSES = new Set([
+  "pending",
+  "paid",
+  "processing",
+  "purchased",
+]);
+
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
   const orderId = params.id as string;
+  const shouldPoll = searchParams.get("poll") === "1";
+  const tm = useTranslations("mercari");
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
 
-  const fetchOrder = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.getOrder(orderId);
-      if (res.success && res.data) {
-        setOrder(res.data as Order);
-      } else {
-        toast.error("Order not found");
-        router.push(`/${lang}/orders`);
+  const fetchOrder = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const res = await api.getOrder(orderId);
+        if (res.success && res.data) {
+          setOrder(res.data as Order);
+        } else if (!silent) {
+          toast.error("Order not found");
+          router.push(`/${lang}/orders`);
+        }
+      } catch (error) {
+        console.error("Failed to fetch order:", error);
+        if (!silent) toast.error("Failed to load order");
+      } finally {
+        if (!silent) setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch order:", error);
-      toast.error("Failed to load order");
-    } finally {
-      setLoading(false);
+    },
+    [orderId, lang, router],
+  );
+
+  // 轮询：进入页面带 ?poll=1（支付后跳回）时，每 6s 静默刷新一次订单状态，直到进入终态。
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!shouldPoll || !isAuthenticated || !orderId) return;
+    if (order && !POLLING_STATUSES.has(order.status)) {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      return;
     }
-  }, [orderId, lang, router]);
+    if (pollTimerRef.current) return;
+    pollTimerRef.current = setInterval(() => {
+      fetchOrder(true);
+    }, 6000);
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [shouldPoll, isAuthenticated, orderId, order, fetchOrder]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -271,6 +309,37 @@ export default function OrderDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Mercari 付款后回单轮询提示（带 ?poll=1 进入时显示，终态后隐藏） */}
+      {shouldPoll && POLLING_STATUSES.has(order.status) && (
+        <Card className="mb-6 border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">
+                  {tm("orderStatus.pollingTitle")}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {order.status === "pending"
+                    ? tm("orderStatus.waitingPayment")
+                    : order.status === "paid"
+                      ? tm("orderStatus.paid")
+                      : order.status === "processing"
+                        ? tm("orderStatus.purchasing")
+                        : tm("orderStatus.purchased")}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchOrder()}
+              >
+                {tm("orderStatus.refresh")}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
