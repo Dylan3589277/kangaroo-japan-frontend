@@ -1,0 +1,51 @@
+{
+  "contact": {
+    "meta": {
+      "title": "Contact JP-Buy support",
+      "description": "Get help with proxy buying Japanese Pokémon and Yu-Gi-Oh cards. Reach the JP-Buy team on WhatsApp, email or Discord, or start a live chat."
+    },
+    "hero": {
+      "eyebrow": "We're here to help",
+      "title": "Contact support",
+      "subtitle": "Questions about an order, fees or shipping your cards to the U.S.? Reach out and our team will get back to you."
+    },
+    "channels": {
+      "title": "Ways to reach us",
+      "subtitle": "Pick whichever channel works best for you.",
+      "items": {
+        "whatsapp": {
+          "name": "WhatsApp",
+          "desc": "Fastest way to reach a human. Message us for order help and quotes.",
+          "action": "Message on WhatsApp"
+        },
+        "email": {
+          "name": "Email",
+          "desc": "Best for detailed questions, receipts and order references.",
+          "action": "Email support"
+        },
+        "discord": {
+          "name": "Discord",
+          "desc": "Join the JP-Buy collector community for drops, tips and live help.",
+          "action": "Join our Discord"
+        }
+      }
+    },
+    "liveChat": {
+      "title": "Chat with us",
+      "subtitle": "Live chat with the JP-Buy team is coming soon. In the meantime, reach us on WhatsApp, email or Discord.",
+      "button": "Live chat",
+      "comingSoon": "Coming soon"
+    },
+    "hours": {
+      "title": "Support hours",
+      "value": "8:00 PM – 5:00 AM ET / 5:00 PM – 2:00 AM PT",
+      "note": "Hours run overnight U.S. time (previous evening into the next morning) because our team is based in Asia. Times shift by one hour during daylight saving. We reply to off-hours messages as soon as we're back online."
+    },
+    "faq": {
+      "title": "Frequently asked",
+      "subtitle": "Quick answers before you reach out.",
+      "linkLabel": "Visit the help center"
+    },
+    "note": "Proxy purchase items may require additional domestic and international shipping fees. See the Fees page for an estimated breakdown."
+  }
+}

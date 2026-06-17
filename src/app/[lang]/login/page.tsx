@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { LoginTcgView } from "@/components/auth/auth-tcg";
 
 const SOCIAL_ERROR_LABELS: Record<string, string> = {
   wechat_not_configured: "WeChat login is not configured yet.",
@@ -46,6 +47,8 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
   const copy = getLoginCopy(lang);
+  // en 走设计方向 A 深色呈现，其它语言保持现有渲染。仅影响视觉，业务逻辑共用。
+  const isEn = lang === "en";
   const login = useAuthStore((state) => state.login);
 
   const [email, setEmail] = useState("");
@@ -77,6 +80,33 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  if (isEn) {
+    // 设计 A 深色登录：邮箱/密码/提交/校验/跳转回调全部沿用上方逻辑，只换视觉。
+    return (
+      <LoginTcgView
+        texts={{
+          title: t("login"),
+          subtitle: copy.slogan,
+          email: t("email"),
+          password: t("password"),
+          forgot: copy.forgot,
+          login: t("login"),
+          loggingIn: t("loggingIn"),
+          noAccount: t("noAccount"),
+          register: t("register"),
+        }}
+        lang={lang}
+        email={email}
+        password={password}
+        error={error}
+        isLoading={isLoading}
+        onEmailChange={setEmail}
+        onPasswordChange={setPassword}
+        onSubmit={handleSubmit}
+      />
+    );
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-50 via-white to-orange-50 px-4 py-10">

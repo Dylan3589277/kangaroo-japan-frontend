@@ -3,9 +3,15 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import { spaceGrotesk } from "@/app/fonts";
-import { ShieldIcon, TranslateIcon } from "@/components/home/tcg/icons";
+import {
+  CameraIcon,
+  ShieldIcon,
+  TranslateIcon,
+} from "@/components/home/tcg/icons";
+import { ImageLightbox } from "@/components/tcg/ImageLightbox";
 import { normalizeYahooDetail, type YahooDetail } from "./yahoo-data";
 import { YahooRelatedDesignA } from "./YahooRelatedDesignA";
 
@@ -30,6 +36,7 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
   const [error, setError] = useState(false);
   const [imageBroken, setImageBroken] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
@@ -119,24 +126,38 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
           <>
             <div className="grid gap-6 md:grid-cols-[minmax(0,1.05fr)_minmax(300px,1fr)] md:items-start md:gap-8">
               <div className="md:sticky md:top-20">
-                <div className="relative aspect-square overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0e131d]">
+                <div className="group relative aspect-square overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0e131d]">
                   {activeImage && !imageBroken ? (
-                    <Image
-                      src={activeImage}
-                      alt={detail.title}
-                      fill
-                      priority
-                      unoptimized
-                      className="object-contain"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      onError={() => setImageBroken(true)}
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setLightboxOpen(true)}
+                      aria-label={t("designA.zoom.open")}
+                      className="absolute inset-0 cursor-zoom-in"
+                    >
+                      <Image
+                        src={activeImage}
+                        alt={detail.title}
+                        fill
+                        priority
+                        unoptimized
+                        className="object-contain"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        onError={() => setImageBroken(true)}
+                      />
+                      <span className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-slate-200 backdrop-blur transition-opacity group-hover:bg-black/70">
+                        <svg className="size-3.5 text-cyan-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <circle cx="11" cy="11" r="7" strokeWidth={1.6} />
+                          <path strokeLinecap="round" strokeWidth={1.6} d="m21 21-4.3-4.3M11 8v6M8 11h6" />
+                        </svg>
+                        {t("designA.zoom.open")}
+                      </span>
+                    </button>
                   ) : (
                     <div className="flex h-full items-center justify-center text-sm text-slate-600">
                       {t("noImage")}
                     </div>
                   )}
-                  <span className="absolute left-3 top-3 inline-flex items-center rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200 backdrop-blur">
+                  <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200 backdrop-blur">
                     Yahoo Auctions
                   </span>
                 </div>
@@ -430,6 +451,36 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
                   <ShieldIcon className="mt-px size-3.5 shrink-0" />
                   {t("feeNotice")}
                 </p>
+
+                {/* 拍照检查介绍入口（不弹联系客服，跳介绍页） */}
+                <Link
+                  href="/photo-inspection"
+                  className="mt-4 flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 transition-colors hover:border-cyan-400/40"
+                >
+                  <CameraIcon className="size-5 shrink-0 text-cyan-300" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-100">
+                      {t("designA.inspectionCta.title")}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {t("designA.inspectionCta.subtitle")}
+                    </p>
+                  </div>
+                  <svg
+                    className="size-4 shrink-0 text-slate-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </Link>
               </section>
             </div>
 
@@ -438,6 +489,30 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
           </>
         )}
       </div>
+
+      {/* 图片放大查看（纯前端 lightbox，z-[70] 高于 TcgHeader） */}
+      {detail && gallery.length > 0 && (
+        <ImageLightbox
+          images={gallery}
+          index={activeImageIndex}
+          alt={detail.title}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onIndexChange={(next) => {
+            setActiveImageIndex(next);
+            setImageBroken(false);
+          }}
+          labels={{
+            close: t("designA.zoom.close"),
+            prev: t("designA.zoom.prev"),
+            next: t("designA.zoom.next"),
+            zoomIn: t("designA.zoom.zoomIn"),
+            zoomOut: t("designA.zoom.zoomOut"),
+            reset: t("designA.zoom.reset"),
+            hint: t("designA.zoom.hint"),
+          }}
+        />
+      )}
 
       {/* 底部操作条 — read-only 边界：无出价输入、无提交、无写请求（与经典版一致）。 */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0e16]/90 backdrop-blur-md">

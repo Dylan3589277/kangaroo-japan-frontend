@@ -16,6 +16,7 @@ import {
 } from "@/components/home/tcg/icons";
 import { TcgCard, TcgCardSkeleton } from "@/components/home/tcg/TcgCard";
 import { searchMercariTcg, type TcgCardItem } from "@/components/home/tcg/tcg-data";
+import { ImageLightbox } from "@/components/tcg/ImageLightbox";
 
 /**
  * 设计 A（深色高级感）英文 Mercari 商品详情页。
@@ -69,6 +70,7 @@ export function MercariDetailDesignA() {
   const [feeJpy, setFeeJpy] = useState<number | null>(null);
   const [amountJpy, setAmountJpy] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isCollected, setIsCollected] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
@@ -192,14 +194,6 @@ export function MercariDetailDesignA() {
     }
   };
 
-  const requestInspection = () => {
-    // 占位入口：与经典版「客服」入口一致——复制商品链接 + 跳到联系客服页。
-    if (detail?.url) {
-      void navigator.clipboard.writeText(detail.url);
-    }
-    router.push(`/${lang}/contact?type=mercari&id=${id}`);
-  };
-
   if (loading) {
     return (
       <main
@@ -287,23 +281,37 @@ export function MercariDetailDesignA() {
         <div className="grid gap-8 md:grid-cols-2 md:items-start">
           {/* 图廊 */}
           <div className="md:sticky md:top-20">
-            <div className="relative aspect-square overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0e131d]">
+            <div className="group relative aspect-square overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0e131d]">
               {images.length > 0 ? (
-                <Image
-                  src={images[selectedImage] || images[0]}
-                  alt={detail.goods_name}
-                  fill
-                  unoptimized
-                  className="object-contain"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  priority
-                />
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  aria-label={t("designA.zoom.open")}
+                  className="absolute inset-0 cursor-zoom-in"
+                >
+                  <Image
+                    src={images[selectedImage] || images[0]}
+                    alt={detail.goods_name}
+                    fill
+                    unoptimized
+                    className="object-contain"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    priority
+                  />
+                  <span className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-slate-200 backdrop-blur transition-opacity group-hover:bg-black/70">
+                    <svg className="size-3.5 text-cyan-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <circle cx="11" cy="11" r="7" strokeWidth={1.6} />
+                      <path strokeLinecap="round" strokeWidth={1.6} d="m21 21-4.3-4.3M11 8v6M8 11h6" />
+                    </svg>
+                    {t("designA.zoom.open")}
+                  </span>
+                </button>
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-sm text-slate-600">
                   {t("noImage")}
                 </div>
               )}
-              <span className="absolute left-3 top-3 inline-flex items-center rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200 backdrop-blur">
+              <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200 backdrop-blur">
                 Mercari
               </span>
               {soldOut && (
@@ -481,12 +489,15 @@ export function MercariDetailDesignA() {
 
             {/* 信任徽章条 */}
             <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2 py-3">
+              <Link
+                href="/photo-inspection"
+                className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2 py-3 transition-colors hover:border-cyan-400/40"
+              >
                 <CameraIcon className="mx-auto size-5 text-cyan-300" />
                 <p className="mt-1.5 text-[11px] text-slate-400">
                   {t("designA.trust.inspection")}
                 </p>
-              </div>
+              </Link>
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2 py-3">
                 <ShieldIcon className="mx-auto size-5 text-cyan-300" />
                 <p className="mt-1.5 text-[11px] text-slate-400">
@@ -549,14 +560,13 @@ export function MercariDetailDesignA() {
                 </svg>
                 {isCollected ? t("favorited") : t("favorite")}
               </button>
-              <button
-                type="button"
-                onClick={requestInspection}
+              <Link
+                href="/photo-inspection"
                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
               >
                 <CameraIcon className="size-4" />
                 {t("designA.requestInspection")}
-              </button>
+              </Link>
             </div>
           </section>
         </div>
@@ -609,6 +619,27 @@ export function MercariDetailDesignA() {
           </section>
         )}
       </div>
+
+      {/* 图片放大查看（纯前端 lightbox，z-[70] 高于 TcgHeader） */}
+      {images.length > 0 && (
+        <ImageLightbox
+          images={images}
+          index={selectedImage}
+          alt={detail.goods_name}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onIndexChange={setSelectedImage}
+          labels={{
+            close: t("designA.zoom.close"),
+            prev: t("designA.zoom.prev"),
+            next: t("designA.zoom.next"),
+            zoomIn: t("designA.zoom.zoomIn"),
+            zoomOut: t("designA.zoom.zoomOut"),
+            reset: t("designA.zoom.reset"),
+            hint: t("designA.zoom.hint"),
+          }}
+        />
+      )}
 
       {/* 底部操作条：Add to cart / Buy now（行为与经典版完全一致） */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0e16]/90 backdrop-blur-md">

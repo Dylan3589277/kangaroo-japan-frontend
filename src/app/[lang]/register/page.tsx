@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,22 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { RegisterTcgView } from "@/components/auth/auth-tcg";
+
+function getRegisterSubtitle(lang: string): string {
+  if (lang === "en") {
+    return "Committed to becoming a truly useful and affordable Japan proxy shopping service.";
+  }
+  return "";
+}
 
 export default function RegisterPage() {
   const t = useTranslations("auth");
   const router = useRouter();
+  const params = useParams();
+  const lang = (params.lang as string) || "zh";
+  // en 走设计方向 A 深色呈现，其它语言保持现有渲染。仅影响视觉，业务逻辑共用。
+  const isEn = lang === "en";
   const login = useAuthStore((state) => state.login);
 
   const [formData, setFormData] = useState({
@@ -74,6 +86,33 @@ export default function RegisterPage() {
       setIsLoading(false);
     }
   };
+
+  if (isEn) {
+    // 设计 A 深色注册：字段/校验/提交/注册即绑(后端)/跳转回调全部沿用上方逻辑，只换视觉。
+    return (
+      <RegisterTcgView
+        texts={{
+          title: t("register"),
+          subtitle: getRegisterSubtitle(lang),
+          hasAccount: t("hasAccount"),
+          login: t("login"),
+          name: t("name"),
+          email: t("email"),
+          phone: t("phone"),
+          password: t("password"),
+          confirmPassword: t("confirmPassword"),
+          register: t("register"),
+          registering: t("registering"),
+        }}
+        lang={lang}
+        formData={formData}
+        error={error}
+        isLoading={isLoading}
+        onChange={handleChange}
+        onSubmit={handleSubmit}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">

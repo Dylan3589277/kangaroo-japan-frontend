@@ -21,6 +21,8 @@ const namespaces = [
   "warehouse",
   "tcg",
   "fees",
+  "contact",
+  "photo-inspection",
 ] as const;
 
 const MESSAGE_LOCALES = ["zh", "en", "ko", "th", "id", "vi", "ja"] as const;

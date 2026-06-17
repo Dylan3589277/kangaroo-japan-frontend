@@ -68,6 +68,16 @@
       "inspection": "Photo inspection",
       "protection": "Buyer protection",
       "consolidate": "Consolidated shipping"
+    },
+    "zoom": {
+      "open": "Zoom",
+      "close": "Close",
+      "prev": "Previous image",
+      "next": "Next image",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "reset": "Reset",
+      "hint": "Scroll or double-click to zoom · drag to pan · arrow keys to switch · Esc to close"
     }
   },
   "checkout": {

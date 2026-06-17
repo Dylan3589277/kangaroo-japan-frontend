@@ -1,0 +1,100 @@
+{
+  "meta": {
+    "title": "Photo Inspection",
+    "description": "Before your trading cards ship from Japan, we photograph the front, back, corners, edges, surface and centering so you can spot trouble before it reaches the U.S."
+  },
+  "hero": {
+    "eyebrow": "Quality check",
+    "title": "Photo inspection before it ships",
+    "subtitle": "Buying singles from Japan sight-unseen is risky. We open the parcel at our Japan warehouse and send you clear photos of the actual card — so you decide before it crosses the Pacific.",
+    "primaryCta": "Browse cards",
+    "secondaryCta": "View my orders"
+  },
+  "why": {
+    "title": "Why request a photo inspection",
+    "subtitle": "Condition is everything for trading cards. Seller photos are often a stock image, a single angle, or a glare-filled phone shot. A pre-ship inspection lets you catch issues while the card is still in Japan — when a return or cancellation is still cheap and easy.",
+    "points": {
+      "corners": {
+        "title": "Corners",
+        "body": "Whitening, fraying or soft corners that downgrade a card are checked up close on every corner."
+      },
+      "edges": {
+        "title": "Edges",
+        "body": "Edge wear, nicks and chipping along all four sides — easy to hide in a seller's thumbnail."
+      },
+      "surface": {
+        "title": "Surface",
+        "body": "Scratches, print lines, dents, clouding and holo scuffing under angled light."
+      },
+      "centering": {
+        "title": "Centering",
+        "body": "Front and back centering, the single biggest factor in a grade, shown so you can judge before you commit."
+      }
+    },
+    "footnote": "Especially recommended for graded, sealed, vintage or high-value cards where a small flaw means a big price difference."
+  },
+  "how": {
+    "title": "How it works",
+    "steps": {
+      "order": {
+        "title": "1. Place your order",
+        "body": "Buy the card as usual. You can add a photo-inspection request at checkout or from My Orders after the item is secured."
+      },
+      "warehouse": {
+        "title": "2. Arrives at our Japan warehouse",
+        "body": "The seller ships to us inside Japan. We receive and log the parcel before anything leaves the country."
+      },
+      "photos": {
+        "title": "3. We photograph it",
+        "body": "Our team shoots the front and back plus close-ups of the corners, edges, surface and centering under good lighting."
+      },
+      "review": {
+        "title": "4. You review in My Orders",
+        "body": "The photos appear under your order. Take your time to inspect the real card, not a stock image."
+      },
+      "decide": {
+        "title": "5. Confirm or request a return",
+        "body": "Happy with it? Confirm and we ship it on. Not as described? Request a return or cancellation while it's still in Japan."
+      }
+    }
+  },
+  "example": {
+    "title": "What you'll receive",
+    "subtitle": "A typical inspection set — actual photos of your own card. These are illustrative placeholders, not your card.",
+    "front": "Front",
+    "back": "Back",
+    "corners": "Corner close-ups",
+    "surface": "Surface under light",
+    "disclaimer": "Illustrative only. No card artwork is shown here — your inspection uses real photos of the exact item you ordered."
+  },
+  "pricing": {
+    "title": "Pricing",
+    "subtitle": "Photo inspection is charged per order or parcel, not per card — so consolidating multiple cards keeps it economical.",
+    "estimateTag": "estimated",
+    "rows": {
+      "perOrder": {
+        "label": "Per order / parcel",
+        "value": "estimated",
+        "note": "One flat inspection fee covers the order, however many cards it contains."
+      },
+      "perCard": {
+        "label": "Per additional card",
+        "value": "estimated",
+        "note": "Large lots may carry a small per-card add-on for extra close-ups."
+      },
+      "graded": {
+        "label": "Graded / sealed items",
+        "value": "estimated",
+        "note": "Slabs and sealed product are documented without breaking the seal."
+      }
+    },
+    "note": "All figures are estimates to help you plan. Your exact inspection fee is always shown before you pay — see the fees page for the full breakdown.",
+    "feesLink": "See full fee schedule"
+  },
+  "cta": {
+    "title": "Ready when you are",
+    "body": "Find a card and request an inspection at checkout, or manage requests for orders you've already placed.",
+    "browse": "Browse cards",
+    "orders": "Go to my orders"
+  }
+}

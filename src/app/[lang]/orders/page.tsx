@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { OrdersTcgList, OrdersTcgLoading } from "@/components/orders/orders-tcg";
 
 interface OrderItem {
   id: string;
@@ -102,6 +103,8 @@ export default function OrdersPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  // en 走设计方向 A 深色呈现，其它语言保持现有渲染。仅影响视觉，业务逻辑共用。
+  const isEn = lang === "en";
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -170,6 +173,47 @@ export default function OrdersPage() {
     { value: "shipped,in_transit", label: "Shipped" },
     { value: "delivered", label: "Delivered" },
   ];
+
+  if (isEn) {
+    // 设计 A 深色订单列表：取数/过滤/分页/取消回调全部沿用上方逻辑，只换视觉。
+    if (authLoading) {
+      return <OrdersTcgLoading title="My Orders" />;
+    }
+    return (
+      <OrdersTcgList
+        texts={{
+          title: "My Orders",
+          emptyTitle: "No orders yet",
+          emptySubtitle: "Start shopping to see your orders here",
+          browseProducts: "Browse Products",
+          noImage: "No Image",
+          moreItems: "+{n} more items",
+          trackingLabel: "Tracking",
+          viewDetails: "View Details",
+          cancel: "Cancel",
+          previous: "Previous",
+          next: "Next",
+          pageOf: "Page {page} of {total}",
+        }}
+        lang={lang}
+        orders={orders}
+        statusTabs={statusTabs}
+        statusFilter={statusFilter}
+        onStatusChange={(v) => {
+          setStatusFilter(v);
+          setPage(1);
+        }}
+        page={page}
+        totalPages={totalPages}
+        onPrevPage={() => setPage((p) => p - 1)}
+        onNextPage={() => setPage((p) => p + 1)}
+        loading={loading}
+        getStatusLabel={(status) => getStatusLabel(status, lang)}
+        formatCurrency={(amount, currency) => formatCurrency(amount, currency)}
+        onCancelOrder={handleCancelOrder}
+      />
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">

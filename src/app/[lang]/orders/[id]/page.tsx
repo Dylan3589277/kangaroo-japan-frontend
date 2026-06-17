@@ -13,6 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import {
+  OrderDetailTcgView,
+  OrderDetailTcgLoading,
+  OrderDetailTcgNotFound,
+} from "@/components/orders/orders-tcg";
 
 interface OrderItem {
   id: string;
@@ -131,6 +136,8 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
+  // en 走设计方向 A 深色呈现，其它语言保持现有渲染。仅影响视觉，业务逻辑共用。
+  const isEn = lang === "en";
   const orderId = params.id as string;
   const shouldPoll = searchParams.get("poll") === "1";
   const tm = useTranslations("mercari");
@@ -231,6 +238,9 @@ export default function OrderDetailPage() {
   };
 
   if (authLoading || loading) {
+    if (isEn) {
+      return <OrderDetailTcgLoading />;
+    }
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Skeleton className="h-8 w-48 mb-6" />
@@ -246,6 +256,17 @@ export default function OrderDetailPage() {
   }
 
   if (!order) {
+    if (isEn) {
+      return (
+        <OrderDetailTcgNotFound
+          texts={{
+            notFoundTitle: "Order not found",
+            backToOrders: "Back to Orders",
+          }}
+          lang={lang}
+        />
+      );
+    }
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">📦</div>
@@ -257,6 +278,64 @@ export default function OrderDetailPage() {
     );
   }
 
+  // 轮询提示条显隐与文案：与下方经典版判定完全一致（?poll=1 进入且仍处非终态时显示）。
+  const showPollingBanner =
+    shouldPoll && POLLING_STATUSES.has(order.status);
+  const pollingStatusHint =
+    order.status === "pending"
+      ? tm("orderStatus.waitingPayment")
+      : order.status === "paid"
+        ? tm("orderStatus.paid")
+        : order.status === "processing"
+          ? tm("orderStatus.purchasing")
+          : tm("orderStatus.purchased");
+
+  if (isEn) {
+    // 设计 A 深色订单详情：取数/轮询(?poll=1)/状态条/取消/追踪回调全部沿用上方逻辑，只换视觉。
+    return (
+      <OrderDetailTcgView
+        texts={{
+          back: "Back to Orders",
+          orderTitle: "Order {no}",
+          placedOn: "Placed on {date}",
+          trackPackage: "Track Package",
+          cancelOrder: "Cancel Order",
+          cancelling: "Cancelling...",
+          pollingTitle: tm("orderStatus.pollingTitle"),
+          refresh: tm("orderStatus.refresh"),
+          itemsTitle: "Items ({n})",
+          noImage: "No Image",
+          shippingAddress: "Shipping Address",
+          logistics: "Logistics",
+          carrier: "Carrier",
+          trackingNumber: "Tracking Number",
+          shippedAt: "Shipped At",
+          estDelivery: "Est. Delivery",
+          yourMessage: "Your Message",
+          paymentSummary: "Payment Summary",
+          subtotal: "Subtotal",
+          shipping: "Shipping",
+          serviceFee: "Service Fee",
+          couponDiscount: "Coupon Discount",
+          total: "Total",
+          paidOn: "Paid on {date}",
+          paymentMethod: "Payment Method",
+          notFoundTitle: "Order not found",
+          backToOrders: "Back to Orders",
+        }}
+        lang={lang}
+        order={order}
+        cancelling={cancelling}
+        showPollingBanner={showPollingBanner}
+        pollingStatusHint={pollingStatusHint}
+        getStatusLabel={(status) => getStatusLabel(status, lang)}
+        formatCurrency={(amount, currency) => formatCurrency(amount, currency)}
+        onTrack={handleTrack}
+        onCancel={handleCancel}
+        onRefresh={() => fetchOrder()}
+      />
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
