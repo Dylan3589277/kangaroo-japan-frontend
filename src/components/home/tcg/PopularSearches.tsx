@@ -2,14 +2,11 @@
 
 import { useTranslations } from "next-intl";
 import { SearchIcon } from "./icons";
+import { POPULAR_CHIPS } from "./tcg-keywords";
 
-const CHIPS = [
-  { key: "pokemon151", q: "Pokemon 151 booster box" },
-  { key: "eeveeHeroes", q: "Eevee Heroes" },
-  { key: "psa10", q: "PSA 10 Japanese" },
-  { key: "ocgQuarterCentury", q: "OCG Quarter Century" },
-  { key: "blueEyes", q: "Blue-Eyes White Dragon" },
-] as const;
+// 热门 IP 热门卡芯片：英文展示名（chip.label）+ 实测能出真卡的日文查询（chip.query）。
+// 点击用日文词搜（命中率最高）；词库统一在 tcg-keywords，全部 curl 验证过。
+const CHIPS = POPULAR_CHIPS;
 
 export function PopularSearches({
   onChip,
@@ -33,14 +30,14 @@ export function PopularSearches({
           </span>
           {CHIPS.map((chip) => (
             <button
-              key={chip.key}
-              onClick={() => onChip(chip.q)}
+              key={chip.query}
+              onClick={() => onChip(chip.query)}
               className={`inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition-colors hover:border-cyan-400/40 hover:bg-cyan-400/10 hover:text-white ${
                 emphasized ? "px-3.5 py-1.5 text-sm" : "px-3 py-1 text-xs"
               }`}
             >
               <SearchIcon className="size-3.5 text-slate-400" />
-              {t(`items.${chip.key}`)}
+              {chip.label}
             </button>
           ))}
         </div>

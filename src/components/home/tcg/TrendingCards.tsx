@@ -6,12 +6,37 @@ import { Link } from "@/i18n/navigation";
 import { ArrowRightIcon } from "./icons";
 import { TcgCard, TcgCardSkeleton } from "./TcgCard";
 import { searchMercariTcg, type TcgCardItem } from "./tcg-data";
+import {
+  POKEMON_KEYWORDS,
+  YUGIOH_KEYWORDS,
+  isNonCardName,
+  type TcgKeyword,
+} from "./tcg-keywords";
 
-const GRID_SIZE = 8;
+const GRID_SIZE = 12;
+// 每个精准词最多取这么多张，避免单一卡名刷屏（聚合后再去重截断）。
+const PER_QUERY_LIMIT = 6;
 
-// 热门 TCG 查询（日文命中率最高，能出数）。首选「ポケモン」，其次「遊戯王」兜底。
-// 注意：别用「ポケモンカード」——旧 mericaris 列表端对该词会抓空。
-const TRENDING_QUERIES = ["ポケモン", "遊戯王"] as const;
+// 简单的「按天轮换」选词：同一天稳定（避免水合不一致），跨天换一批，保持新鲜。
+function pickRotating<T>(pool: readonly T[], count: number, seed: number): T[] {
+  if (pool.length <= count) return [...pool];
+  const start = seed % pool.length;
+  const out: T[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(pool[(start + i) % pool.length]);
+  }
+  return out;
+}
+
+// 首页热门卡聚合词：混 3 个宝可梦热门 + 2 个游戏王热门，按天轮换。
+// 全部来自实测能出真卡的精准词库（tcg-keywords），不再用泛词「ポケモン」「遊戯王」。
+function selectTrendingKeywords(): TcgKeyword[] {
+  const daySeed = Math.floor(Date.now() / 86_400_000); // 当天 0 点起的天数
+  return [
+    ...pickRotating(POKEMON_KEYWORDS, 3, daySeed),
+    ...pickRotating(YUGIOH_KEYWORDS, 2, daySeed),
+  ];
+}
 
 /**
  * 首页「在售热门卡片」区块（设计 A）。
@@ -32,22 +57,40 @@ export function TrendingCards({
     let active = true;
 
     (async () => {
-      for (const query of TRENDING_QUERIES) {
-        if (!active) return;
-        const result = await searchMercariTcg({
-          keyword: query,
-          inStockOnly: true,
-          limit: GRID_SIZE,
-        });
-        if (!active) return;
-        if (result.length > 0) {
-          setItems(result);
-          setLoading(false);
-          return;
+      const keywords = selectTrendingKeywords();
+
+      // 并行拉取每个精准词的在售卡（各取前 PER_QUERY_LIMIT 张）。
+      const batches = await Promise.all(
+        keywords.map((kw) =>
+          searchMercariTcg({
+            keyword: kw.query,
+            inStockOnly: true, // 已剔除已售/无图
+            limit: PER_QUERY_LIMIT,
+          }),
+        ),
+      );
+      if (!active) return;
+
+      // 合并 → 按 goodsNo 去重 → 过滤非卡周边（钥匙扣/扭蛋/玩偶…）→ 截断。
+      const seen = new Set<string>();
+      const merged: TcgCardItem[] = [];
+      for (const batch of batches) {
+        for (const item of batch) {
+          if (seen.has(item.goodsNo)) continue;
+          if (isNonCardName(item.title)) continue;
+          seen.add(item.goodsNo);
+          merged.push(item);
         }
       }
-      // 所有查询都没拿到在售卡：回退到热门搜索芯片。
-      if (!active) return;
+      const result = merged.slice(0, GRID_SIZE);
+
+      if (result.length > 0) {
+        setItems(result);
+        setLoading(false);
+        return;
+      }
+
+      // 全部精准词都没拿到在售卡：回退到热门搜索芯片。
       setLoading(false);
       if (!reportedFallback.current) {
         reportedFallback.current = true;

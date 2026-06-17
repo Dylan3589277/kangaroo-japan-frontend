@@ -8,6 +8,7 @@ import { spaceGrotesk } from "@/app/fonts";
 import { SearchIcon, ArrowRightIcon } from "@/components/home/tcg/icons";
 import { TcgCard, TcgCardSkeleton } from "@/components/home/tcg/TcgCard";
 import { searchMercariTcg, type TcgCardItem } from "@/components/home/tcg/tcg-data";
+import { POPULAR_CHIPS } from "@/components/home/tcg/tcg-keywords";
 
 // 人话排序标签 → Mercari 旧端 sort 值（不暴露 createdAt_desc 之类技术字段）。
 const SORT_OPTIONS = [
@@ -18,18 +19,16 @@ const SORT_OPTIONS = [
 
 type SortKey = (typeof SORT_OPTIONS)[number]["key"];
 
-// 空状态/默认建议用的热门搜索（与首页芯片一致的英文标签 + 真实日文查询）。
-// 注意：避开「ポケモンカード」（旧 mericaris 列表端对该词会抓空），首选「ポケモン」。
-const POPULAR_QUERIES = [
-  { label: "Pokémon", q: "ポケモン" },
-  { label: "Eevee Heroes", q: "イーブイヒーローズ" },
-  { label: "Charizard", q: "リザードン" },
-  { label: "Yu-Gi-Oh OCG", q: "遊戯王" },
-  { label: "Blue-Eyes White Dragon", q: "青眼の白龍" },
-] as const;
+// 空状态/默认建议用的热门搜索：与首页芯片同一套「热门 IP 热门卡」词
+//（英文标签 + 实测能出真卡的日文查询，统一来自 tcg-keywords，全部 curl 验证过）。
+// 不再用泛词「ポケモン」「遊戯王」（会出钥匙扣/扭蛋等周边）。
+const POPULAR_QUERIES = POPULAR_CHIPS.map((chip) => ({
+  label: chip.label,
+  q: chip.query,
+}));
 
-// 空关键词时的默认查询：拉「ポケモン」一屏，避免落地即空白。
-const DEFAULT_QUERY = "ポケモン";
+// 空关键词时的默认查询：拉首张热门卡（Pokémon 151）一屏，避免落地即空白且全是真卡。
+const DEFAULT_QUERY = POPULAR_CHIPS[0].query;
 
 /**
  * 设计 A（深色高级感）英文 TCG 卡牌搜索结果页。

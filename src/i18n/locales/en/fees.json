@@ -52,6 +52,63 @@
       "notes": "Payment provider / currency conversion fees. The exact amount depends on your payment method and is shown at checkout."
     }
   },
+  "comparison": {
+    "title": "How our fees compare",
+    "subtitle": "A quick look at typical proxy-service charges across the market. Competitors are shown by initial only — rates are public and approximate, so always confirm on each provider's own site.",
+    "providerLabel": "Provider",
+    "usLabel": "Us",
+    "publicTag": "public rates",
+    "estimatedTag": "estimated",
+    "rows": {
+      "proxyFee": {
+        "label": "Proxy / service fee per item",
+        "k": "from ~300 JPY/item (estimated)",
+        "b": "~500 JPY/order",
+        "z": "~800 JPY/Mercari purchase; ~300 recommended stores; ~500 other",
+        "n": "~350 JPY/item",
+        "f": "~500 JPY/item (protection plan)",
+        "jr": "shipping at cost + ~3.6% transaction"
+      },
+      "handling": {
+        "label": "Auction / flea-market handling",
+        "k": "high-value items quoted separately (estimated)",
+        "b": "included in service fee",
+        "z": "~500 JPY other handling",
+        "n": "included per item",
+        "f": "included per item",
+        "jr": "~$5 per shop / link"
+      },
+      "inspection": {
+        "label": "Inspection / condition check",
+        "k": "photo inspection per order, not per card (estimated)",
+        "b": "~300 JPY inspection plan",
+        "z": "varies by store tier",
+        "n": "not standard",
+        "f": "protection plan covers item",
+        "jr": "not standard"
+      },
+      "packing": {
+        "label": "Packing / consolidation",
+        "k": "consolidation available (estimated)",
+        "b": "~500 JPY insurance plan",
+        "z": "varies",
+        "n": "~500 JPY packing (≤2kg)",
+        "f": "varies",
+        "jr": "actual shipping cost"
+      },
+      "payment": {
+        "label": "Payment processing",
+        "k": "small percentage (estimated)",
+        "b": "provider fees apply",
+        "z": "provider fees apply",
+        "n": "provider fees apply",
+        "f": "provider fees apply",
+        "jr": "included in ~3.6% transaction"
+      }
+    },
+    "footnote": "Initials refer to well-known Japan proxy / forwarding services. All competitor figures are public rates and may change at any time — verify on each provider's own site before ordering. Our column is estimated; your exact total is always shown at checkout.",
+    "usColumnNote": "That's us"
+  },
   "customs": {
     "title": "U.S. customs & taxes",
     "body": "Importing trading cards into the United States is not duty-free. We provide HS code guidance for trading cards to help your parcel clear customs smoothly, but U.S. customs duties and taxes are ultimately determined by U.S. Customs and Border Protection (CBP) and the carrier. Any duties, taxes, or brokerage fees assessed on import are the buyer's responsibility and are not included in the estimates above.",
