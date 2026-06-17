@@ -27,6 +27,30 @@
       "blueEyes": "Blue-Eyes White Dragon"
     }
   },
+  "trending": {
+    "title": "Trending cards in stock",
+    "subtitle": "Live Pokémon and Yu-Gi-Oh listings from Japanese marketplaces, ready to buy right now.",
+    "viewAll": "Browse all cards"
+  },
+  "cards": {
+    "metaTitle": "Search Japanese TCG cards",
+    "title": "Search Japanese TCG cards",
+    "subtitle": "Browse live Pokémon and Yu-Gi-Oh listings from Japanese marketplaces.",
+    "searchPlaceholder": "Pokémon 151, Charizard, Blue-Eyes, OCG booster box…",
+    "searchAria": "Search Japanese TCG cards",
+    "searchCta": "Search",
+    "sortLabel": "Sort",
+    "sort": {
+      "newest": "Newest",
+      "priceLow": "Lowest price",
+      "priceHigh": "Highest price"
+    },
+    "resultsFor": "Results for \"{query}\"",
+    "startTitle": "Find Japanese cards",
+    "startSubtitle": "Search above, or start with one of these popular cards.",
+    "emptyTitle": "No cards found",
+    "emptySubtitle": "Try a different search, or pick one of these popular cards."
+  },
   "how": {
     "title": "How proxy buying works",
     "subtitle": "Four simple steps from a Japanese listing to your door.",

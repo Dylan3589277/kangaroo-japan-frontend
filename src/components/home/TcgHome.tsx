@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { spaceGrotesk } from "@/app/fonts";
 import { HeroSection } from "./tcg/HeroSection";
+import { TrendingCards } from "./tcg/TrendingCards";
 import { PopularSearches } from "./tcg/PopularSearches";
 import { HowItWorks } from "./tcg/HowItWorks";
 import { Marketplaces } from "./tcg/Marketplaces";
@@ -23,6 +24,9 @@ const HOW_IT_WORKS_ID = "how-it-works";
 export function TcgHome() {
   const t = useTranslations("tcg.meta");
   const router = useRouter();
+  // 热门卡片取数失败时回退：把「热门搜索芯片」恢复为显眼样式。
+  const [trendingFailed, setTrendingFailed] = useState(false);
+  const handleTrendingFallback = useCallback(() => setTrendingFailed(true), []);
 
   // SEO：英文 TCG 首页标题/描述（与现有 HomePageClient 一致的客户端写法）。
   useEffect(() => {
@@ -38,8 +42,8 @@ export function TcgHome() {
 
   const goSearch = (query: string) => {
     const q = query.trim();
-    // 沿用现有站内搜索路由 /products?search=...；useRouter 来自 next-intl，会自动补 /en 前缀。
-    router.push(q ? `/products?search=${encodeURIComponent(q)}` : "/products");
+    // 指向设计 A 英文卡牌搜索结果页 /cards?q=...；useRouter 来自 next-intl，会自动补 /en 前缀。
+    router.push(q ? `/cards?q=${encodeURIComponent(q)}` : "/cards");
   };
 
   const scrollToHow = () => {
@@ -51,7 +55,10 @@ export function TcgHome() {
       className={`${spaceGrotesk.variable} min-h-screen bg-[#0a0e16] text-slate-200 antialiased`}
     >
       <HeroSection onSearch={goSearch} onHowItWorks={scrollToHow} />
-      <PopularSearches onChip={goSearch} />
+      {/* 直接展示在售热门卡片（更有吸引力）；取数失败时自身隐藏并触发芯片回退。 */}
+      <TrendingCards onFallback={handleTrendingFallback} />
+      {/* 热门搜索芯片：默认弱化为卡片下方快捷入口；热门卡片取数失败时恢复显眼。 */}
+      <PopularSearches onChip={goSearch} emphasized={trendingFailed} />
       <HowItWorks id={HOW_IT_WORKS_ID} />
       <Marketplaces />
       <BuyerProtection />
