@@ -2,26 +2,12 @@
 
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { Link, usePathname, useRouter } from "@/i18n/navigation";
-import { routing } from "@/i18n/routing";
+import { Link, useRouter } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/lib/auth";
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Menu, Search, X } from "lucide-react";
 import { SITE_MENU } from "./siteMenu";
-
-const LOCALE_PREFIX_RE = new RegExp(`^/(${routing.locales.join("|")})(?=/|$)`);
-type Locale = (typeof routing.locales)[number];
-
-const LANGUAGE_LABELS: Record<Locale, string> = {
-  zh: "Chinese",
-  en: "English",
-  ko: "Korean",
-  th: "Thai",
-  id: "Indonesian",
-  vi: "Vietnamese",
-  ja: "Japanese",
-};
 
 interface HeaderProps {
   showSearch?: boolean;
@@ -29,16 +15,10 @@ interface HeaderProps {
   onSearch?: (query: string) => void;
 }
 
-function isLocale(value: string): value is Locale {
-  return routing.locales.includes(value as Locale);
-}
-
 export function Header({ showSearch = false, initialSearchQuery = "", onSearch }: HeaderProps) {
   const t = useTranslations();
-  const pathname = usePathname();
   const params = useParams();
   const lang = (params.lang as string) || "zh";
-  const currentLocale = isLocale(lang) ? lang : "zh";
   const { isAuthenticated, user } = useAuthStore();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
@@ -81,21 +61,6 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
       { key: "login", href: "/login", label: t("auth.login") },
       { key: "register", href: "/register", label: t("auth.register") },
     ];
-  };
-
-  const getLocalePath = (locale: Locale) => {
-    const currentPath = pathname.replace(LOCALE_PREFIX_RE, "") || "/";
-    return `/${locale}${currentPath === "/" ? "" : currentPath}`;
-  };
-
-  const getLocaleHref = (locale: Locale) =>
-    `/api/locale?locale=${locale}&next=${encodeURIComponent(getLocalePath(locale))}`;
-
-  const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const nextLocale = e.target.value;
-    if (isLocale(nextLocale) && nextLocale !== currentLocale) {
-      window.location.href = getLocaleHref(nextLocale);
-    }
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -213,22 +178,9 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
             ))}
           </nav>
 
-          <div className="relative shrink-0">
-            <select
-              aria-label="Language selector"
-              value={currentLocale}
-              title={LANGUAGE_LABELS[currentLocale]}
-              onChange={handleLocaleChange}
-              className="h-9 w-[78px] appearance-none rounded-full border border-zinc-200 bg-white py-1 pl-3 pr-8 text-xs font-semibold uppercase leading-none text-zinc-700 shadow-sm transition-colors hover:border-rose-300 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500"
-            >
-              {routing.locales.map((locale) => (
-                <option key={locale} value={locale}>
-                  {locale.toUpperCase()}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
-          </div>
+          {/* 语言切换器已移除（站点级软锁）：按浏览器语言自动落地，详见
+              src/i18n/routing.ts 的 localeDetection 注释。i18n 机制本身保留，
+              /en 与 /zh 等具体语言路径仍可直接访问（软锁，不强制跳转）。 */}
 
           <details className="group relative lg:hidden">
             <summary className="list-none rounded-full p-2 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-rose-600 [&::-webkit-details-marker]:hidden" aria-label="Toggle menu">

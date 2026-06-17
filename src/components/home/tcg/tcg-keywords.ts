@@ -63,6 +63,48 @@ export const ALL_TCG_KEYWORDS: readonly TcgKeyword[] = [
 ] as const;
 
 /**
+ * 从词池按 seed 取 count 个连续词（环形），seed 变即换一批。
+ * count >= 池长时返回整池（去重无意义）。仅做选词，不查网络。
+ */
+export function pickRotatingKeywords(
+  pool: readonly TcgKeyword[],
+  count: number,
+  seed: number,
+): TcgKeyword[] {
+  if (pool.length <= count) return [...pool];
+  const start = ((seed % pool.length) + pool.length) % pool.length;
+  const out: TcgKeyword[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(pool[(start + i) % pool.length]);
+  }
+  return out;
+}
+
+/**
+ * 首页热门卡的「轮换选词」：按 seed（6 小时桶）选 3 宝可梦 + 2 游戏王为主词，
+ * 再把其余热门词按 seed 续接成兜底补足池（去重），供在售不足时补齐到目标张数。
+ * 返回 { primary, backfill }：primary 先拉，backfill 仅在 primary 在售不足时再拉。
+ */
+export function selectTrendingKeywords(seed: number): {
+  primary: TcgKeyword[];
+  backfill: TcgKeyword[];
+} {
+  const primary = [
+    ...pickRotatingKeywords(POKEMON_KEYWORDS, 3, seed),
+    ...pickRotatingKeywords(YUGIOH_KEYWORDS, 2, seed),
+  ];
+  const primaryQueries = new Set(primary.map((kw) => kw.query));
+  // 整池按同一 seed 轮换，去掉已在 primary 里的，剩下的作为补足候选（顺序也随 seed 转）。
+  const rotatedAll = pickRotatingKeywords(
+    ALL_TCG_KEYWORDS,
+    ALL_TCG_KEYWORDS.length,
+    seed,
+  );
+  const backfill = rotatedAll.filter((kw) => !primaryQueries.has(kw.query));
+  return { primary, backfill };
+}
+
+/**
  * 首页/搜索页快捷词芯片（英文标签 → 日文查询）。
  * 取宝可梦 3 个 + 游戏王 2 个，覆盖两大 IP 的标志性卡。
  */

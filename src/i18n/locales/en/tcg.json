@@ -163,5 +163,44 @@
     "subtitle": "Search live listings across Japanese marketplaces and let us handle the rest.",
     "ctaSearch": "Search cards",
     "ctaHowItWorks": "How it works"
+  },
+  "header": {
+    "brand": "JP-Buy",
+    "tagline": "Japanese TCG proxy",
+    "nav": {
+      "searchCards": "Search cards",
+      "howItWorks": "How it works",
+      "fees": "Fees",
+      "marketplaces": "Marketplaces"
+    },
+    "marketplaces": {
+      "mercari": "Mercari",
+      "yahoo": "Yahoo Auctions",
+      "amazon": "Amazon"
+    },
+    "cart": "Cart",
+    "account": "Account",
+    "login": "Sign in",
+    "orders": "My orders",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "footer": {
+    "tagline": "Proxy buying for U.S. TCG collectors and resellers. We buy Japanese Pokémon and Yu-Gi-Oh cards, inspect them, and ship to the United States.",
+    "columns": {
+      "support": {
+        "title": "Support",
+        "contact": "Contact support",
+        "faq": "FAQ",
+        "buyerProtection": "Buyer protection"
+      },
+      "company": {
+        "title": "Company",
+        "fees": "Fees",
+        "shipping": "Shipping to the U.S.",
+        "about": "About"
+      }
+    },
+    "copyright": "© {year} JP-Buy. All rights reserved."
   }
 }
