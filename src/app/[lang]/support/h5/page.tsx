@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ExternalLink,
@@ -375,6 +375,23 @@ function navigateToMiniProgramOrderDetail(orderId: string) {
   return true;
 }
 
+// 小程序内「我要购买」：跳袋鼠君小程序的 mercari 商品详情页（含「立即购买」按钮，
+// 自带登录守卫 + 购买提示 + 进 confirm 结算页）。
+// 路径与参数依据 daishujunApp/pages/daishujun/index/mercari_detail.vue：
+//   - onLoad(e) 读 e.id（this.goodsNo = e.id），param 名是 `id`；
+//   - 商品列表/收藏/购物车等全部用 `/pages/daishujun/index/mercari_detail?id=` + goods_no 跳转。
+// 选商品详情页而非直接跳 ./confirm，是为了保留小程序侧 confirmOrder() 的登录守卫与购买提示，
+// 不绕过任何下单守卫（与网页端 router.push(/checkout) 直达结算的差异见报告）。
+function navigateToMiniProgramBuy(itemId: string) {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  win.wx.miniProgram.navigateTo({
+    url: "/pages/daishujun/index/mercari_detail?id=" + encodeURIComponent(itemId),
+  });
+  return true;
+}
+
 function navigateToMiniProgramDepositRecharge() {
   if (!YAHOO_DEPOSIT_RECHARGE_PAGE_PATH) return false;
   if (typeof window === "undefined") return false;
@@ -399,6 +416,7 @@ function getKf53ChatUrl() {
 
 export default function MiniProgramSupportH5Page() {
   const params = useParams<{ lang?: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const lang = params?.lang || "zh";
   const initialSessionId = searchParams.get("session_id") || undefined;
@@ -781,18 +799,69 @@ export default function MiniProgramSupportH5Page() {
     return picked.length ? `；我想加购：${picked.join("、")}` : "";
   }
 
-  // 报价卡"购买"：报价阶段还没有订单。这里**只**走现有 sendMessage 发一条明确
-  // 购买意图（含买家勾选的可选服务/已确认风险标记），由现有后端按话术转人工/引导录单。
-  // 绝不自动下单、不扣款、不跳支付、不调任何下单接口；可选服务的实际计费在录单环节由
-  // L1/L2/客服核验后处理，本卡只把买家选择随意图带出。
-  function buyQuote(cardKey: string, quote: QuoteRef) {
-    let intent = "我要购买此商品";
-    intent += summarizeSelectedServices(cardKey, quote);
-    // 风险确认卡若需确认且买家已确认，带出「已知风险」标记，供客服录入参考。
-    if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
-      intent += "；我已了解高额订单风险（不退不换），请继续为我录入";
+  // 汇总某张报价卡上买家已勾选的服务 code（仅 code，逗号分隔），用于透传给结算/小程序购买流程。
+  // 与 summarizeSelectedServices（人读中文摘要）区分：这里是给 URL query 用的机读 code 列表。
+  // 透传只是把买家选择带过去，结算/小程序端将来读不读都不影响本次路由（后端建单存费另做）。
+  function collectSelectedServiceCodes(cardKey: string, quote: QuoteRef): string[] {
+    const services = quote.optional_services;
+    if (!services || services.length === 0) return [];
+    const checkedMap = quoteServiceSelections[cardKey] || {};
+    const codes: string[] = [];
+    for (const svc of services) {
+      const code = svc.code || svc.label || "";
+      if (!code || !checkedMap[code]) continue;
+      codes.push(code);
     }
-    void sendMessage(intent);
+    return codes;
+  }
+
+  // 报价卡「我要购买」：mercari 直接进**现成的**购买/待支付流程（不再发转人工套话）。
+  //   - 小程序 webview 内 → 跳袋鼠君小程序 mercari 商品页（含「立即购买」，自带登录守卫/购买提示）；
+  //   - 普通网页 H5 → router.push 现成网页结算页 /{lang}/checkout?type=mercari&id=...
+  //     （与 mercari 商品页「立即购买」同一入口：createOrder → NewAge 付款 → 待支付）。
+  // 买家勾选的可选服务 code 与已确认风险标记尽量作为 URL query 透传（services=逗号分隔code、risk_ack=1），
+  // 结算/小程序端将来读取（后端建单存费由中枢另做，前端先透传，读不读不影响本次路由）。
+  // 雅虎(platform==='yahoo')：即決/竞拍购买路径与 mercari 不同，本次保持原 sendMessage 行为不动。
+  function buyQuote(cardKey: string, quote: QuoteRef) {
+    // 雅虎不走本次新路由，保持原有「发购买意图文本 → 后端话术」行为，零回归。
+    if (quote.platform === "yahoo") {
+      let intent = "我要购买此商品";
+      intent += summarizeSelectedServices(cardKey, quote);
+      if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
+        intent += "；我已了解高额订单风险（不退不换），请继续为我录入";
+      }
+      void sendMessage(intent);
+      return;
+    }
+
+    // 以下仅 mercari：进现成购买流程。
+    const itemId = quote.item_id;
+    // 没有商品号无法定位购买流程：兜底回原 sendMessage 行为，避免跳到空 id 的结算页。
+    if (!itemId) {
+      void sendMessage("我要购买此商品" + summarizeSelectedServices(cardKey, quote));
+      return;
+    }
+
+    // 买家选择透传：服务 code 列表 + 风险已确认标记。
+    const serviceCodes = collectSelectedServiceCodes(cardKey, quote);
+    const riskAck = Boolean(
+      quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey],
+    );
+
+    // 小程序 webview：跳小程序内 mercari 购买入口。
+    // 小程序商品页 onLoad 只接 id，不接服务/风险参数；透传暂随网页端，小程序端透传待小程序侧扩展。
+    if (isMiniProgramWebview()) {
+      if (navigateToMiniProgramBuy(itemId)) return;
+      // 跳不动（理论上 isMiniProgramWebview 为真时不该发生）兜底回原行为。
+      void sendMessage("我要购买此商品" + summarizeSelectedServices(cardKey, quote));
+      return;
+    }
+
+    // 普通网页 H5：进现成网页结算页。带上服务/风险透传 query（结算端读不读都不影响路由）。
+    const query = new URLSearchParams({ type: "mercari", id: itemId });
+    if (serviceCodes.length > 0) query.set("services", serviceCodes.join(","));
+    if (riskAck) query.set("risk_ack", "1");
+    router.push(`/${lang}/checkout?${query.toString()}`);
   }
 
   // 雅虎竞拍「去充押金」：仅跳转小程序充值页，不触发任何金钱动作。

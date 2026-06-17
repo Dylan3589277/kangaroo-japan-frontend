@@ -113,10 +113,10 @@ test.describe("support H5 quote_ref card", () => {
     expect(chatCalls).toBe(0);
   });
 
-  test("buy button sends a single explicit purchase-intent message", async ({
+  test("buy button (web H5, mercari) routes to checkout page, never sends a transfer-human message", async ({
     page,
   }) => {
-    const buyMessages: string[] = [];
+    const chatMessages: string[] = [];
     await page.route("https://embed.tawk.to/**", (route) => route.abort());
     await page.route("https://res.wx.qq.com/**", (route) => route.abort());
     await page.route("**/api/support/conversations/**/messages", (route) =>
@@ -124,14 +124,13 @@ test.describe("support H5 quote_ref card", () => {
     );
     await page.route("**/api/support/chat", async (route) => {
       const body = route.request().postDataJSON() as { message?: string };
-      if (body.message) buyMessages.push(body.message);
-      // 首条（手动 fill 的链接）返回报价卡；之后的购买意图随便回个文本即可
+      if (body.message) chatMessages.push(body.message);
       const isItemLink = (body.message || "").includes("/item/");
       return json(route, {
         code: 0,
         data: {
           action: "answered",
-          reply: isItemLink ? "这是报价" : "好的，我帮您转人工录入订单～",
+          reply: isItemLink ? "这是报价" : "好的~",
           quote_ref: isItemLink
             ? {
                 platform: "mercari",
@@ -150,14 +149,75 @@ test.describe("support H5 quote_ref card", () => {
     await page.getByRole("button", { name: "发送" }).click();
     await expect(page.getByTestId("support-quote-card")).toBeVisible();
 
+    // 普通网页 H5（非小程序 webview）：点「我要购买」应路由到现成网页结算页，不再发购买意图消息。
+    await page.getByTestId("support-quote-btn-buy").click();
+    await page.waitForURL(/\/zh\/checkout\?.*type=mercari/);
+    await expect(page).toHaveURL(/[?&]id=m12345678901(?:&|$)/);
+
+    // 关键：没有把「我要购买此商品」之类的购买意图作为聊天消息发给后端。
+    const purchaseSends = chatMessages.filter((m) =>
+      m.startsWith("我要购买此商品"),
+    );
+    expect(purchaseSends).toHaveLength(0);
+  });
+
+  test("buy button (mini-program webview, mercari) navigates to mini-program buy page", async ({
+    page,
+  }) => {
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/conversations/**/messages", (route) =>
+      json(route, { code: 0, data: { messages: [] } }),
+    );
+    await page.route("**/api/support/chat", async (route) => {
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: "这是报价",
+          quote_ref: {
+            platform: "mercari",
+            item_id: "m12345678901",
+            goods_name: "テスト商品",
+            price_jpy: 12800,
+            purchasable: true,
+          },
+        },
+      });
+    });
+
+    // 伪造小程序 webview：注入 wx.miniProgram.navigateTo 并记录调用 url。
+    await page.addInitScript(() => {
+      (window as unknown as { __miniNav: string[] }).__miniNav = [];
+      (
+        window as unknown as {
+          wx?: { miniProgram?: { navigateTo?: (o: { url: string }) => void } };
+        }
+      ).wx = {
+        miniProgram: {
+          navigateTo: (o: { url: string }) => {
+            (window as unknown as { __miniNav: string[] }).__miniNav.push(o.url);
+          },
+        },
+      };
+    });
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page.getByPlaceholder("请输入问题").fill("https://jp.mercari.com/item/m12345678901");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+
     await page.getByTestId("support-quote-btn-buy").click();
 
-    // 购买意图作为 user 气泡出现，且只发了这一条购买消息
-    await expect(
-      page.locator(".bg-\\[\\#4f67ff\\]").filter({ hasText: "我要购买此商品" }),
-    ).toBeVisible();
-    const purchaseSends = buyMessages.filter((m) => m === "我要购买此商品");
-    expect(purchaseSends).toHaveLength(1);
+    // 小程序 webview：点「我要购买」应 navigateTo 小程序 mercari 商品购买页（param 名 id）。
+    const navUrls = await page.evaluate(
+      () => (window as unknown as { __miniNav: string[] }).__miniNav,
+    );
+    expect(navUrls).toContain(
+      "/pages/daishujun/index/mercari_detail?id=m12345678901",
+    );
+    // 没有离开 H5 页（navigateTo 是 stub，不会真跳转）
+    await expect(page).toHaveURL(/\/zh\/support\/h5/);
   });
 
   test("auto-fires a quote from ?gid and shows the card with NO user bubble", async ({
@@ -586,52 +646,46 @@ test.describe("support H5 quote_ref card · yahoo", () => {
 });
 
 test.describe("support H5 quote_ref card · optional services", () => {
-  test("renders optional-services区 (单行精确费用), and carries选择 into buy intent", async ({
+  test("renders optional-services区 (单行精确费用), and carries选择 into checkout query", async ({
     page,
   }) => {
-    const buyMessages: string[] = [];
     await page.route("https://embed.tawk.to/**", (route) => route.abort());
     await page.route("https://res.wx.qq.com/**", (route) => route.abort());
     await page.route("**/api/support/conversations/**/messages", (route) =>
       json(route, { code: 0, data: { messages: [] } }),
     );
     await page.route("**/api/support/chat", async (route) => {
-      const body = route.request().postDataJSON() as { message?: string };
-      if (body.message) buyMessages.push(body.message);
-      const isItemLink = (body.message || "").includes("/item/");
       return json(route, {
         code: 0,
         data: {
           action: "answered",
-          reply: isItemLink ? "这是报价" : "好的，我帮您转人工录入订单～",
-          quote_ref: isItemLink
-            ? {
-                platform: "mercari",
-                item_id: "m12345678901",
-                goods_name: "テスト商品",
-                price_jpy: 12800,
-                purchasable: true,
-                // 新契约：安心鉴定为扁平精确费用，不再有 category_options。
-                optional_services: [
-                  {
-                    code: "misdelivery_check",
-                    label: "错发漏发检查",
-                    fee_jpy: 100,
-                  },
-                  {
-                    code: "pre_inbound_photo",
-                    label: "入库前拍照",
-                    fee_jpy: 100,
-                  },
-                  {
-                    code: "mercari_anshin_kantei",
-                    label: "mercari安心鉴定",
-                    note: "建议追加，有保障",
-                    fee_jpy: 1700,
-                  },
-                ],
-              }
-            : undefined,
+          reply: "这是报价",
+          quote_ref: {
+            platform: "mercari",
+            item_id: "m12345678901",
+            goods_name: "テスト商品",
+            price_jpy: 12800,
+            purchasable: true,
+            // 新契约：安心鉴定为扁平精确费用，不再有 category_options。
+            optional_services: [
+              {
+                code: "misdelivery_check",
+                label: "错发漏发检查",
+                fee_jpy: 100,
+              },
+              {
+                code: "pre_inbound_photo",
+                label: "入库前拍照",
+                fee_jpy: 100,
+              },
+              {
+                code: "mercari_anshin_kantei",
+                label: "mercari安心鉴定",
+                note: "建议追加，有保障",
+                fee_jpy: 1700,
+              },
+            ],
+          },
         },
       });
     });
@@ -657,53 +711,50 @@ test.describe("support H5 quote_ref card · optional services", () => {
     await page.getByTestId("support-quote-service-misdelivery_check").check();
     await page.getByTestId("support-quote-service-mercari_anshin_kantei").check();
 
-    // 点「我要购买」，购买意图里带出已勾选服务与精确费用
+    // 点「我要购买」：普通网页 H5 路由到结算页，已勾选服务 code 透传到 services query。
     await page.getByTestId("support-quote-btn-buy").click();
-    const buyIntent = buyMessages.find((m) => m.startsWith("我要购买此商品"));
-    expect(buyIntent).toBeTruthy();
-    expect(buyIntent).toContain("错发漏发检查");
-    expect(buyIntent).toContain("mercari安心鉴定");
-    expect(buyIntent).toContain("1700日元");
+    await page.waitForURL(/\/zh\/checkout\?.*type=mercari/);
+    const url = new URL(page.url());
+    expect(url.searchParams.get("id")).toBe("m12345678901");
+    const services = (url.searchParams.get("services") || "").split(",");
+    expect(services).toContain("misdelivery_check");
+    expect(services).toContain("mercari_anshin_kantei");
+    // 未勾选的不带过去
+    expect(services).not.toContain("pre_inbound_photo");
   });
 });
 
 test.describe("support H5 quote_ref card · 高额风险确认 (>5万)", () => {
-  test("seller_risk.needs_confirm: 显著展示风险卡, gates buy until confirmed", async ({
+  test("seller_risk.needs_confirm: 显著展示风险卡, gates buy until confirmed, carries risk_ack into checkout", async ({
     page,
   }) => {
-    const buyMessages: string[] = [];
     await page.route("https://embed.tawk.to/**", (route) => route.abort());
     await page.route("https://res.wx.qq.com/**", (route) => route.abort());
     await page.route("**/api/support/conversations/**/messages", (route) =>
       json(route, { code: 0, data: { messages: [] } }),
     );
     await page.route("**/api/support/chat", async (route) => {
-      const body = route.request().postDataJSON() as { message?: string };
-      if (body.message) buyMessages.push(body.message);
-      const isItemLink = (body.message || "").includes("/item/");
       return json(route, {
         code: 0,
         data: {
           action: "answered",
-          reply: isItemLink ? "这是报价" : "好的，我帮您转人工录入订单～",
-          quote_ref: isItemLink
-            ? {
-                platform: "mercari",
-                item_id: "m88888888888",
-                goods_name: "高額テスト商品",
-                price_jpy: 88000,
-                purchasable: true,
-                seller_risk: {
-                  needs_confirm: true,
-                  identity_verified: false,
-                  high_rating: false,
-                  rating_count: 12,
-                  rating_percent: "95.0%",
-                  disclaimer:
-                    "一旦平台购买成功，通常不支持因卖家描述、成色差异退换。",
-                },
-              }
-            : undefined,
+          reply: "这是报价",
+          quote_ref: {
+            platform: "mercari",
+            item_id: "m88888888888",
+            goods_name: "高額テスト商品",
+            price_jpy: 88000,
+            purchasable: true,
+            seller_risk: {
+              needs_confirm: true,
+              identity_verified: false,
+              high_rating: false,
+              rating_count: 12,
+              rating_percent: "95.0%",
+              disclaimer:
+                "一旦平台购买成功，通常不支持因卖家描述、成色差异退换。",
+            },
+          },
         },
       });
     });
@@ -730,10 +781,12 @@ test.describe("support H5 quote_ref card · 高额风险确认 (>5万)", () => {
     await page.getByTestId("support-quote-risk-confirm-btn").click();
     await expect(page.getByTestId("support-quote-risk-confirmed")).toBeVisible();
 
-    // 确认后：「我要购买」可点，购买意图带出已知风险标记
+    // 确认后：「我要购买」可点；普通网页 H5 路由到结算页，并把 risk_ack=1 透传过去。
     await expect(buyBtn).toBeEnabled();
     await buyBtn.click();
-    const buyIntent = buyMessages.find((m) => m.startsWith("我要购买此商品"));
-    expect(buyIntent).toContain("我已了解高额订单风险");
+    await page.waitForURL(/\/zh\/checkout\?.*type=mercari/);
+    const url = new URL(page.url());
+    expect(url.searchParams.get("id")).toBe("m88888888888");
+    expect(url.searchParams.get("risk_ack")).toBe("1");
   });
 });
