@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { api, type MercariProxySubmitResult } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
@@ -15,20 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-
-interface Address {
-  id: string;
-  recipient_name: string;
-  phone: string;
-  country: string;
-  country_name: string;
-  address_line1: string;
-  address_line2?: string;
-  city: string;
-  postal_code: string;
-  label: string;
-  is_default: boolean;
-}
 
 interface MercariItem {
   goods_no: string;
@@ -50,6 +35,15 @@ const VALUE_ADDED_OPTIONS = [
 // 金额一律 JPY 整数显示，不除以 100
 function formatJpy(amount: number): string {
   return `¥${Math.round(amount).toLocaleString()}`;
+}
+
+// 人民币金额：保留旧端精度，沿用详情页 price_rmb 的展示（¥ 符号 + 两位小数）。
+function formatRmb(amount: number): string {
+  return `¥${Number(amount).toFixed(2)}`;
+}
+
+function pickAmountRmb(r: MercariProxySubmitResult): number | undefined {
+  return r.amountRmb ?? r.amount_rmb;
 }
 
 function pickOrderId(r: MercariProxySubmitResult): string | undefined {
@@ -74,8 +68,6 @@ export default function MercariCheckout() {
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [item, setItem] = useState<MercariItem | null>(null);
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [selectedValues, setSelectedValues] = useState<Record<string, boolean>>(
     {},
   );
@@ -91,13 +83,11 @@ export default function MercariCheckout() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [detailRes, addrRes] = await Promise.all([
-        api.request(`/integrations/mercari/detail`, {
-          method: "POST",
-          body: { id: goodsNo },
-        }),
-        api.getAddresses(),
-      ]);
+      // 代购流程：下单不收地址，故只拉商品详情（地址在后续转运/出库单再填）。
+      const detailRes = await api.request(`/integrations/mercari/detail`, {
+        method: "POST",
+        body: { id: goodsNo },
+      });
 
       if (detailRes.success && detailRes.data) {
         const data = detailRes.data as Record<string, unknown>;
@@ -105,13 +95,6 @@ export default function MercariCheckout() {
         setItem(d);
       } else {
         setLoadError(t("checkout.loadFailed"));
-      }
-
-      if (addrRes.success && addrRes.data) {
-        const addrList = addrRes.data as Address[];
-        setAddresses(addrList);
-        const defaultAddr = addrList.find((a) => a.is_default);
-        setSelectedAddressId(defaultAddr?.id || addrList[0]?.id || "");
       }
     } catch (error) {
       console.error("Failed to load Mercari checkout:", error);
@@ -147,10 +130,6 @@ export default function MercariCheckout() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedAddressId) {
-      toast.error(t("checkout.needAddress"));
-      return;
-    }
     if (!item || isSoldOut) {
       toast.error(t("checkout.soldOut"));
       return;
@@ -160,7 +139,6 @@ export default function MercariCheckout() {
     try {
       const res = await api.mercariProxySubmit({
         goodsNo,
-        addressId: selectedAddressId,
         values: serializeValues(),
         buyerMessage: buyerMessage || undefined,
       });
@@ -248,6 +226,7 @@ export default function MercariCheckout() {
     const qrcodeUrl = pickQrcodeUrl(payment);
     const payUrl = pickPayUrl(payment);
     const amount = payment.amount ?? item.price;
+    const amountRmb = pickAmountRmb(payment) ?? item.price_rmb;
     return (
       <div className="max-w-md mx-auto px-4 py-10">
         <Card>
@@ -263,6 +242,16 @@ export default function MercariCheckout() {
               </span>
               <span className="font-semibold">{formatJpy(amount)}</span>
             </div>
+            {amountRmb !== undefined && amountRmb !== null && (
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{t("checkout.paymentAmountRmb")}</span>
+                <span>
+                  {t("approx")}
+                  {formatRmb(amountRmb)}
+                  {t("cny")}
+                </span>
+              </div>
+            )}
             <Separator />
             {qrcodeUrl ? (
               <div className="flex flex-col items-center gap-3">
@@ -319,72 +308,19 @@ export default function MercariCheckout() {
       <h1 className="text-2xl font-bold mb-8">{t("checkout.title")}</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 左列：地址 + 商品 + 增值服务 */}
+        {/* 左列：到仓说明 + 商品 + 增值服务 */}
         <div className="lg:col-span-2 space-y-6">
-          {/* 收货地址 */}
+          {/* 到仓说明（代购流程：先入日本仓，转运时再填收货地址） */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center justify-between">
-                <span>{t("checkout.sectionAddress")}</span>
-                <Link
-                  href={`/${lang}/addresses`}
-                  className="text-sm font-normal text-primary hover:underline"
-                >
-                  + {t("checkout.addNewAddress")}
-                </Link>
+              <CardTitle className="text-lg">
+                {t("checkout.sectionShipping")}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {addresses.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  {t("checkout.noAddress")}{" "}
-                  <Link href={`/${lang}/addresses`} className="text-primary">
-                    {t("checkout.addAddressLink")}
-                  </Link>
-                </p>
-              ) : (
-                addresses.map((addr) => (
-                  <div
-                    key={addr.id}
-                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                      selectedAddressId === addr.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                    onClick={() => setSelectedAddressId(addr.id)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="font-medium text-sm">
-                          {addr.recipient_name}
-                          {addr.is_default && (
-                            <Badge
-                              className="ml-2 text-xs"
-                              variant="secondary"
-                            >
-                              {t("checkout.addNewAddress")}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {addr.phone}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {addr.country_name} {addr.city} {addr.address_line1}
-                          {addr.address_line2 && `, ${addr.address_line2}`}
-                        </div>
-                      </div>
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 ${
-                          selectedAddressId === addr.id
-                            ? "border-primary bg-primary"
-                            : "border-muted-foreground"
-                        }`}
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
+            <CardContent>
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground leading-relaxed">
+                {t("checkout.warehouseNotice")}
+              </div>
             </CardContent>
           </Card>
 
@@ -532,6 +468,16 @@ export default function MercariCheckout() {
                 <span>{formatJpy(totalDue)}</span>
               </div>
 
+              {item.price_rmb !== undefined && item.price_rmb !== null && (
+                <div className="flex justify-end text-xs text-muted-foreground -mt-1">
+                  <span>
+                    {t("approx")}
+                    {formatRmb(item.price_rmb)}
+                    {t("cny")}
+                  </span>
+                </div>
+              )}
+
               <p className="text-xs text-muted-foreground">
                 {t("checkout.fullPaymentNote")}
               </p>
@@ -540,12 +486,7 @@ export default function MercariCheckout() {
                 className="w-full mt-2 bg-orange-500 hover:bg-orange-600"
                 size="lg"
                 onClick={handleSubmit}
-                disabled={
-                  submitting ||
-                  !selectedAddressId ||
-                  addresses.length === 0 ||
-                  isSoldOut
-                }
+                disabled={submitting || isSoldOut}
               >
                 {submitting ? t("checkout.submitting") : t("checkout.payNow")}
               </Button>

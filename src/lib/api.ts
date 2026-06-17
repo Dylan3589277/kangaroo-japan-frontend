@@ -32,6 +32,7 @@ interface ApiResponse<T = any> {
 // Mercari 委托下单 + NewAge 支付返回。后端透传旧系统结果，
 // 两种支付形态都兼容：payUrl（跳 NewAge 收银台）或 qrcodeUrl（展示二维码）。
 // amount 一律 JPY 整数（数据库值即日元，不除以 100）。
+// amountRmb 为人民币金额，保留旧端精度（可能两位小数），与详情页 price_rmb 同源。
 export interface MercariProxySubmitResult {
   orderId?: string;
   order_id?: string;
@@ -40,6 +41,8 @@ export interface MercariProxySubmitResult {
   qrcodeUrl?: string;
   qrcode_url?: string;
   amount?: number;
+  amountRmb?: number;
+  amount_rmb?: number;
   outTradeNo?: string;
   out_trade_no?: string;
   payOutTradeNo?: string;
@@ -1769,20 +1772,20 @@ class ApiClient {
   // Mercari 委托下单 + NewAge 在线全额支付（零押金）
   // 经 /api/backend 代理 → 后端 /api/v1/mercari/proxy-submit。
   // 身份由现有登录态的 JWT 带过去，请求体不含 member_uid（后端从 JWT 取，防 IDOR）。
+  // 代购流程：商品先统一入日本仓，收货地址在后续「转运/集运出库」单时再填，
+  // 故下单这一刻不收地址（旧系统下单接口本就不存地址）。
   async mercariProxySubmit(data: {
     goodsNo: string;
-    addressId: string;
     values?: string;
     buyerMessage?: string;
   }) {
-    // 后端 DTO 仅白名单 goodsNo/values/addressId，且全局 ValidationPipe 开了
-    // forbidNonWhitelisted——多发任何字段（id/buyerMessage 等）都会被 400 拒绝。
-    // 故只发这三个；商品号后端会自行转成旧端的 id/goods_no，无需前端重复发。
+    // 后端 DTO 仅白名单 goodsNo/values（addressId 可空且不发），且全局 ValidationPipe
+    // 开了 forbidNonWhitelisted——多发任何字段（id/buyerMessage 等）都会被 400 拒绝。
+    // 故只发这两个；商品号后端会自行转成旧端的 id/goods_no，无需前端重复发。
     return this.request<MercariProxySubmitResult>("/mercari/proxy-submit", {
       method: "POST",
       body: {
         goodsNo: data.goodsNo,
-        addressId: data.addressId,
         values: data.values || "",
       },
     });
