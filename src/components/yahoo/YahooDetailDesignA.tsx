@@ -12,6 +12,7 @@ import {
   TranslateIcon,
 } from "@/components/home/tcg/icons";
 import { ImageLightbox } from "@/components/tcg/ImageLightbox";
+import { TcgInfoBar } from "@/components/tcg/TcgInfoBar";
 import { normalizeYahooDetail, type YahooDetail } from "./yahoo-data";
 import { YahooRelatedDesignA } from "./YahooRelatedDesignA";
 
@@ -270,6 +271,14 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
                     </div>
                   )}
                 </div>
+
+                {/* TCG 信息栏（解析卡况/套系/稀有度 + PriceCharting 外链），放价格盒下方 */}
+                <TcgInfoBar
+                  name={detail.titleJa || detail.title}
+                  description={detail.description}
+                  extras={detail.extras}
+                  searchName={detail.titleJa || detail.title}
+                />
 
                 {/* 倒计时 */}
                 <div className="mt-5 flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4">

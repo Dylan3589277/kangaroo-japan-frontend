@@ -3,6 +3,18 @@
     "title": "Buy Japanese Pokémon & Yu-Gi-Oh Cards from Japan",
     "description": "Proxy buying built for U.S. TCG collectors and resellers. Buy Japanese Pokémon and Yu-Gi-Oh cards from Mercari, Yahoo Auctions and Amazon Japan, then inspect, consolidate and ship to the United States."
   },
+  "infoBar": {
+    "title": "TCG details",
+    "condition": "Condition",
+    "conditionNote": "Condition per seller — not guaranteed.",
+    "requestInspection": "Request photo inspection.",
+    "set": "Set / Series",
+    "rarity": "Rarity",
+    "year": "Year",
+    "priceTrend": "Price trend",
+    "viewHistory": "View recent price history",
+    "external": "(external)"
+  },
   "hero": {
     "eyebrow": "Built for U.S. TCG collectors & resellers",
     "title": "Buy Japanese Pokémon & Yu-Gi-Oh cards from Japan",
@@ -46,10 +58,42 @@
       "priceHigh": "Highest price"
     },
     "resultsFor": "Results for \"{query}\"",
+    "resultsForCount": "{count, plural, one {# result} other {# results}} for \"{query}\"",
+    "resultsCount": "{count, plural, one {# result} other {# results}}",
     "startTitle": "Find Japanese cards",
     "startSubtitle": "Search above, or start with one of these popular cards.",
     "emptyTitle": "No cards found",
-    "emptySubtitle": "Try a different search, or pick one of these popular cards."
+    "emptySubtitle": "Try a different search, or pick one of these popular cards.",
+    "filteredEmptyTitle": "No matches for these filters",
+    "filteredEmptySubtitle": "Your price range or rarity filters removed every listing. Try widening the range or clearing filters.",
+    "filters": {
+      "popularLabel": "Popular",
+      "platformLabel": "Platform",
+      "soon": "Soon",
+      "platform": {
+        "mercari": "Mercari",
+        "yahoo": "Yahoo Auctions",
+        "yahooSoon": "Yahoo Auctions — coming soon"
+      },
+      "priceLabel": "Price",
+      "priceMin": "Min",
+      "priceMax": "Max",
+      "priceMinAria": "Minimum price in JPY",
+      "priceMaxAria": "Maximum price in JPY",
+      "rarityLabel": "Rarity & condition",
+      "rarity": {
+        "sar": "SAR",
+        "ssr": "SSR",
+        "ar": "AR",
+        "sr": "SR",
+        "ur": "UR",
+        "promo": "Promo",
+        "psa": "PSA graded",
+        "sealed": "Sealed"
+      },
+      "clear": "Clear filters",
+      "disclaimer": "Price and rarity filters apply to the listings currently in stock, not a full server-side catalog search. Sort is applied to those same results."
+    }
   },
   "how": {
     "title": "How proxy buying works",

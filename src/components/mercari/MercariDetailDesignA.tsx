@@ -17,6 +17,7 @@ import {
 import { TcgCard, TcgCardSkeleton } from "@/components/home/tcg/TcgCard";
 import { searchMercariTcg, type TcgCardItem } from "@/components/home/tcg/tcg-data";
 import { ImageLightbox } from "@/components/tcg/ImageLightbox";
+import { TcgInfoBar } from "@/components/tcg/TcgInfoBar";
 
 /**
  * 设计 A（深色高级感）英文 Mercari 商品详情页。
@@ -434,6 +435,14 @@ export function MercariDetailDesignA() {
                 </div>
               </dl>
             </div>
+
+            {/* TCG 信息栏（解析卡况/套系/稀有度 + PriceCharting 外链），放 Fee Details 下方 */}
+            <TcgInfoBar
+              name={detail.goods_name}
+              description={description}
+              extras={detail.extras}
+              searchName={detail.goods_name}
+            />
 
             {/* 卖家信息 */}
             {detail.seller_info && (
