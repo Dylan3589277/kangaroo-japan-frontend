@@ -518,3 +518,155 @@ test.describe("support H5 quote_ref card · yahoo", () => {
     await expect(page.getByTestId("support-quote-cta")).toHaveCount(0);
   });
 });
+
+test.describe("support H5 quote_ref card · optional services", () => {
+  test("renders optional-services区, anchin category picker, and carries选择 into buy intent", async ({
+    page,
+  }) => {
+    const buyMessages: string[] = [];
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/conversations/**/messages", (route) =>
+      json(route, { code: 0, data: { messages: [] } }),
+    );
+    await page.route("**/api/support/chat", async (route) => {
+      const body = route.request().postDataJSON() as { message?: string };
+      if (body.message) buyMessages.push(body.message);
+      const isItemLink = (body.message || "").includes("/item/");
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: isItemLink ? "这是报价" : "好的，我帮您转人工录入订单～",
+          quote_ref: isItemLink
+            ? {
+                platform: "mercari",
+                item_id: "m12345678901",
+                goods_name: "テスト商品",
+                price_jpy: 12800,
+                purchasable: true,
+                optional_services: [
+                  {
+                    code: "misdelivery_check",
+                    label: "错发漏发检查",
+                    fee_jpy: 100,
+                  },
+                  {
+                    code: "pre_inbound_photo",
+                    label: "入库前拍照",
+                    fee_jpy: 100,
+                  },
+                  {
+                    code: "mercari_anchin_kantei",
+                    label: "mercari安心鉴定",
+                    note: "建议追加，有保障",
+                    category_options: [
+                      { code: "trading_card", label: "トレカ", fee_jpy: 1700 },
+                      { code: "watch", label: "時計", fee_jpy: 12000 },
+                    ],
+                  },
+                ],
+              }
+            : undefined,
+        },
+      });
+    });
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page.getByPlaceholder("请输入问题").fill("https://jp.mercari.com/item/m12345678901");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    // 可选服务区出现，三项都在
+    const svcArea = page.getByTestId("support-quote-optional-services");
+    await expect(svcArea).toBeVisible();
+    await expect(svcArea.getByText("错发漏发检查")).toBeVisible();
+    await expect(svcArea.getByText("入库前拍照")).toBeVisible();
+    await expect(svcArea.getByText("mercari安心鉴定")).toBeVisible();
+    await expect(svcArea.getByText("建议追加，有保障")).toBeVisible();
+
+    // 勾选错发漏发检查 + 安心鉴定，选「時計」品类
+    await page.getByTestId("support-quote-service-misdelivery_check").check();
+    await page.getByTestId("support-quote-service-mercari_anchin_kantei").check();
+    await expect(page.getByTestId("support-quote-anchin-cat-watch")).toBeVisible();
+    await page.getByTestId("support-quote-anchin-cat-watch").click();
+
+    // 点「我要购买」，购买意图里带出已勾选服务与所选品类
+    await page.getByTestId("support-quote-btn-buy").click();
+    const buyIntent = buyMessages.find((m) => m.startsWith("我要购买此商品"));
+    expect(buyIntent).toBeTruthy();
+    expect(buyIntent).toContain("错发漏发检查");
+    expect(buyIntent).toContain("時計");
+    expect(buyIntent).toContain("12000日元");
+  });
+});
+
+test.describe("support H5 quote_ref card · 高额风险确认 (>5万)", () => {
+  test("seller_risk.needs_confirm: 显著展示风险卡, gates buy until confirmed", async ({
+    page,
+  }) => {
+    const buyMessages: string[] = [];
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/conversations/**/messages", (route) =>
+      json(route, { code: 0, data: { messages: [] } }),
+    );
+    await page.route("**/api/support/chat", async (route) => {
+      const body = route.request().postDataJSON() as { message?: string };
+      if (body.message) buyMessages.push(body.message);
+      const isItemLink = (body.message || "").includes("/item/");
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: isItemLink ? "这是报价" : "好的，我帮您转人工录入订单～",
+          quote_ref: isItemLink
+            ? {
+                platform: "mercari",
+                item_id: "m88888888888",
+                goods_name: "高額テスト商品",
+                price_jpy: 88000,
+                purchasable: true,
+                seller_risk: {
+                  needs_confirm: true,
+                  identity_verified: false,
+                  high_rating: false,
+                  rating_count: 12,
+                  rating_percent: "95.0%",
+                  disclaimer:
+                    "一旦平台购买成功，通常不支持因卖家描述、成色差异退换。",
+                },
+              }
+            : undefined,
+        },
+      });
+    });
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page.getByPlaceholder("请输入问题").fill("https://jp.mercari.com/item/m88888888888");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    // 风险卡显著展示
+    const riskCard = page.getByTestId("support-quote-risk-card");
+    await expect(riskCard).toBeVisible();
+    await expect(riskCard).toContainText("高额订单风险确认");
+    await expect(riskCard).toContainText("卖家本人认证");
+    await expect(riskCard).toContainText("不支持因卖家描述");
+
+    // 未确认前：「我要购买」被禁用
+    const buyBtn = page.getByTestId("support-quote-btn-buy");
+    await expect(buyBtn).toBeDisabled();
+    await expect(page.getByTestId("support-quote-cta")).toContainText(
+      "请先在上方完成『高额订单风险确认』",
+    );
+
+    // 点确认风险
+    await page.getByTestId("support-quote-risk-confirm-btn").click();
+    await expect(page.getByTestId("support-quote-risk-confirmed")).toBeVisible();
+
+    // 确认后：「我要购买」可点，购买意图带出已知风险标记
+    await expect(buyBtn).toBeEnabled();
+    await buyBtn.click();
+    const buyIntent = buyMessages.find((m) => m.startsWith("我要购买此商品"));
+    expect(buyIntent).toContain("我已了解高额订单风险");
+  });
+});

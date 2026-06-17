@@ -68,6 +68,40 @@ type QuoteRef = {
   deposit_locked_jpy?: number; // 已在拍占用额度（日元，仅查到会员时下发）
   max_bid_allowed_jpy?: number; // 本次可出价上限（日元）
   suggest_recharge_rmb?: number; // 建议充值额（元，仅 insufficient 下发）
+  // ── 可选增值服务（报价卡展示+买家勾选；勾选只前端记录，实际计费在录单环节由 L1/L2/客服处理）。
+  //    字段契约见 .team/artifacts/buy-optional-services-design.md。
+  //    缺省即不渲染可选服务区，零回归。
+  optional_services?: OptionalService[];
+  // ── >5万风险确认（卖家核验结果）。needs_confirm=true 时报价卡显著展示风险确认卡。
+  //    字段契约见 .team/artifacts/high-value-seller-verify-design.md。缺省即不渲染，零回归。
+  seller_risk?: SellerRisk;
+};
+
+// 可选增值服务一项。安心鉴定按品类浮动费用，用 category_options 承载各品类费。
+type OptionalService = {
+  code?: string; // 'misdelivery_check' | 'pre_inbound_photo' | 'mercari_anchin_kantei'
+  label?: string; // 展示名（如「错发漏发检查」）
+  fee_jpy?: number; // 固定费；安心鉴定按品类时取 category_options 内所选项费用
+  note?: string; // 补充说明（如「建议追加，有保障」）
+  checked_default?: boolean; // 默认是否勾选
+  disabled?: boolean; // 是否禁选（如本品类不适用）
+  // 安心鉴定品类选项：トレカ/ファッション/スニーカー/時計 各自费用
+  category_options?: Array<{
+    code?: string;
+    label?: string;
+    fee_jpy?: number;
+  }>;
+};
+
+// 卖家风险核验结果（>5万触发）。前端只展示，不信任也不回传这些判定字段做录入。
+type SellerRisk = {
+  needs_confirm?: boolean; // true=需买家风险确认才允许后续录入
+  identity_verified?: boolean; // 卖家本人认证（mercari）；yahoo 多为 undefined（无字段）
+  high_rating?: boolean; // 是否高评价（评价数≥50 且好评率≥98%）
+  rating_count?: number; // 评价数
+  rating_percent?: string; // 好评率文案（如「98.5%」「0.0%」）
+  risk_points?: string[]; // 风险点文案列表（后端生成，前端原样展示）
+  disclaimer?: string; // 「一旦购买成功不退不换」声明文案
 };
 
 type SupportParsedResponse = {
@@ -146,6 +180,85 @@ function getOrderRef(value: unknown): OrderRef | undefined {
   };
 }
 
+function getStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out = value
+    .map((v) => getString(v))
+    .filter((v): v is string => Boolean(v));
+  return out.length ? out : undefined;
+}
+
+function getOptionalServices(value: unknown): OptionalService[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: OptionalService[] = [];
+  for (const raw of value) {
+    const r = getRecord(raw);
+    const label = getString(r.label);
+    const code = getString(r.code);
+    // 至少要有 label 或 code 才算一条可渲染服务。
+    if (!label && !code) continue;
+    const categoryOptions = Array.isArray(r.category_options)
+      ? r.category_options
+          .map((opt) => {
+            const o = getRecord(opt);
+            const optLabel = getString(o.label);
+            const optCode = getString(o.code);
+            if (!optLabel && !optCode) return null;
+            return {
+              code: optCode,
+              label: optLabel,
+              fee_jpy: getNumber(o.fee_jpy),
+            };
+          })
+          .filter(Boolean)
+      : undefined;
+    out.push({
+      code,
+      label,
+      fee_jpy: getNumber(r.fee_jpy),
+      note: getString(r.note),
+      checked_default: getBoolean(r.checked_default),
+      disabled: getBoolean(r.disabled),
+      category_options:
+        (categoryOptions as OptionalService["category_options"]) || undefined,
+    });
+  }
+  return out.length ? out : undefined;
+}
+
+function getSellerRisk(value: unknown): SellerRisk | undefined {
+  if (value === null || typeof value !== "object") return undefined;
+  const r = getRecord(value);
+  // 仅当后端真的给了 seller_risk（哪怕只有 needs_confirm）才返回，否则不渲染。
+  const needsConfirm = getBoolean(r.needs_confirm);
+  const identityVerified = getBoolean(r.identity_verified);
+  const highRating = getBoolean(r.high_rating);
+  const ratingCount = getNumber(r.rating_count);
+  const ratingPercent = getString(r.rating_percent);
+  const riskPoints = getStringArray(r.risk_points);
+  const disclaimer = getString(r.disclaimer);
+  if (
+    needsConfirm === undefined &&
+    identityVerified === undefined &&
+    highRating === undefined &&
+    ratingCount === undefined &&
+    ratingPercent === undefined &&
+    !riskPoints &&
+    !disclaimer
+  ) {
+    return undefined;
+  }
+  return {
+    needs_confirm: needsConfirm,
+    identity_verified: identityVerified,
+    high_rating: highRating,
+    rating_count: ratingCount,
+    rating_percent: ratingPercent,
+    risk_points: riskPoints,
+    disclaimer,
+  };
+}
+
 function getQuoteRef(value: unknown): QuoteRef | undefined {
   const record = getRecord(value);
   const itemId = getString(record.item_id);
@@ -180,6 +293,9 @@ function getQuoteRef(value: unknown): QuoteRef | undefined {
     deposit_locked_jpy: getNumber(record.deposit_locked_jpy),
     max_bid_allowed_jpy: getNumber(record.max_bid_allowed_jpy),
     suggest_recharge_rmb: getNumber(record.suggest_recharge_rmb),
+    // 可选服务 / 卖家风险：缺省即 undefined，前端按存在性渲染（零回归）。
+    optional_services: getOptionalServices(record.optional_services),
+    seller_risk: getSellerRisk(record.seller_risk),
   };
 }
 
@@ -348,6 +464,20 @@ export default function MiniProgramSupportH5Page() {
   const autoQuoteMessageRef = useRef<string | undefined>(undefined);
   // 聊天输入框 ref：报价卡"咨询"按钮点了之后聚焦输入框，让买家自己打字提问。
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // 报价卡买家选择（纯前端记录，不立即扣费）：
+  // - quoteServiceSelections：{cardKey -> {serviceCode -> checked}}，记录可选服务勾选。
+  // - quoteAnchinCategory：{cardKey -> 安心鉴定所选品类 code}，记录安心鉴定品类。
+  // - quoteRiskConfirmed：已点「我已知风险确认」的 cardKey 集合。
+  // 这些只用于展示总额预览 + 点「我要购买」时随购买意图文本带出，不调任何录单/扣费接口。
+  const [quoteServiceSelections, setQuoteServiceSelections] = useState<
+    Record<string, Record<string, boolean>>
+  >({});
+  const [quoteAnchinCategory, setQuoteAnchinCategory] = useState<
+    Record<string, string>
+  >({});
+  const [quoteRiskConfirmed, setQuoteRiskConfirmed] = useState<
+    Record<string, boolean>
+  >({});
   const kf53ChatUrl = getKf53ChatUrl();
 
   const externalSessionId = useMemo(
@@ -635,11 +765,70 @@ export default function MiniProgramSupportH5Page() {
     }, 0);
   }
 
+  // 切换某张报价卡上某项可选服务的勾选（纯前端记录）。
+  function toggleQuoteService(cardKey: string, serviceCode: string) {
+    setQuoteServiceSelections((prev) => {
+      const card = prev[cardKey] || {};
+      return {
+        ...prev,
+        [cardKey]: { ...card, [serviceCode]: !card[serviceCode] },
+      };
+    });
+  }
+
+  // 选择某张报价卡的安心鉴定品类（纯前端记录）。
+  function selectAnchinCategory(cardKey: string, categoryCode: string) {
+    setQuoteAnchinCategory((prev) => ({ ...prev, [cardKey]: categoryCode }));
+  }
+
+  // 买家点「我已知风险确认」：仅前端记录该卡已确认，不录入、不付款、不下单。
+  function confirmQuoteRisk(cardKey: string) {
+    setQuoteRiskConfirmed((prev) => ({ ...prev, [cardKey]: true }));
+  }
+
+  // 汇总某张报价卡上买家已勾选的服务（含安心鉴定所选品类），生成中文摘要片段。
+  // 仅用于拼进「我要购买」意图文本，交客服/录单环节核验计费，不在本卡计费。
+  function summarizeSelectedServices(cardKey: string, quote: QuoteRef): string {
+    const services = quote.optional_services;
+    if (!services || services.length === 0) return "";
+    const checkedMap = quoteServiceSelections[cardKey] || {};
+    const picked: string[] = [];
+    for (const svc of services) {
+      const code = svc.code || svc.label || "";
+      if (!code || !checkedMap[code]) continue;
+      const label = svc.label || code;
+      if (svc.category_options && svc.category_options.length > 0) {
+        const catCode = quoteAnchinCategory[cardKey];
+        const cat = svc.category_options.find(
+          (o) => (o?.code || o?.label) === catCode,
+        );
+        if (cat) {
+          const fee = cat.fee_jpy !== undefined ? `${cat.fee_jpy}日元` : "";
+          picked.push(`${label}（${cat.label || catCode}${fee ? "/" + fee : ""}）`);
+        } else {
+          // 勾了安心鉴定但还没选品类：带出待选提示，让客服跟进。
+          picked.push(`${label}（品类待确认）`);
+        }
+      } else {
+        const fee = svc.fee_jpy !== undefined ? `${svc.fee_jpy}日元` : "";
+        picked.push(`${label}${fee ? "（" + fee + "）" : ""}`);
+      }
+    }
+    return picked.length ? `；我想加购：${picked.join("、")}` : "";
+  }
+
   // 报价卡"购买"：报价阶段还没有订单。这里**只**走现有 sendMessage 发一条明确
-  // 购买意图，由现有后端按话术转人工/引导录单。绝不自动下单、不扣款、不跳支付、
-  // 不调任何下单接口。
-  function buyQuote() {
-    void sendMessage("我要购买此商品");
+  // 购买意图（含买家勾选的可选服务/已确认风险标记），由现有后端按话术转人工/引导录单。
+  // 绝不自动下单、不扣款、不跳支付、不调任何下单接口；可选服务的实际计费在录单环节由
+  // L1/L2/客服核验后处理，本卡只把买家选择随意图带出。
+  function buyQuote(cardKey: string, quote: QuoteRef) {
+    let intent = "我要购买此商品";
+    intent += summarizeSelectedServices(cardKey, quote);
+    // 风险确认卡若需确认且买家已确认，带出「已知风险」标记，供客服录入参考。
+    if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
+      intent += "；我已了解高额订单风险（不退不换），请继续为我录入";
+    }
+    void sendMessage(intent);
   }
 
   // 雅虎竞拍「去充押金」：仅跳转小程序充值页，不触发任何金钱动作。
@@ -791,6 +980,165 @@ export default function MiniProgramSupportH5Page() {
               </p>
             ) : null}
 
+            {/* ── 可选增值服务区（仅录单流：mercari / 雅虎即決；雅虎竞拍走出价不展示）。
+                 买家勾选只前端记录，实际计费在录单环节由 L1/L2/客服处理。 */}
+            {!isYahooAuction &&
+            item.quoteRef.optional_services &&
+            item.quoteRef.optional_services.length > 0 ? (
+              <div
+                className="mt-3 rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2"
+                data-testid="support-quote-optional-services"
+              >
+                <div className="mb-1.5 text-xs font-medium text-slate-700">
+                  可选增值服务（勾选后由客服为您核对计费，现在不扣费）
+                </div>
+                <div className="space-y-1.5">
+                  {item.quoteRef.optional_services.map((svc, svcIndex) => {
+                    const svcCode = svc.code || svc.label || `svc-${svcIndex}`;
+                    const checked = Boolean(
+                      quoteServiceSelections[key]?.[svcCode],
+                    );
+                    const hasCategories =
+                      svc.category_options && svc.category_options.length > 0;
+                    return (
+                      <div key={svcCode}>
+                        <label className="flex items-start gap-2 text-xs leading-5 text-slate-700">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-orange-500"
+                            checked={checked}
+                            disabled={Boolean(svc.disabled)}
+                            onChange={() => toggleQuoteService(key, svcCode)}
+                            data-testid={`support-quote-service-${svcCode}`}
+                          />
+                          <span className="flex-1">
+                            {svc.label || svcCode}
+                            {!hasCategories && svc.fee_jpy !== undefined ? (
+                              <span className="text-slate-500">
+                                {" "}
+                                ¥{svc.fee_jpy.toLocaleString("ja-JP")} 日元
+                              </span>
+                            ) : null}
+                            {hasCategories ? (
+                              <span className="text-slate-500">（按品类）</span>
+                            ) : null}
+                            {svc.note ? (
+                              <span className="block text-[11px] leading-4 text-amber-600">
+                                {svc.note}
+                              </span>
+                            ) : null}
+                          </span>
+                        </label>
+                        {/* 安心鉴定：勾选后展开品类选择，各品类对应不同费用 */}
+                        {hasCategories && checked ? (
+                          <div
+                            className="ml-5 mt-1 flex flex-wrap gap-1.5"
+                            data-testid={`support-quote-anchin-categories`}
+                          >
+                            {svc.category_options!.map((opt, optIndex) => {
+                              const optCode =
+                                opt?.code || opt?.label || `cat-${optIndex}`;
+                              const selected =
+                                quoteAnchinCategory[key] === optCode;
+                              return (
+                                <button
+                                  key={optCode}
+                                  type="button"
+                                  className={`rounded-md border px-2 py-1 text-[11px] leading-4 ${
+                                    selected
+                                      ? "border-orange-400 bg-orange-100 text-orange-700"
+                                      : "border-slate-200 bg-white text-slate-600"
+                                  }`}
+                                  onClick={() =>
+                                    selectAnchinCategory(key, optCode)
+                                  }
+                                  data-testid={`support-quote-anchin-cat-${optCode}`}
+                                >
+                                  {opt?.label || optCode}
+                                  {opt?.fee_jpy !== undefined
+                                    ? ` ¥${opt.fee_jpy.toLocaleString("ja-JP")}`
+                                    : ""}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── >5万风险确认卡（卖家核验不达标时显著展示）。
+                 仅录单流出卡；买家点确认只前端记录，不录入/不付款/不下单。 */}
+            {!isYahooAuction && item.quoteRef.seller_risk?.needs_confirm ? (
+              <div
+                className="mt-3 rounded-md border border-red-300 bg-red-50 px-2.5 py-2"
+                data-testid="support-quote-risk-card"
+              >
+                <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-red-700">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  高额订单风险确认
+                </div>
+                {(() => {
+                  const risk = item.quoteRef!.seller_risk!;
+                  const points: string[] =
+                    risk.risk_points && risk.risk_points.length > 0
+                      ? risk.risk_points
+                      : [
+                          `卖家本人认证：${
+                            risk.identity_verified === true
+                              ? "已完成"
+                              : risk.identity_verified === false
+                                ? "未完成"
+                                : "未确认"
+                          }`,
+                          `卖家评价：${
+                            risk.rating_count !== undefined
+                              ? `${risk.rating_count} 条`
+                              : "未确认"
+                          }${
+                            risk.rating_percent
+                              ? `，好评率 ${risk.rating_percent}`
+                              : ""
+                          }`,
+                        ];
+                  return (
+                    <ul className="mb-1.5 list-disc space-y-0.5 pl-4 text-[11px] leading-4 text-red-700">
+                      {points.map((p, i) => (
+                        <li key={i}>{p}</li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+                <p className="mb-2 text-[11px] leading-4 text-red-700">
+                  {item.quoteRef.seller_risk.disclaimer ||
+                    "请确认：一旦平台购买成功，通常不支持因卖家描述、成色差异、个人判断变化等原因退换。若平台或卖家拒绝交易，我们按平台结果处理。"}
+                </p>
+                {quoteRiskConfirmed[key] ? (
+                  <div
+                    className="flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] font-medium leading-4 text-emerald-700"
+                    data-testid="support-quote-risk-confirmed"
+                  >
+                    已确认知悉风险，可继续点「我要购买」转人工录入。
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-center gap-1 rounded-md bg-red-500 px-3 py-2 text-xs font-medium text-white shadow-sm"
+                    onClick={() => confirmQuoteRisk(key)}
+                    data-testid="support-quote-risk-confirm-btn"
+                  >
+                    我已了解风险，继续录入订单
+                  </button>
+                )}
+                <p className="mt-1.5 text-[11px] leading-4 text-red-400">
+                  确认前不会录入订单、不会付款、不会自动下单。
+                </p>
+              </div>
+            ) : null}
+
             {/* 雅虎竞拍：现价/一口价/剩余时间/出价数（缺字段不显示对应行） */}
             {isYahooAuction ? (
               <div
@@ -893,36 +1241,47 @@ export default function MiniProgramSupportH5Page() {
                 {item.quoteRef.unpurchasable_reason || "该商品暂时无法购买"}
               </div>
             ) : (
-              <div className="mt-3" data-testid="support-quote-cta">
-                <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
-                  核对无误后可点下方按钮，或回复『确认』，我为您录入订单。
-                </p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
-                    onClick={consultQuote}
-                    disabled={loading}
-                    data-testid="support-quote-btn-consult"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    咨询
-                  </button>
-                  <button
-                    type="button"
-                    className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
-                    onClick={buyQuote}
-                    disabled={loading}
-                    data-testid="support-quote-btn-buy"
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    我要购买
-                  </button>
-                </div>
-                <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
-                  点『我要购买』将转人工为您录入订单，不会自动下单或扣款。
-                </p>
-              </div>
+              (() => {
+                // 风险闸：>5万需确认且买家尚未点确认时，禁用「我要购买」，逼买家先确认风险。
+                const riskBlocksBuy = Boolean(
+                  item.quoteRef!.seller_risk?.needs_confirm &&
+                    !quoteRiskConfirmed[key],
+                );
+                return (
+                  <div className="mt-3" data-testid="support-quote-cta">
+                    <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
+                      核对无误后可点下方按钮，或回复『确认』，我为您录入订单。
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                        onClick={consultQuote}
+                        disabled={loading}
+                        data-testid="support-quote-btn-consult"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        咨询
+                      </button>
+                      <button
+                        type="button"
+                        className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                        onClick={() => buyQuote(key, item.quoteRef as QuoteRef)}
+                        disabled={loading || riskBlocksBuy}
+                        data-testid="support-quote-btn-buy"
+                      >
+                        <ShoppingBag className="h-4 w-4" />
+                        我要购买
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
+                      {riskBlocksBuy
+                        ? "请先在上方完成『高额订单风险确认』，再点『我要购买』。"
+                        : "点『我要购买』将转人工为您录入订单，不会自动下单或扣款。"}
+                    </p>
+                  </div>
+                );
+              })()
             )}
           </div>
         ) : null}
