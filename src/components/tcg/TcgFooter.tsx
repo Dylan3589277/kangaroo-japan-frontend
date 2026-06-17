@@ -1,6 +1,10 @@
 import { useTranslations } from "next-intl";
+import { ArrowUpRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { spaceGrotesk } from "@/app/fonts";
+
+// 「买卡之外也能买别的」口子：指向通用全品类浏览（Mercari 全品类列表）。
+const BEYOND_CARDS_HREF = "/mercari";
 
 /**
  * TcgFooter —— 设计方向 A（深色高级感）的美国 TCG 站底部。
@@ -50,6 +54,14 @@ export function TcgFooter() {
             <p className="mt-3 text-sm leading-relaxed text-slate-400">
               {t("footer.tagline")}
             </p>
+            {/* 「买卡之外也能买别的」口子：指向通用泛代拍浏览 */}
+            <Link
+              href={BEYOND_CARDS_HREF}
+              className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-cyan-300 transition-colors hover:text-cyan-200"
+            >
+              {t("footer.beyondCards")}
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
           </div>
 
           {/* Support 列 */}

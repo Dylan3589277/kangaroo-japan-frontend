@@ -69,6 +69,10 @@ export function MercariDetailDesignA() {
   // 未登录/报价失败时为 null：只展示商品价 + 「结算时计算」，绝不显示写死的固定值。
   const [feeJpy, setFeeJpy] = useState<number | null>(null);
   const [amountJpy, setAmountJpy] = useState<number | null>(null);
+  // 美元：单品价 priceUsd（不含手续费）+ 应付 amountUsd（含手续费）。来自后端 quote
+  //（= JPY × 后台 USD 汇率）。汇率不可用时后端不返回 → 保持 null（只显 JPY，不显错币）。
+  const [priceUsd, setPriceUsd] = useState<number | null>(null);
+  const [amountUsd, setAmountUsd] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -116,14 +120,24 @@ export function MercariDetailDesignA() {
           setAmountJpy(
             typeof res.data.amountJpy === "number" ? res.data.amountJpy : null,
           );
+          setPriceUsd(
+            typeof res.data.priceUsd === "number" ? res.data.priceUsd : null,
+          );
+          setAmountUsd(
+            typeof res.data.amountUsd === "number" ? res.data.amountUsd : null,
+          );
         } else {
           setFeeJpy(null);
           setAmountJpy(null);
+          setPriceUsd(null);
+          setAmountUsd(null);
         }
       } catch {
         if (active) {
           setFeeJpy(null);
           setAmountJpy(null);
+          setPriceUsd(null);
+          setAmountUsd(null);
         }
       }
     };
@@ -365,10 +379,10 @@ export function MercariDetailDesignA() {
                   <span className="text-3xl font-bold tabular-nums text-cyan-300">
                     JPY {numberFormatter.format(Number(detail.price))}
                   </span>
-                  {Number(detail.price_rmb) > 0 && (
+                  {priceUsd !== null && priceUsd > 0 && (
                     <span className="text-sm text-slate-500">
-                      {t("designA.approxCny", {
-                        amount: Number(detail.price_rmb).toFixed(0),
+                      {t("designA.approxUsd", {
+                        amount: priceUsd.toFixed(2),
                       })}
                     </span>
                   )}
@@ -398,14 +412,24 @@ export function MercariDetailDesignA() {
                     {t("designA.estimatedTotal")}
                   </dt>
                   <dd className="text-right">
-                    <span className="text-xl font-bold tabular-nums text-cyan-300">
-                      {amountJpy !== null
-                        ? `JPY ${numberFormatter.format(amountJpy)}`
-                        : t("serviceFeeAtCheckout")}
-                    </span>
-                    <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-500">
-                      {t("designA.estimated")}
-                    </span>
+                    <div>
+                      <span className="text-xl font-bold tabular-nums text-cyan-300">
+                        {amountJpy !== null
+                          ? `JPY ${numberFormatter.format(amountJpy)}`
+                          : t("serviceFeeAtCheckout")}
+                      </span>
+                      <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                        {t("designA.estimated")}
+                      </span>
+                    </div>
+                    {/* 应付美元（含手续费）= amountJpy × 后台 USD 汇率。汇率不可用则不显。 */}
+                    {amountJpy !== null && amountUsd !== null && amountUsd > 0 && (
+                      <div className="mt-0.5 text-xs text-slate-500">
+                        {t("designA.approxUsd", {
+                          amount: amountUsd.toFixed(2),
+                        })}
+                      </div>
+                    )}
                   </dd>
                 </div>
               </dl>

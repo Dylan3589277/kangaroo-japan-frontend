@@ -67,6 +67,10 @@ export interface MercariQuote {
   feeJpy: number;
   amountJpy: number;
   amountRmb?: number;
+  // amountUsd = amountJpy × 后台 USD 汇率（**已含手续费**，2 位小数）；汇率不可用时后端不返回。
+  amountUsd?: number;
+  // priceUsd = priceJpy × USD 汇率（单品价，不含手续费，2 位小数）；可空。
+  priceUsd?: number;
   valueAdded: MercariQuoteValueAdded[];
 }
 
@@ -322,6 +326,8 @@ export interface ExchangeRatesResponse {
     jpyToUsd: number;
     cnyToUsd: number;
   };
+  // 可选 TCG 手续费覆盖（JPY 整数）；null = 不覆盖，TCG 站用旧 proxyconfirm 动态 feeJpy。
+  tcgServiceFeeJpy: number | null;
   source: "env" | "admin_override";
   lastUpdated: string;
   updatedBy?: string;
@@ -1838,6 +1844,22 @@ class ApiClient {
     });
   }
 
+  // U.S. TCG site live-chat (v1: FAQ-only, English, no order lookup).
+  // Posts site=kangaroo-japan-tcg + faqOnly:true so the same-origin
+  // /api/support/chat route takes the isolated English FAQ path → Hermes,
+  // never running personalized order/deposit/shipment status. Order lookup is
+  // deferred to phase 2 once TCG user ↔ legacy order mapping is wired.
+  async sendTcgSupportChat(data: { message: string; conversationId?: string }) {
+    return this.supportRequest<SupportChatResponse>("/api/support/chat", {
+      message: data.message,
+      conversationId: data.conversationId,
+      site: "kangaroo-japan-tcg",
+      language: "en",
+      faqOnly: true,
+      sourceChannel: "tcg_web_widget",
+    });
+  }
+
   async createSupportTicket(data: {
     name?: string;
     email: string;
@@ -2640,6 +2662,8 @@ class ApiClient {
     jpyToCny?: number;
     jpyToUsd?: number;
     cnyToUsd?: number;
+    // 可选 TCG 手续费覆盖（JPY 整数）：传 null 清除覆盖（回退动态费），不传保持现值。
+    tcgServiceFeeJpy?: number | null;
   }) {
     return this.request<ExchangeRatesResponse>("/exchange-rates/admin", {
       method: "PATCH",

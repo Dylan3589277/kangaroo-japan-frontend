@@ -20,6 +20,7 @@ const namespaces = [
   "mnp",
   "warehouse",
   "tcg",
+  "tcg-chat",
   "fees",
   "contact",
   "photo-inspection",

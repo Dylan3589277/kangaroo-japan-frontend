@@ -1,0 +1,25 @@
+{
+  "tcg-chat": {
+    "launcherOpen": "Chat with us",
+    "launcherClose": "Close chat",
+    "title": "JP-Buy live chat",
+    "subtitle": "Ask about fees, services, condition, customs and shipping.",
+    "faqBadge": "FAQ assistant",
+    "greeting": "Hi! I'm the JP-Buy assistant. Ask me about how proxy buying works, fees, value-added services, card condition, grading, sealed-product risk, packaging, consolidation, U.S. customs or shipping. For anything about a specific order, I'll point you to a human agent.",
+    "inputPlaceholder": "Type your question…",
+    "inputAria": "Type your question",
+    "send": "Send",
+    "thinking": "Typing…",
+    "requestError": "Something went wrong. Please try again, or reach us on the Contact page.",
+    "transferNotice": "This needs a human agent.",
+    "suggestionsLabel": "Popular questions",
+    "suggestions": {
+      "fees": "How are fees calculated?",
+      "customs": "Will I pay U.S. customs duty?",
+      "condition": "How do I know a card's condition?",
+      "valueAdded": "What value-added services do you offer?"
+    },
+    "footerNote": "Order-specific help (refunds, payments, addresses) is handled by a human agent.",
+    "contactCta": "Contact options"
+  }
+}

@@ -1090,3 +1090,218 @@ test("deposit refund question reaches auction deposit KB and locks the 1 CNY = 2
     delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
   }
 });
+
+// ---------------------------------------------------------------------------
+// jp-buy U.S. TCG site: FAQ-only English assistant (v1, no order lookup).
+// ---------------------------------------------------------------------------
+
+test("TCG FAQ request sends English TCG KB and never forwards order/user context", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let capturedBridgeBody: Record<string, unknown> | null = null;
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBody = JSON.parse(String(init?.body));
+    return Response.json({
+      action: "answered",
+      reply: "Fees include the item price, a service fee and shipping.",
+      source_ids: ["tcg-fees-001"],
+      answered_by: "m4-hermes-tcg-faq",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Even if a userId leaks in, the FAQ path must drop it (no order lookup).
+      body: JSON.stringify({
+        message: "How are fees calculated?",
+        site: "kangaroo-japan-tcg",
+        faqOnly: true,
+        language: "en",
+        userId: "4",
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.action, "answered");
+    assert.equal(payload.data.faqOnly, true);
+    assert.match(payload.data.reply, /Fees include/);
+
+    const bridgeBody = capturedBridgeBody as {
+      site: string;
+      mode: string;
+      faq_only: boolean;
+      language: string;
+      context: Record<string, unknown>;
+      knowledge_base: Array<{ id: string; text: string }>;
+    } | null;
+    assert.ok(bridgeBody);
+    assert.equal(bridgeBody.site, "kangaroo-japan-tcg");
+    assert.equal(bridgeBody.mode, "faq_only");
+    assert.equal(bridgeBody.faq_only, true);
+    assert.equal(bridgeBody.language, "en");
+    // No user identity / order context is ever forwarded in v1.
+    assert.equal(bridgeBody.context.user_id, undefined);
+    assert.equal(bridgeBody.context.order_lookup_enabled, false);
+    assert.equal(JSON.stringify(bridgeBody.context).includes('"4"'), false);
+    // English TCG KB is delivered, not the Chinese mini-program KB.
+    const ids = bridgeBody.knowledge_base.map((entry) => entry.id);
+    assert.ok(ids.includes("tcg-fees-001"));
+    assert.ok(ids.includes("tcg-customs-001"));
+    assert.ok(ids.includes("tcg-value-added-001"));
+    assert.ok(ids.every((id) => id.startsWith("tcg-")));
+    const customs = bridgeBody.knowledge_base.find(
+      (entry) => entry.id === "tcg-customs-001",
+    );
+    assert.ok(customs);
+    assert.match(customs.text, /de minimis exemption/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("TCG FAQ order-specific question does not trigger order lookup; bridge handoff stays English", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let bridgeCalls = 0;
+  globalThis.fetch = async (_input, init) => {
+    bridgeCalls += 1;
+    const body = JSON.parse(String(init?.body));
+    // The FAQ path must not send any user/order context to the bridge.
+    assert.equal(body.context.user_id, undefined);
+    assert.equal(body.faq_only, true);
+    return Response.json({
+      action: "transfer_human",
+      reason: "order_specific",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "Where is my order 12345 right now?",
+        site: "kangaroo-japan-tcg",
+        faqOnly: true,
+        userId: "4",
+      }),
+    });
+
+    const payload = await (await POST(request)).json();
+
+    assert.equal(payload.data.action, "transfer_human");
+    assert.equal(payload.data.faqOnly, true);
+    assert.equal(payload.data.fallback, "email_whatsapp");
+    assert.match(payload.data.reply, /support@jp-buy\.com/);
+    assert.match(payload.data.reply, /WhatsApp/);
+    // No Chinese 53kf fallback text leaks onto the U.S. site.
+    assert.doesNotMatch(JSON.stringify(payload), /53kf|袋鼠|Hermes|Claude/);
+    assert.equal(bridgeCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("TCG FAQ out-of-scope question is blocked with an English redirect, no bridge call", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let bridgeCalls = 0;
+  globalThis.fetch = async () => {
+    bridgeCalls += 1;
+    throw new Error("Bridge must not be called for out-of-scope TCG questions");
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "What's the weather like today?",
+        site: "kangaroo-japan-tcg",
+        faqOnly: true,
+      }),
+    });
+
+    const payload = await (await POST(request)).json();
+
+    assert.equal(payload.data.action, "answered");
+    assert.equal(payload.data.reason, "tcg_guardrail_out_of_business_scope");
+    assert.equal(payload.data.faqOnly, true);
+    assert.match(payload.data.reply, /Japanese Pokemon and Yu-Gi-Oh cards/);
+    assert.equal(bridgeCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("TCG FAQ fails closed to English email/WhatsApp handoff on bridge timeout", async () => {
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_input, init) =>
+    new Promise((_resolve, reject) => {
+      const signal = (init as RequestInit | undefined)?.signal;
+      signal?.addEventListener("abort", () => {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      });
+      if (signal?.aborted) {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      }
+    });
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+    process.env.HERMES_BRIDGE_TIMEOUT_MS = "50";
+
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "How long does shipping to the U.S. take?",
+        site: "kangaroo-japan-tcg",
+        faqOnly: true,
+      }),
+    });
+
+    const payload = await (await POST(request)).json();
+
+    assert.equal(payload.data.action, "transfer_human");
+    assert.equal(payload.data.reason, "tcg_bridge_timeout");
+    assert.equal(payload.data.fallback, "email_whatsapp");
+    assert.match(payload.data.reply, /support@jp-buy\.com/);
+    assert.doesNotMatch(JSON.stringify(payload), /53kf|袋鼠|Hermes|Claude/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    delete process.env.HERMES_BRIDGE_TIMEOUT_MS;
+  }
+});

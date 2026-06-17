@@ -47,7 +47,7 @@ export interface TcgCheckoutTexts {
   soldOut: string;
   noImage: string;
   approx: string;
-  cny: string;
+  usd: string;
 }
 
 const cardClass =
@@ -59,8 +59,8 @@ function formatJpy(amount: number): string {
   return `¥${Math.round(amount).toLocaleString("en-US")}`;
 }
 
-function formatRmb(amount: number): string {
-  return `¥${Number(amount).toFixed(2)}`;
+function formatUsd(amount: number): string {
+  return `$${Number(amount).toFixed(2)}`;
 }
 
 export function MercariCheckoutTcgView({
@@ -75,7 +75,7 @@ export function MercariCheckoutTcgView({
   buyerMessage,
   onBuyerMessageChange,
   displayPriceJpy,
-  displayPriceRmb,
+  totalDueUsd,
   feeJpy,
   selectedVaList,
   totalDue,
@@ -94,7 +94,8 @@ export function MercariCheckoutTcgView({
   buyerMessage: string;
   onBuyerMessageChange: (value: string) => void;
   displayPriceJpy: number;
-  displayPriceRmb?: number;
+  // 应付美元（含手续费 + 已勾选增值服务）= totalDue(JPY) × 后台 USD 汇率；汇率不可用为空。
+  totalDueUsd?: number | null;
   feeJpy: number;
   selectedVaList: ValueAddedView[];
   totalDue: number;
@@ -262,15 +263,18 @@ export function MercariCheckoutTcgView({
                       {formatJpy(totalDue)}
                     </span>
                   </div>
-                  {displayPriceRmb !== undefined && displayPriceRmb !== null && (
-                    <div className="flex justify-end text-xs text-slate-500">
-                      <span>
-                        {texts.approx}
-                        {formatRmb(displayPriceRmb)}
-                        {texts.cny}
-                      </span>
-                    </div>
-                  )}
+                  {/* 应付美元（含手续费）：仅当后台 USD 汇率可用时显示，否则只显 JPY。 */}
+                  {totalDueUsd !== undefined &&
+                    totalDueUsd !== null &&
+                    totalDueUsd > 0 && (
+                      <div className="flex justify-end text-xs text-slate-500">
+                        <span>
+                          {texts.approx}
+                          {formatUsd(totalDueUsd)}
+                          {texts.usd}
+                        </span>
+                      </div>
+                    )}
                 </div>
               )}
 
@@ -301,7 +305,7 @@ export function MercariCheckoutTcgView({
 export interface TcgPaymentTexts {
   paymentTitle: string;
   paymentAmount: string;
-  paymentAmountRmb: string;
+  paymentAmountUsd: string;
   scanToPayAlipay: string;
   scanToPay: string;
   qrAlt: string;
@@ -309,13 +313,13 @@ export interface TcgPaymentTexts {
   paymentInProgress: string;
   paidGoToOrder: string;
   approx: string;
-  cny: string;
+  usd: string;
 }
 
 export function MercariPaymentTcgView({
   texts,
   amount,
-  amountRmb,
+  amountUsd,
   qrcodeUrl,
   payUrl,
   onOpenPayUrl,
@@ -323,7 +327,8 @@ export function MercariPaymentTcgView({
 }: {
   texts: TcgPaymentTexts;
   amount: number;
-  amountRmb?: number | null;
+  // 应付美元（含手续费）= amount(JPY) × 后台 USD 汇率；汇率不可用为空 → 只显 JPY。
+  amountUsd?: number | null;
   qrcodeUrl?: string;
   payUrl?: string;
   onOpenPayUrl?: () => void;
@@ -345,13 +350,13 @@ export function MercariPaymentTcgView({
               {formatJpy(amount)}
             </span>
           </div>
-          {amountRmb !== undefined && amountRmb !== null && (
+          {amountUsd !== undefined && amountUsd !== null && amountUsd > 0 && (
             <div className="mt-1 flex justify-between text-xs text-slate-500">
-              <span>{texts.paymentAmountRmb}</span>
+              <span>{texts.paymentAmountUsd}</span>
               <span>
                 {texts.approx}
-                {formatRmb(amountRmb)}
-                {texts.cny}
+                {formatUsd(amountUsd)}
+                {texts.usd}
               </span>
             </div>
           )}

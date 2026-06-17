@@ -172,7 +172,8 @@
       "howItWorks": "How it works",
       "fees": "Fees",
       "cards": "Cards",
-      "marketplaces": "Marketplaces"
+      "marketplaces": "Marketplaces",
+      "beyondCards": "Shop anything from Japan"
     },
     "cards": {
       "pokemon": "Pokémon cards",
@@ -192,6 +193,7 @@
   },
   "footer": {
     "tagline": "Proxy buying for U.S. TCG collectors and resellers. We buy Japanese Pokémon and Yu-Gi-Oh cards, inspect them, and ship to the United States.",
+    "beyondCards": "Beyond cards — shop anything from Japan",
     "columns": {
       "support": {
         "title": "Support",

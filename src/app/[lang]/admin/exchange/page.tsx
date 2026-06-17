@@ -19,6 +19,8 @@ type ExchangeForm = {
   jpyToCny: string;
   jpyToUsd: string;
   cnyToUsd: string;
+  // TCG 手续费覆盖（JPY 整数）；空字符串 = 不覆盖（沿用旧 proxyconfirm 动态手续费）。
+  tcgServiceFeeJpy: string;
 };
 
 function toForm(rates: ExchangeRatesResponse): ExchangeForm {
@@ -26,7 +28,20 @@ function toForm(rates: ExchangeRatesResponse): ExchangeForm {
     jpyToCny: String(rates.pairs.jpyToCny),
     jpyToUsd: String(rates.pairs.jpyToUsd),
     cnyToUsd: String(rates.pairs.cnyToUsd),
+    tcgServiceFeeJpy:
+      rates.tcgServiceFeeJpy === null || rates.tcgServiceFeeJpy === undefined
+        ? ""
+        : String(rates.tcgServiceFeeJpy),
   };
+}
+
+// TCG 手续费输入清洗：空 → null（清除覆盖）；有限 >=0 整数 → 覆盖值；非法 → undefined（不提交，报错）。
+function parseTcgFee(value: string): number | null | undefined {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  const fee = Number(trimmed);
+  if (Number.isFinite(fee) && fee >= 0) return Math.trunc(fee);
+  return undefined;
 }
 
 function parseRate(value: string) {
@@ -45,6 +60,7 @@ export default function AdminExchangePage() {
     jpyToCny: "",
     jpyToUsd: "",
     cnyToUsd: "",
+    tcgServiceFeeJpy: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,15 +125,22 @@ export default function AdminExchangePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = {
+    const ratePayload = {
       jpyToCny: parseRate(form.jpyToCny),
       jpyToUsd: parseRate(form.jpyToUsd),
       cnyToUsd: parseRate(form.cnyToUsd),
     };
-    if (!payload.jpyToCny || !payload.jpyToUsd || !payload.cnyToUsd) {
+    if (!ratePayload.jpyToCny || !ratePayload.jpyToUsd || !ratePayload.cnyToUsd) {
       setError("三组汇率都必须是大于 0 的数字");
       return;
     }
+    const tcgServiceFeeJpy = parseTcgFee(form.tcgServiceFeeJpy);
+    if (tcgServiceFeeJpy === undefined) {
+      setError("TCG 手续费必须留空（不覆盖）或填大于等于 0 的整数日元");
+      return;
+    }
+    // 留空 → 传 null 清除覆盖（回退动态手续费）；填了 → 覆盖。
+    const payload = { ...ratePayload, tcgServiceFeeJpy };
 
     setSaving(true);
     setError("");
@@ -141,6 +164,9 @@ export default function AdminExchangePage() {
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
           当前汇率以 JPY
           为基准，新订单创建时会写入订单汇率快照；已创建订单不会被后续汇率改动重算。
+          其中 JPY → USD
+          同时驱动英文 TCG 站的「应付美元」展示（= 含手续费的日元金额 × 该汇率）；
+          下方可单独设置 TCG 手续费覆盖。
         </p>
       </div>
 
@@ -163,6 +189,13 @@ export default function AdminExchangePage() {
             </div>
             <div className="text-sm text-muted-foreground">
               更新人：{rates?.updatedBy || "-"}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              TCG 手续费口径：
+              {rates?.tcgServiceFeeJpy === null ||
+              rates?.tcgServiceFeeJpy === undefined
+                ? "旧系统动态（proxyconfirm）"
+                : `固定覆盖 ¥${rates.tcgServiceFeeJpy} JPY`}
             </div>
           </CardContent>
         </Card>
@@ -258,6 +291,21 @@ export default function AdminExchangePage() {
                 }
                 placeholder="0.14"
               />
+            </label>
+            <label className="space-y-2 text-sm font-medium md:col-span-3">
+              <span>TCG 手续费覆盖（JPY，留空 = 用旧系统动态手续费）</span>
+              <Input
+                inputMode="numeric"
+                value={form.tcgServiceFeeJpy}
+                onChange={(event) =>
+                  updateField("tcgServiceFeeJpy", event.target.value)
+                }
+                placeholder="留空 = 不覆盖（沿用 proxyconfirm 动态手续费）"
+              />
+              <span className="block text-xs font-normal text-muted-foreground">
+                英文 TCG 站「应付美元」= (商品价 + 手续费) ×（JPY → USD）。手续费默认走旧系统
+                proxyconfirm 动态计算；如需为 TCG 站统一覆盖一个固定手续费，在此填日元整数，留空则清除覆盖。
+              </span>
             </label>
             <div className="md:col-span-3">
               <Button type="submit" disabled={loading || saving}>

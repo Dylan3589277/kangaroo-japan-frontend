@@ -33,6 +33,7 @@
   "home": "Home",
   "approx": "Approx. ",
   "cny": " CNY",
+  "usd": " USD",
   "rate": "Rate",
   "score": "Score",
   "items": "Items",
@@ -62,6 +63,7 @@
     "estimated": "estimated",
     "estimatedTotal": "Estimated amount due",
     "approxCny": "≈ ¥{amount} CNY",
+    "approxUsd": "≈ ${amount} USD",
     "requestInspection": "Request photo inspection",
     "relatedTitle": "Related cards",
     "trust": {
@@ -109,6 +111,7 @@
     "paymentTitle": "Online Payment",
     "paymentAmount": "Payment amount",
     "paymentAmountRmb": "Approx. (CNY)",
+    "paymentAmountUsd": "Approx. (USD)",
     "openPaymentPage": "Go to payment page",
     "scanToPayAlipay": "Scan with Alipay to pay",
     "scanToPay": "Scan the QR code with a supported app to pay",

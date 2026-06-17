@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Menu, ShoppingCart, User, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
@@ -40,54 +40,104 @@ const MARKETPLACES = [
   { key: "amazon", href: "/amazon" },
 ] as const;
 
+// 「买卡之外也能买别的」口子：指向通用全品类浏览（Mercari 全品类列表）。
+const BEYOND_CARDS_LINK = { href: "/mercari" } as const;
+
+// 移出后延迟收起的毫秒数：给鼠标从触发器斜向移到菜单项留出余量（hover 意图）。
+const HOVER_CLOSE_DELAY = 240;
+
+/**
+ * 桌面端导航下拉的交互：兼顾「点击切换」与「hover 意图延迟」。
+ * - hover 进入立即展开，移出后 ~240ms 才收起（配合触发器/菜单之间的桥接 padding，
+ *   消除中间空隙，保证能顺畅移到菜单项点击）。
+ * - 点击触发器仍可手动开/关；点外部、Esc、选完菜单项均收起。
+ *
+ * 计时器句柄存在 ref 里、仅在事件处理器中读写（不在 render 读 ref.current，
+ * 不在 effect 同步 setState），满足项目 husky 规则。
+ */
+function useDropdown() {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const menuId = useId();
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+
+  const openNow = useCallback(() => {
+    clearCloseTimer();
+    setOpen(true);
+  }, [clearCloseTimer]);
+
+  const closeNow = useCallback(() => {
+    clearCloseTimer();
+    setOpen(false);
+  }, [clearCloseTimer]);
+
+  const scheduleClose = useCallback(() => {
+    clearCloseTimer();
+    closeTimer.current = setTimeout(() => {
+      closeTimer.current = null;
+      setOpen(false);
+    }, HOVER_CLOSE_DELAY);
+  }, [clearCloseTimer]);
+
+  const toggle = useCallback(() => {
+    clearCloseTimer();
+    setOpen((prev) => !prev);
+  }, [clearCloseTimer]);
+
+  // 点击外部 / Esc 收起；卸载时清掉计时器，避免泄漏。
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => clearCloseTimer, [clearCloseTimer]);
+
+  return { open, containerRef, menuId, openNow, closeNow, scheduleClose, toggle };
+}
+
 export function TcgHeader() {
   const t = useTranslations("tcg.header");
   const pathname = usePathname();
   const { isAuthenticated, user } = useAuthStore();
 
-  const [marketsOpen, setMarketsOpen] = useState(false);
-  const marketsRef = useRef<HTMLDivElement>(null);
-  const marketsMenuId = useId();
-
-  const [cardsOpen, setCardsOpen] = useState(false);
-  const cardsRef = useRef<HTMLDivElement>(null);
-  const cardsMenuId = useId();
-
-  useEffect(() => {
-    if (!marketsOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (marketsRef.current && !marketsRef.current.contains(event.target as Node)) {
-        setMarketsOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMarketsOpen(false);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [marketsOpen]);
-
-  useEffect(() => {
-    if (!cardsOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (cardsRef.current && !cardsRef.current.contains(event.target as Node)) {
-        setCardsOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setCardsOpen(false);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [cardsOpen]);
+  const {
+    open: marketsOpen,
+    containerRef: marketsRef,
+    menuId: marketsMenuId,
+    openNow: marketsOpenNow,
+    closeNow: marketsCloseNow,
+    scheduleClose: marketsScheduleClose,
+    toggle: marketsToggle,
+  } = useDropdown();
+  const {
+    open: cardsOpen,
+    containerRef: cardsRef,
+    menuId: cardsMenuId,
+    openNow: cardsOpenNow,
+    closeNow: cardsCloseNow,
+    scheduleClose: cardsScheduleClose,
+    toggle: cardsToggle,
+  } = useDropdown();
 
   // admin / warehouse 走自身布局，不渲染买家头部。
   const isInternal = INTERNAL_PREFIXES.some(
@@ -136,15 +186,15 @@ export function TcgHeader() {
           <div
             ref={cardsRef}
             className="relative"
-            onMouseEnter={() => setCardsOpen(true)}
-            onMouseLeave={() => setCardsOpen(false)}
+            onMouseEnter={cardsOpenNow}
+            onMouseLeave={cardsScheduleClose}
           >
             <button
               type="button"
               aria-haspopup="menu"
               aria-expanded={cardsOpen}
               aria-controls={cardsMenuId}
-              onClick={() => setCardsOpen((open) => !open)}
+              onClick={cardsToggle}
               className="flex items-center gap-1 whitespace-nowrap text-sm font-medium text-slate-300 transition-colors hover:text-cyan-300"
             >
               {t("nav.cards")}
@@ -153,40 +203,45 @@ export function TcgHeader() {
                 aria-hidden="true"
               />
             </button>
-            <ul
-              id={cardsMenuId}
-              role="menu"
-              aria-label={t("nav.cards")}
-              className={`absolute left-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-[#0d1320] py-1.5 shadow-2xl shadow-black/50 ${cardsOpen ? "block" : "hidden"}`}
+            {/* pt-2 桥接触发器与菜单之间的空隙，移动鼠标不会触发 onMouseLeave */}
+            <div
+              className={`absolute left-0 top-full z-50 pt-2 ${cardsOpen ? "block" : "hidden"}`}
             >
-              {CARD_CATEGORIES.map((c) => (
-                <li key={c.key} role="none">
-                  <Link
-                    href={c.href}
-                    role="menuitem"
-                    onClick={() => setCardsOpen(false)}
-                    className="block px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
-                  >
-                    {t(`cards.${c.key}`)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+              <ul
+                id={cardsMenuId}
+                role="menu"
+                aria-label={t("nav.cards")}
+                className="w-52 overflow-hidden rounded-xl border border-white/10 bg-[#0d1320] py-1.5 shadow-2xl shadow-black/50"
+              >
+                {CARD_CATEGORIES.map((c) => (
+                  <li key={c.key} role="none">
+                    <Link
+                      href={c.href}
+                      role="menuitem"
+                      onClick={cardsCloseNow}
+                      className="block px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
+                    >
+                      {t(`cards.${c.key}`)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
           {/* Marketplaces 下拉（仅在售平台） */}
           <div
             ref={marketsRef}
             className="relative"
-            onMouseEnter={() => setMarketsOpen(true)}
-            onMouseLeave={() => setMarketsOpen(false)}
+            onMouseEnter={marketsOpenNow}
+            onMouseLeave={marketsScheduleClose}
           >
             <button
               type="button"
               aria-haspopup="menu"
               aria-expanded={marketsOpen}
               aria-controls={marketsMenuId}
-              onClick={() => setMarketsOpen((open) => !open)}
+              onClick={marketsToggle}
               className="flex items-center gap-1 whitespace-nowrap text-sm font-medium text-slate-300 transition-colors hover:text-cyan-300"
             >
               {t("nav.marketplaces")}
@@ -195,25 +250,41 @@ export function TcgHeader() {
                 aria-hidden="true"
               />
             </button>
-            <ul
-              id={marketsMenuId}
-              role="menu"
-              aria-label={t("nav.marketplaces")}
-              className={`absolute left-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-[#0d1320] py-1.5 shadow-2xl shadow-black/50 ${marketsOpen ? "block" : "hidden"}`}
+            {/* pt-2 桥接触发器与菜单之间的空隙，移动鼠标不会触发 onMouseLeave */}
+            <div
+              className={`absolute left-0 top-full z-50 pt-2 ${marketsOpen ? "block" : "hidden"}`}
             >
-              {MARKETPLACES.map((m) => (
-                <li key={m.key} role="none">
+              <ul
+                id={marketsMenuId}
+                role="menu"
+                aria-label={t("nav.marketplaces")}
+                className="w-56 overflow-hidden rounded-xl border border-white/10 bg-[#0d1320] py-1.5 shadow-2xl shadow-black/50"
+              >
+                {MARKETPLACES.map((m) => (
+                  <li key={m.key} role="none">
+                    <Link
+                      href={m.href}
+                      role="menuitem"
+                      onClick={marketsCloseNow}
+                      className="block px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
+                    >
+                      {t(`marketplaces.${m.key}`)}
+                    </Link>
+                  </li>
+                ))}
+                {/* 「买卡之外也能买别的」口子：通用泛代拍浏览入口 */}
+                <li role="none" className="mt-1 border-t border-white/10 pt-1">
                   <Link
-                    href={m.href}
+                    href={BEYOND_CARDS_LINK.href}
                     role="menuitem"
-                    onClick={() => setMarketsOpen(false)}
-                    className="block px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
+                    onClick={marketsCloseNow}
+                    className="block px-4 py-2 text-sm font-medium text-cyan-300/90 transition-colors hover:bg-white/[0.06] hover:text-cyan-200"
                   >
-                    {t(`marketplaces.${m.key}`)}
+                    {t("nav.beyondCards")}
                   </Link>
                 </li>
-              ))}
-            </ul>
+              </ul>
+            </div>
           </div>
         </nav>
 
@@ -282,6 +353,13 @@ export function TcgHeader() {
                     {t(`marketplaces.${m.key}`)}
                   </Link>
                 ))}
+                {/* 「买卡之外也能买别的」口子（移动端） */}
+                <Link
+                  href={BEYOND_CARDS_LINK.href}
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-cyan-300/90 transition-colors hover:bg-white/[0.06] hover:text-cyan-200"
+                >
+                  {t("nav.beyondCards")}
+                </Link>
 
                 <div className="my-2 border-t border-white/10" />
                 <Link

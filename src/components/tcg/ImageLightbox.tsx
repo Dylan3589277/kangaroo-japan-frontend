@@ -200,9 +200,9 @@ export function ImageLightbox({
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-sm"
       onClick={onBackdropClick}
     >
-      {/* 顶部工具条 */}
+      {/* 顶部工具条（z-[3] 高于图片舞台，避免被覆盖吃掉 ✕ 点击） */}
       <div
-        className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 p-4"
+        className="absolute inset-x-0 top-0 z-[3] flex items-center justify-between gap-3 p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <span className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-medium tabular-nums text-slate-200">
@@ -233,9 +233,12 @@ export function ImageLightbox({
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
             aria-label={l.close}
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-slate-200 transition-colors hover:border-rose-400/50 hover:text-rose-200"
+            className="relative z-[3] inline-flex size-9 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-slate-200 transition-colors hover:border-rose-400/50 hover:text-rose-200"
           >
             <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeWidth={1.8} d="M6 6l12 12M18 6L6 18" />

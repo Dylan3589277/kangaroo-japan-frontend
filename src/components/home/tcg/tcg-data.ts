@@ -14,8 +14,11 @@ export interface TcgCardItem {
   imageUrl?: string;
   /** JPY 整数 */
   priceJpy?: number;
-  /** 人民币估算（旧端 price_rmb），仅次要展示，可空。 */
-  priceRmb?: number;
+  /**
+   * 美元估算（后端 price_usd = price × 后台 USD 汇率，单品价，2 位小数）。
+   * en TCG 站次要展示；汇率不可用时后端不返回 → 不显美元（只显 JPY，不显错币）。
+   */
+  priceUsd?: number;
   /** 卖家昵称（可空）。 */
   sellerName?: string;
   /** 已售标记。已售的不进「在售热门」，结果页置灰。 */
@@ -93,7 +96,7 @@ function normalizeMercariItem(value: unknown): TcgCardItem | null {
     title,
     imageUrl: normalizeImage(record),
     priceJpy: firstNumber(record, ["price", "priceJpy", "price_jpy"]),
-    priceRmb: firstNumber(record, ["price_rmb", "priceRmb"]),
+    priceUsd: firstNumber(record, ["price_usd", "priceUsd"]),
     sellerName: firstString(record, ["seller_name", "sellerName", "seller"]),
     soldOut: isSoldOut(firstString(record, ["status"])),
   };

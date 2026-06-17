@@ -8,7 +8,7 @@ import type { TcgCardItem } from "./tcg-data";
 /**
  * 设计 A（深色高级感）共用卡牌卡片。
  * 展示来自平台 listing 的真实商品图（不使用官方 logo/卡图），标题两行夹断、
- * 平台徽章、JPY 整数价格（人民币估算次要展示）、已售置灰徽章。
+ * 平台徽章、JPY 整数价格（美元估算次要展示，面向美国 en 站）、已售置灰徽章。
  * hover 轻微上浮 + 电光青边缘微光。点击进入现有 Mercari 详情页 /mercari/[id]（en 前缀由 next-intl 补）。
  */
 export function TcgCard({ item }: { item: TcgCardItem }) {
@@ -67,9 +67,9 @@ export function TcgCard({ item }: { item: TcgCardItem }) {
           ) : (
             <span className="text-sm text-slate-500">Price on request</span>
           )}
-          {typeof item.priceRmb === "number" && item.priceRmb > 0 && (
+          {typeof item.priceUsd === "number" && item.priceUsd > 0 && (
             <span className="text-[11px] text-slate-500">
-              &asymp; &yen;{item.priceRmb.toFixed(0)} CNY
+              &asymp; ${item.priceUsd.toFixed(2)} USD
             </span>
           )}
         </div>

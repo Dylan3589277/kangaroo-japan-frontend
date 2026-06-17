@@ -7,6 +7,7 @@ import { isIndexable } from "@/lib/seo";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { TcgHeader } from "@/components/tcg/TcgHeader";
 import { TcgFooter } from "@/components/tcg/TcgFooter";
+import { TcgChatWidget } from "@/components/tcg/TcgChatWidget";
 import "@/app/globals.css";
 
 export async function generateMetadata({
@@ -61,6 +62,9 @@ export default async function LocaleLayout({
         <TcgHeader />
         <div className="flex-1">{children}</div>
         <TcgFooter />
+        {/* FAQ-only live chat widget (v1). en-only mount; does not touch
+            TcgHeader/TcgFooter. */}
+        <TcgChatWidget />
       </div>
     );
   }

@@ -315,6 +315,17 @@ export default function MercariCheckout() {
     // 金额以后端返回的权威 amount/amountRmb 为准。
     const amount = payment.amount ?? quote?.amountJpy ?? item.price;
     const amountRmb = pickAmountRmb(payment) ?? quote?.amountRmb;
+    // en 支付面板美元（含手续费）：从 quote 反推后台 USD 汇率 × 实付 amount(JPY)。
+    // 汇率不可用则为 null（只显 JPY，不显错币）。
+    const payUsdRate =
+      quote &&
+      typeof quote.amountUsd === "number" &&
+      typeof quote.amountJpy === "number" &&
+      quote.amountJpy > 0
+        ? quote.amountUsd / quote.amountJpy
+        : null;
+    const amountUsd =
+      payUsdRate !== null ? Math.round(amount * payUsdRate * 100) / 100 : null;
     if (isEn) {
       // 设计 A 深色支付面板：二维码/payUrl/轮询入口逻辑与默认版完全一致，只换皮。
       return (
@@ -322,7 +333,7 @@ export default function MercariCheckout() {
           texts={{
             paymentTitle: t("checkout.paymentTitle"),
             paymentAmount: t("checkout.paymentAmount"),
-            paymentAmountRmb: t("checkout.paymentAmountRmb"),
+            paymentAmountUsd: t("checkout.paymentAmountUsd"),
             scanToPayAlipay: t("checkout.scanToPayAlipay"),
             scanToPay: t("checkout.scanToPay"),
             qrAlt: t("checkout.qrAlt"),
@@ -330,10 +341,10 @@ export default function MercariCheckout() {
             paymentInProgress: t("checkout.paymentInProgress"),
             paidGoToOrder: t("checkout.paidGoToOrder"),
             approx: t("approx"),
-            cny: t("cny"),
+            usd: t("usd"),
           }}
           amount={amount}
-          amountRmb={amountRmb}
+          amountUsd={amountUsd}
           qrcodeUrl={qrcodeUrl}
           payUrl={isHttpUrl(payUrl) ? payUrl : undefined}
           onOpenPayUrl={
@@ -439,6 +450,17 @@ export default function MercariCheckout() {
   // 展示用商品价/人民币价：有报价用报价，否则退回详情页（仅展示，禁止据此下单）。
   const displayPriceJpy = quote?.priceJpy ?? item.price;
   const displayPriceRmb = quote?.amountRmb ?? item.price_rmb;
+  // en 站美元：从后端 quote 的 amountUsd/amountJpy 反推后台 USD 汇率，再乘 totalDue(含手续费+增值)。
+  // 这样 USD 与 JPY 同一口径(含手续费)且能覆盖前端勾选的增值服务。汇率不可用则为 null(只显 JPY)。
+  const usdRate =
+    quote &&
+    typeof quote.amountUsd === "number" &&
+    typeof quote.amountJpy === "number" &&
+    quote.amountJpy > 0
+      ? quote.amountUsd / quote.amountJpy
+      : null;
+  const totalDueUsd =
+    usdRate !== null ? Math.round(totalDue * usdRate * 100) / 100 : null;
   const canSubmit = !!quote && !quoteError && !isSoldOut && !submitting;
 
   if (isEn) {
@@ -469,7 +491,7 @@ export default function MercariCheckout() {
           soldOut: t("checkout.soldOut"),
           noImage: t("noImage"),
           approx: t("approx"),
-          cny: t("cny"),
+          usd: t("usd"),
         }}
         item={{ goods_name: item.goods_name, imgurls: item.imgurls }}
         quoteError={quoteError}
@@ -486,7 +508,7 @@ export default function MercariCheckout() {
         buyerMessage={buyerMessage}
         onBuyerMessageChange={setBuyerMessage}
         displayPriceJpy={displayPriceJpy}
-        displayPriceRmb={displayPriceRmb}
+        totalDueUsd={totalDueUsd}
         feeJpy={quote?.feeJpy ?? 0}
         selectedVaList={selectedVaList}
         totalDue={totalDue}
