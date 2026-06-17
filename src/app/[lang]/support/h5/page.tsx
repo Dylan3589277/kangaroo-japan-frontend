@@ -77,20 +77,15 @@ type QuoteRef = {
   seller_risk?: SellerRisk;
 };
 
-// 可选增值服务一项。安心鉴定按品类浮动费用，用 category_options 承载各品类费。
+// 可选增值服务一项。所有服务（含安心鉴定）统一为扁平结构：勾选框 + 精确日元费用。
+// 安心鉴定由后端按卖家实际开通的品类直接下发精确 fee_jpy，前端不再做品类选择。
 type OptionalService = {
-  code?: string; // 'misdelivery_check' | 'pre_inbound_photo' | 'mercari_anchin_kantei'
-  label?: string; // 展示名（如「错发漏发检查」）
-  fee_jpy?: number; // 固定费；安心鉴定按品类时取 category_options 内所选项费用
+  code?: string; // 'misdelivery_check' | 'pre_inbound_photo' | 'mercari_anshin_kantei'
+  label?: string; // 展示名（如「错发漏发检查」「mercari安心鉴定」）
+  fee_jpy?: number; // 精确费用（日元整数）
   note?: string; // 补充说明（如「建议追加，有保障」）
   checked_default?: boolean; // 默认是否勾选
-  disabled?: boolean; // 是否禁选（如本品类不适用）
-  // 安心鉴定品类选项：トレカ/ファッション/スニーカー/時計 各自费用
-  category_options?: Array<{
-    code?: string;
-    label?: string;
-    fee_jpy?: number;
-  }>;
+  disabled?: boolean; // 是否禁选
 };
 
 // 卖家风险核验结果（>5万触发）。前端只展示，不信任也不回传这些判定字段做录入。
@@ -197,21 +192,6 @@ function getOptionalServices(value: unknown): OptionalService[] | undefined {
     const code = getString(r.code);
     // 至少要有 label 或 code 才算一条可渲染服务。
     if (!label && !code) continue;
-    const categoryOptions = Array.isArray(r.category_options)
-      ? r.category_options
-          .map((opt) => {
-            const o = getRecord(opt);
-            const optLabel = getString(o.label);
-            const optCode = getString(o.code);
-            if (!optLabel && !optCode) return null;
-            return {
-              code: optCode,
-              label: optLabel,
-              fee_jpy: getNumber(o.fee_jpy),
-            };
-          })
-          .filter(Boolean)
-      : undefined;
     out.push({
       code,
       label,
@@ -219,8 +199,6 @@ function getOptionalServices(value: unknown): OptionalService[] | undefined {
       note: getString(r.note),
       checked_default: getBoolean(r.checked_default),
       disabled: getBoolean(r.disabled),
-      category_options:
-        (categoryOptions as OptionalService["category_options"]) || undefined,
     });
   }
   return out.length ? out : undefined;
@@ -466,14 +444,10 @@ export default function MiniProgramSupportH5Page() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   // 报价卡买家选择（纯前端记录，不立即扣费）：
   // - quoteServiceSelections：{cardKey -> {serviceCode -> checked}}，记录可选服务勾选。
-  // - quoteAnchinCategory：{cardKey -> 安心鉴定所选品类 code}，记录安心鉴定品类。
   // - quoteRiskConfirmed：已点「我已知风险确认」的 cardKey 集合。
   // 这些只用于展示总额预览 + 点「我要购买」时随购买意图文本带出，不调任何录单/扣费接口。
   const [quoteServiceSelections, setQuoteServiceSelections] = useState<
     Record<string, Record<string, boolean>>
-  >({});
-  const [quoteAnchinCategory, setQuoteAnchinCategory] = useState<
-    Record<string, string>
   >({});
   const [quoteRiskConfirmed, setQuoteRiskConfirmed] = useState<
     Record<string, boolean>
@@ -563,17 +537,26 @@ export default function MiniProgramSupportH5Page() {
     };
   }, []);
 
-  // 自动报价：仅挂载时执行一次。从 mercari 商品页（带 ?gid=mXXX）进客服时，
+  // 自动报价：仅挂载时执行一次。从 mercari/yahoo 商品页（带 ?gid=xxx&shop=yyy）进客服时，
   // 零输入地用商品链接拉一次报价，把 assistant 回复 + 报价卡作为开场消息渲染，
   // 但**不**追加 user 角色气泡（不显示"用户发了一条链接"）。失败则静默，不影响正常聊天。
   useEffect(() => {
     if (autoQuoteTriggeredRef.current) return;
-    if (!sourceGoodsId || sourcePlatform !== "mercari") return;
+    // mercari 与 yahoo（即決+竞拍）从商品页进客服都自动弹卡；其它平台仍不触发。
+    if (
+      !sourceGoodsId ||
+      (sourcePlatform !== "mercari" && sourcePlatform !== "yahoo")
+    )
+      return;
     // 已有会话历史（如刷新带 conversation_id）时不重复自动报价。
     if (conversationId) return;
     autoQuoteTriggeredRef.current = true;
 
-    const itemUrl = `https://jp.mercari.com/item/${sourceGoodsId}`;
+    // 按平台拼商品 URL，交后端桥识别出卡（yahoo 即決+竞拍都支持）。
+    const itemUrl =
+      sourcePlatform === "yahoo"
+        ? `https://auctions.yahoo.co.jp/jp/auction/${sourceGoodsId}`
+        : `https://jp.mercari.com/item/${sourceGoodsId}`;
     // 记下自动报价发出的链接原文，供历史轮询剔除这条 visitor 消息（防止它被补成 user 气泡）。
     autoQuoteMessageRef.current = itemUrl;
     let cancelled = false;
@@ -776,17 +759,12 @@ export default function MiniProgramSupportH5Page() {
     });
   }
 
-  // 选择某张报价卡的安心鉴定品类（纯前端记录）。
-  function selectAnchinCategory(cardKey: string, categoryCode: string) {
-    setQuoteAnchinCategory((prev) => ({ ...prev, [cardKey]: categoryCode }));
-  }
-
   // 买家点「我已知风险确认」：仅前端记录该卡已确认，不录入、不付款、不下单。
   function confirmQuoteRisk(cardKey: string) {
     setQuoteRiskConfirmed((prev) => ({ ...prev, [cardKey]: true }));
   }
 
-  // 汇总某张报价卡上买家已勾选的服务（含安心鉴定所选品类），生成中文摘要片段。
+  // 汇总某张报价卡上买家已勾选的服务（扁平 code+fee），生成中文摘要片段。
   // 仅用于拼进「我要购买」意图文本，交客服/录单环节核验计费，不在本卡计费。
   function summarizeSelectedServices(cardKey: string, quote: QuoteRef): string {
     const services = quote.optional_services;
@@ -797,22 +775,8 @@ export default function MiniProgramSupportH5Page() {
       const code = svc.code || svc.label || "";
       if (!code || !checkedMap[code]) continue;
       const label = svc.label || code;
-      if (svc.category_options && svc.category_options.length > 0) {
-        const catCode = quoteAnchinCategory[cardKey];
-        const cat = svc.category_options.find(
-          (o) => (o?.code || o?.label) === catCode,
-        );
-        if (cat) {
-          const fee = cat.fee_jpy !== undefined ? `${cat.fee_jpy}日元` : "";
-          picked.push(`${label}（${cat.label || catCode}${fee ? "/" + fee : ""}）`);
-        } else {
-          // 勾了安心鉴定但还没选品类：带出待选提示，让客服跟进。
-          picked.push(`${label}（品类待确认）`);
-        }
-      } else {
-        const fee = svc.fee_jpy !== undefined ? `${svc.fee_jpy}日元` : "";
-        picked.push(`${label}${fee ? "（" + fee + "）" : ""}`);
-      }
+      const fee = svc.fee_jpy !== undefined ? `${svc.fee_jpy}日元` : "";
+      picked.push(`${label}${fee ? "（" + fee + "）" : ""}`);
     }
     return picked.length ? `；我想加购：${picked.join("、")}` : "";
   }
@@ -861,6 +825,11 @@ export default function MiniProgramSupportH5Page() {
     // 「去充押金」入口是否可用：仅当配置了充值页 path 才可点。
     const depositRechargeEnabled = Boolean(YAHOO_DEPOSIT_RECHARGE_PAGE_PATH);
 
+    // 已售/不可购报价卡：卡片内底部已有一条「不可购买原因」提示（含「已售」），
+    // 文字气泡里的同义开场白会与之重复。此时隐藏上方文字气泡，只留卡片内那一条。
+    const isUnpurchasableQuote = Boolean(quote && quote.purchasable === false);
+    const showTextBubble = Boolean(item.content) && !isUnpurchasableQuote;
+
     return (
       <div
         key={key}
@@ -868,22 +837,24 @@ export default function MiniProgramSupportH5Page() {
           item.role === "user" ? "items-end" : "items-start"
         }`}
       >
-        <div
-          className={`max-w-[82%] rounded-lg px-3 py-2 text-sm leading-6 shadow-sm ${
-            item.role === "user"
-              ? "bg-[#4f67ff] text-white"
-              : item.role === "support"
-                ? "border border-orange-100 bg-white text-slate-800"
-                : "bg-white text-slate-800"
-          }`}
-        >
-          {item.role === "support" ? (
-            <div className="mb-1 text-[11px] font-medium text-orange-600">
-              人工客服
-            </div>
-          ) : null}
-          {item.content}
-        </div>
+        {showTextBubble ? (
+          <div
+            className={`max-w-[82%] rounded-lg px-3 py-2 text-sm leading-6 shadow-sm ${
+              item.role === "user"
+                ? "bg-[#4f67ff] text-white"
+                : item.role === "support"
+                  ? "border border-orange-100 bg-white text-slate-800"
+                  : "bg-white text-slate-800"
+            }`}
+          >
+            {item.role === "support" ? (
+              <div className="mb-1 text-[11px] font-medium text-orange-600">
+                人工客服
+              </div>
+            ) : null}
+            {item.content}
+          </div>
+        ) : null}
         {item.orderRef?.order_id ? (
           <div
             className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
@@ -998,8 +969,6 @@ export default function MiniProgramSupportH5Page() {
                     const checked = Boolean(
                       quoteServiceSelections[key]?.[svcCode],
                     );
-                    const hasCategories =
-                      svc.category_options && svc.category_options.length > 0;
                     return (
                       <div key={svcCode}>
                         <label className="flex items-start gap-2 text-xs leading-5 text-slate-700">
@@ -1013,14 +982,11 @@ export default function MiniProgramSupportH5Page() {
                           />
                           <span className="flex-1">
                             {svc.label || svcCode}
-                            {!hasCategories && svc.fee_jpy !== undefined ? (
+                            {svc.fee_jpy !== undefined ? (
                               <span className="text-slate-500">
                                 {" "}
                                 ¥{svc.fee_jpy.toLocaleString("ja-JP")} 日元
                               </span>
-                            ) : null}
-                            {hasCategories ? (
-                              <span className="text-slate-500">（按品类）</span>
                             ) : null}
                             {svc.note ? (
                               <span className="block text-[11px] leading-4 text-amber-600">
@@ -1029,40 +995,6 @@ export default function MiniProgramSupportH5Page() {
                             ) : null}
                           </span>
                         </label>
-                        {/* 安心鉴定：勾选后展开品类选择，各品类对应不同费用 */}
-                        {hasCategories && checked ? (
-                          <div
-                            className="ml-5 mt-1 flex flex-wrap gap-1.5"
-                            data-testid={`support-quote-anchin-categories`}
-                          >
-                            {svc.category_options!.map((opt, optIndex) => {
-                              const optCode =
-                                opt?.code || opt?.label || `cat-${optIndex}`;
-                              const selected =
-                                quoteAnchinCategory[key] === optCode;
-                              return (
-                                <button
-                                  key={optCode}
-                                  type="button"
-                                  className={`rounded-md border px-2 py-1 text-[11px] leading-4 ${
-                                    selected
-                                      ? "border-orange-400 bg-orange-100 text-orange-700"
-                                      : "border-slate-200 bg-white text-slate-600"
-                                  }`}
-                                  onClick={() =>
-                                    selectAnchinCategory(key, optCode)
-                                  }
-                                  data-testid={`support-quote-anchin-cat-${optCode}`}
-                                >
-                                  {opt?.label || optCode}
-                                  {opt?.fee_jpy !== undefined
-                                    ? ` ¥${opt.fee_jpy.toLocaleString("ja-JP")}`
-                                    : ""}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : null}
                       </div>
                     );
                   })}

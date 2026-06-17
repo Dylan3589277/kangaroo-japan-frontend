@@ -368,16 +368,28 @@ test.describe("support H5 quote_ref card", () => {
     await expect(page.getByText(itemUrl)).toHaveCount(0);
   });
 
-  test("shows unpurchasable reason and hides confirm CTA when not purchasable", async ({
+  test("shows unpurchasable reason once (no duplicate text bubble) and hides confirm CTA", async ({
     page,
   }) => {
-    await mockChatWithQuoteRef(page, {
-      platform: "mercari",
-      item_id: "m99999999999",
-      goods_name: "売り切れ商品",
-      price_jpy: 5000,
-      purchasable: false,
-      unpurchasable_reason: "已售出",
+    // 后端开场白与卡内不可购原因同义（都含「已售」），#4 要求只保留卡内那一条。
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/chat", async (route) => {
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: "商品已售，建议蹲同款或换链接",
+          quote_ref: {
+            platform: "mercari",
+            item_id: "m99999999999",
+            goods_name: "売り切れ商品",
+            price_jpy: 5000,
+            purchasable: false,
+            unpurchasable_reason: "商品已售，建议蹲同款或换链接",
+          },
+        },
+      });
     });
 
     await page.goto("/zh/support/h5?shop=mercari");
@@ -387,8 +399,12 @@ test.describe("support H5 quote_ref card", () => {
     const card = page.getByTestId("support-quote-card");
     await expect(card).toBeVisible();
     await expect(page.getByTestId("support-quote-unpurchasable")).toContainText(
-      "已售出",
+      "商品已售",
     );
+    // #4 去重：整页「商品已售，建议蹲同款或换链接」只出现一次（卡内底部那条）。
+    await expect(
+      page.getByText("商品已售，建议蹲同款或换链接"),
+    ).toHaveCount(1);
     await expect(page.getByTestId("support-quote-cta")).toHaveCount(0);
     // 不可购卡：两个按钮都不显示
     await expect(page.getByTestId("support-quote-btn-consult")).toHaveCount(0);
@@ -397,6 +413,56 @@ test.describe("support H5 quote_ref card", () => {
 });
 
 test.describe("support H5 quote_ref card · yahoo", () => {
+  test("auto-fires a yahoo quote from ?gid&shop=yahoo with yahoo auction URL, no user bubble", async ({
+    page,
+  }) => {
+    let chatCalls = 0;
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/chat", async (route) => {
+      chatCalls += 1;
+      const body = route.request().postDataJSON() as { message?: string };
+      // #6：yahoo 从商品页进客服也应自动弹卡，且用 yahoo 拍卖链接作为 message。
+      expect(body.message).toBe(
+        "https://auctions.yahoo.co.jp/jp/auction/y67890",
+      );
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: "已为您调取该商品信息：",
+          quote_ref: {
+            platform: "yahoo",
+            sale_type: "auction",
+            item_id: "y67890",
+            goods_name: "ヤフオク自動報価テスト商品",
+            price_jpy: 3000,
+            current_bid: 3000,
+            left_time: "6月17日 21:30",
+            bid_num: 5,
+            deposit_state: "unknown",
+          },
+        },
+      });
+    });
+
+    await page.goto("/zh/support/h5?shop=yahoo&gid=y67890");
+
+    const card = page.getByTestId("support-quote-card");
+    await expect(card).toBeVisible();
+    await expect(card.getByText("ヤフオク自動報価テスト商品")).toBeVisible();
+    await expect(page.getByTestId("support-quote-auction-info")).toContainText(
+      "当前出价",
+    );
+    // 没有任何 user 角色气泡，也不把链接文本作为用户消息显示
+    await expect(page.locator(".bg-\\[\\#4f67ff\\]")).toHaveCount(0);
+    await expect(
+      page.getByText("https://auctions.yahoo.co.jp/jp/auction/y67890"),
+    ).toHaveCount(0);
+    // StrictMode 双挂载下也只发一次
+    expect(chatCalls).toBe(1);
+  });
+
   test("yahoo 即決(sokketsu): shows contact-kefu notice, no buy/confirm buttons", async ({
     page,
   }) => {
@@ -520,7 +586,7 @@ test.describe("support H5 quote_ref card · yahoo", () => {
 });
 
 test.describe("support H5 quote_ref card · optional services", () => {
-  test("renders optional-services区, anchin category picker, and carries选择 into buy intent", async ({
+  test("renders optional-services区 (单行精确费用), and carries选择 into buy intent", async ({
     page,
   }) => {
     const buyMessages: string[] = [];
@@ -545,6 +611,7 @@ test.describe("support H5 quote_ref card · optional services", () => {
                 goods_name: "テスト商品",
                 price_jpy: 12800,
                 purchasable: true,
+                // 新契约：安心鉴定为扁平精确费用，不再有 category_options。
                 optional_services: [
                   {
                     code: "misdelivery_check",
@@ -557,13 +624,10 @@ test.describe("support H5 quote_ref card · optional services", () => {
                     fee_jpy: 100,
                   },
                   {
-                    code: "mercari_anchin_kantei",
+                    code: "mercari_anshin_kantei",
                     label: "mercari安心鉴定",
                     note: "建议追加，有保障",
-                    category_options: [
-                      { code: "trading_card", label: "トレカ", fee_jpy: 1700 },
-                      { code: "watch", label: "時計", fee_jpy: 12000 },
-                    ],
+                    fee_jpy: 1700,
                   },
                 ],
               }
@@ -583,20 +647,23 @@ test.describe("support H5 quote_ref card · optional services", () => {
     await expect(svcArea.getByText("入库前拍照")).toBeVisible();
     await expect(svcArea.getByText("mercari安心鉴定")).toBeVisible();
     await expect(svcArea.getByText("建议追加，有保障")).toBeVisible();
+    // 安心鉴定为单行精确费用（¥1,700），不再有品类按钮
+    await expect(svcArea.getByText(/¥1,?700 日元/)).toBeVisible();
+    await expect(page.getByTestId("support-quote-anchin-cat-watch")).toHaveCount(
+      0,
+    );
 
-    // 勾选错发漏发检查 + 安心鉴定，选「時計」品类
+    // 勾选错发漏发检查 + 安心鉴定
     await page.getByTestId("support-quote-service-misdelivery_check").check();
-    await page.getByTestId("support-quote-service-mercari_anchin_kantei").check();
-    await expect(page.getByTestId("support-quote-anchin-cat-watch")).toBeVisible();
-    await page.getByTestId("support-quote-anchin-cat-watch").click();
+    await page.getByTestId("support-quote-service-mercari_anshin_kantei").check();
 
-    // 点「我要购买」，购买意图里带出已勾选服务与所选品类
+    // 点「我要购买」，购买意图里带出已勾选服务与精确费用
     await page.getByTestId("support-quote-btn-buy").click();
     const buyIntent = buyMessages.find((m) => m.startsWith("我要购买此商品"));
     expect(buyIntent).toBeTruthy();
     expect(buyIntent).toContain("错发漏发检查");
-    expect(buyIntent).toContain("時計");
-    expect(buyIntent).toContain("12000日元");
+    expect(buyIntent).toContain("mercari安心鉴定");
+    expect(buyIntent).toContain("1700日元");
   });
 });
 
