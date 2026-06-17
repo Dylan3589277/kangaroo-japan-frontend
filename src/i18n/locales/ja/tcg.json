@@ -1,0 +1,143 @@
+{
+  "meta": {
+    "title": "Buy Japanese Pokémon & Yu-Gi-Oh Cards from Japan",
+    "description": "Proxy buying built for U.S. TCG collectors and resellers. Buy Japanese Pokémon and Yu-Gi-Oh cards from Mercari, Yahoo Auctions and Amazon Japan, then inspect, consolidate and ship to the United States."
+  },
+  "hero": {
+    "eyebrow": "Built for U.S. TCG collectors & resellers",
+    "title": "Buy Japanese Pokémon & Yu-Gi-Oh cards from Japan",
+    "subtitle": "Source from Mercari, Yahoo Auctions, Amazon Japan and Surugaya. We inspect, consolidate and ship your cards straight to the U.S.",
+    "searchPlaceholder": "Pokémon 151, Pikachu promo, PSA 10, Blue-Eyes, OCG booster box…",
+    "searchAria": "Search Japanese TCG listings",
+    "ctaSearch": "Search cards",
+    "ctaHowItWorks": "How it works",
+    "trustStrip": {
+      "shipsTo": "Ships to the U.S.",
+      "marketplaces": "4 Japanese marketplaces",
+      "inspection": "Photo inspection before shipping"
+    }
+  },
+  "popular": {
+    "label": "Popular searches",
+    "items": {
+      "pokemon151": "Pokémon 151 box",
+      "eeveeHeroes": "Eevee Heroes",
+      "psa10": "PSA 10 Japanese",
+      "ocgQuarterCentury": "OCG Quarter Century",
+      "blueEyes": "Blue-Eyes White Dragon"
+    }
+  },
+  "how": {
+    "title": "How proxy buying works",
+    "subtitle": "Four simple steps from a Japanese listing to your door.",
+    "steps": {
+      "find": {
+        "title": "Find a card",
+        "desc": "Search across Japanese marketplaces or paste a listing link for any card you want."
+      },
+      "buy": {
+        "title": "We buy in Japan",
+        "desc": "Our team places the order locally on your behalf, including auctions and seller-only listings."
+      },
+      "inspect": {
+        "title": "Inspect & consolidate",
+        "desc": "We photograph each card, translate its condition and combine multiple orders into one parcel."
+      },
+      "ship": {
+        "title": "Ship to the U.S.",
+        "desc": "Your consolidated, TCG-safe package is shipped to your U.S. address with tracking."
+      }
+    }
+  },
+  "marketplaces": {
+    "title": "Featured marketplaces",
+    "subtitle": "We buy from Japan's biggest card sources so you don't have to.",
+    "statusLive": "Live",
+    "statusSoon": "Soon",
+    "items": {
+      "mercari": {
+        "name": "Mercari Japan",
+        "desc": "Japan's largest C2C marketplace — singles, sealed and graded cards from individual sellers."
+      },
+      "yahoo": {
+        "name": "Yahoo Auctions",
+        "desc": "Auctions and Buy It Now lots, vintage cards and bulk collections you can bid on."
+      },
+      "amazon": {
+        "name": "Amazon Japan",
+        "desc": "Sealed booster boxes and Japanese-exclusive sets shipped from Amazon's Japan catalog."
+      },
+      "surugaya": {
+        "name": "Surugaya",
+        "desc": "Specialty hobby retailer with deep back catalog and condition-graded singles."
+      }
+    }
+  },
+  "protection": {
+    "title": "TCG buyer protection",
+    "subtitle": "Safeguards built specifically for card collectors and resellers.",
+    "items": {
+      "sellerRisk": {
+        "title": "Seller-risk screening",
+        "desc": "We review seller history and listing signals before placing higher-value orders."
+      },
+      "conditionTranslation": {
+        "title": "Card-condition translation",
+        "desc": "Japanese condition notes translated into clear English so you know what you're getting."
+      },
+      "photoInspection": {
+        "title": "Photo inspection before shipping",
+        "desc": "Real photos of your actual cards before anything leaves our Japan warehouse."
+      },
+      "safePackaging": {
+        "title": "TCG-safe packaging",
+        "desc": "Sleeves, toploaders and rigid mailers to protect corners and edges in transit."
+      },
+      "consolidatedShipping": {
+        "title": "Consolidated shipping",
+        "desc": "Combine multiple purchases into one parcel to cut down on international postage."
+      },
+      "transparentFees": {
+        "title": "Transparent fee estimate",
+        "desc": "See an estimated, itemized breakdown of fees before you commit to an order."
+      }
+    }
+  },
+  "fees": {
+    "badge": "Pricing",
+    "title": "Transparent, estimated fees",
+    "desc": "Service fee, domestic and international shipping are shown as estimates before you order. All figures are estimated and may vary by item, weight and marketplace.",
+    "cta": "See Fees page"
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "items": {
+      "whatIsProxy": {
+        "q": "What is proxy buying?",
+        "a": "You tell us which Japanese card you want; we buy it locally in Japan on your behalf, then forward it to you in the U.S. It's the way to reach sellers and marketplaces that don't ship internationally."
+      },
+      "whichMarketplaces": {
+        "q": "Which marketplaces can I buy from?",
+        "a": "Mercari Japan, Yahoo Auctions and Amazon Japan are live today, with Surugaya coming soon. You can also share a listing link from a supported marketplace."
+      },
+      "feesHow": {
+        "q": "How are fees calculated?",
+        "a": "Fees include the item price, a service fee and shipping. Every figure is an estimate shown before you order; see the Fees page for the full, estimated breakdown."
+      },
+      "condition": {
+        "q": "How do I know the card's condition?",
+        "a": "We translate the seller's Japanese condition notes into English and take inspection photos of the actual card before it ships."
+      },
+      "shippingTime": {
+        "q": "How long does shipping take?",
+        "a": "Timing depends on the seller and your chosen shipping method. Consolidating multiple orders into one parcel is the most cost-effective option."
+      }
+    }
+  },
+  "footerCta": {
+    "title": "Ready to pull from Japan?",
+    "subtitle": "Search live listings across Japanese marketplaces and let us handle the rest.",
+    "ctaSearch": "Search cards",
+    "ctaHowItWorks": "How it works"
+  }
+}

@@ -68,7 +68,7 @@ export default function ContactPage() {
         {/* Contact Methods */}
         <div className="mb-10">
           <h2 className="text-lg font-semibold mb-4 text-center">
-            {lang === "zh" ? "联系方式" : lang === "ja" ? "联系方式" : "Contact Methods"}
+            {lang === "zh" ? "联系方式" : lang === "ja" ? "お問い合わせ方法" : "Contact Methods"}
           </h2>
           
           <ContactButtons

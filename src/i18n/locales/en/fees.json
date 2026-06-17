@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "title": "Fees & Pricing",
+    "description": "Transparent, estimated fees for buying Japanese trading cards through Kangaroo Japan — proxy service fee, Japan domestic shipping, optional inspection, consolidation, international shipping and U.S. customs guidance."
+  },
+  "hero": {
+    "eyebrow": "Pricing",
+    "title": "Fees & Pricing",
+    "subtitle": "Every charge, broken down before you commit. The figures below are estimates to help you plan — your exact total is always shown at checkout.",
+    "estimateNote": "Final fees are shown at checkout; estimates may change.",
+    "currencyNote": "All amounts are in Japanese Yen (JPY) unless stated otherwise."
+  },
+  "table": {
+    "item": "What you pay for",
+    "estimate": "Estimated cost",
+    "notes": "Notes"
+  },
+  "items": {
+    "itemPrice": {
+      "title": "Item price",
+      "estimate": "Seller's listed / winning price",
+      "notes": "The actual price of the card on Mercari, Yahoo! Auctions, or the Japanese shop. For auctions, this is your winning bid."
+    },
+    "domesticShipping": {
+      "title": "Japan domestic shipping",
+      "estimate": "from ~300 JPY/item (estimated)",
+      "notes": "Cost to ship the card from the Japanese seller to our warehouse. Varies by seller and packaging; some sellers offer free shipping."
+    },
+    "proxyFee": {
+      "title": "Proxy service fee",
+      "estimate": "from ~300–350 JPY/item (estimated)",
+      "notes": "Our fee for buying on your behalf, communicating with the seller, and receiving the item. Final rate confirmed at checkout."
+    },
+    "photoInspection": {
+      "title": "Optional photo inspection",
+      "estimate": "Optional add-on (estimated)",
+      "notes": "Request extra photos of the card and its condition before it ships. Recommended for graded, sealed, or high-value cards."
+    },
+    "consolidation": {
+      "title": "Consolidation",
+      "estimate": "Optional (estimated)",
+      "notes": "Combine multiple orders into one parcel to reduce international shipping. Fees depend on the number of items and repackaging needed."
+    },
+    "internationalShipping": {
+      "title": "International shipping",
+      "estimate": "Calculated by weight & method (estimated)",
+      "notes": "From our Japan warehouse to your address. Priced by actual weight, dimensions, destination, and the carrier you choose at checkout."
+    },
+    "paymentProcessing": {
+      "title": "Payment processing",
+      "estimate": "Small percentage (estimated)",
+      "notes": "Payment provider / currency conversion fees. The exact amount depends on your payment method and is shown at checkout."
+    }
+  },
+  "customs": {
+    "title": "U.S. customs & taxes",
+    "body": "Importing trading cards into the United States is not duty-free. We provide HS code guidance for trading cards to help your parcel clear customs smoothly, but U.S. customs duties and taxes are ultimately determined by U.S. Customs and Border Protection (CBP) and the carrier. Any duties, taxes, or brokerage fees assessed on import are the buyer's responsibility and are not included in the estimates above.",
+    "note": "We declare the actual transaction value and do not under-declare shipments."
+  },
+  "disclaimer": {
+    "title": "About these estimates",
+    "body": "All figures on this page are estimates based on typical orders and current market rates. They are not a quote and may change. Your final, itemized total — including any applicable service, shipping, and payment fees — is always shown before you pay at checkout."
+  },
+  "cta": {
+    "title": "Ready to start?",
+    "body": "Paste a Japanese listing link or browse our supported sites to get an exact quote at checkout.",
+    "primary": "Browse products",
+    "secondary": "Contact support"
+  }
+}
