@@ -57,6 +57,19 @@
   "shoppingNote1": "This item cannot be cancelled or returned after ordering. Please consider carefully before purchasing.",
   "shoppingNote2": "If there are undisclosed defects, please contact customer service within 24 hours of receipt.",
   "shoppingInfoFull": "Shopping Information",
+  "designA": {
+    "itemPrice": "Item price",
+    "estimated": "estimated",
+    "estimatedTotal": "Estimated amount due",
+    "approxCny": "≈ ¥{amount} CNY",
+    "requestInspection": "Request photo inspection",
+    "relatedTitle": "Related cards",
+    "trust": {
+      "inspection": "Photo inspection",
+      "protection": "Buyer protection",
+      "consolidate": "Consolidated shipping"
+    }
+  },
   "checkout": {
     "title": "Mercari Checkout",
     "loginRequired": "Please sign in before checkout",

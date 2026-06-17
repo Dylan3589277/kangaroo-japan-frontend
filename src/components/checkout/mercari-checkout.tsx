@@ -19,6 +19,11 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { spaceGrotesk } from "@/app/fonts";
+import {
+  MercariCheckoutTcgView,
+  MercariPaymentTcgView,
+} from "@/components/checkout/mercari-checkout-tcg";
 
 interface MercariItem {
   goods_no: string;
@@ -73,6 +78,8 @@ export default function MercariCheckout() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
+  // en 走设计方向 A 深色呈现，其它语言保持现有渲染。仅影响视觉，业务逻辑共用。
+  const isEn = lang === "en";
   const goodsNo = searchParams.get("id") || "";
   const t = useTranslations("mercari");
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
@@ -218,6 +225,28 @@ export default function MercariCheckout() {
   // ---- 渲染 ----
 
   if (authLoading || loading) {
+    if (isEn) {
+      return (
+        <div
+          className={`${spaceGrotesk.variable} min-h-screen bg-[#0a0e16] text-slate-200 antialiased`}
+        >
+          <div className="mx-auto max-w-5xl px-4 py-10">
+            <div className="mb-8 h-8 w-56 animate-pulse rounded bg-white/[0.06]" />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="space-y-6 lg:col-span-2">
+                {[1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-28 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]"
+                  />
+                ))}
+              </div>
+              <div className="h-56 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-8">{t("checkout.title")}</h1>
@@ -244,6 +273,27 @@ export default function MercariCheckout() {
   }
 
   if (loadError || !item) {
+    if (isEn) {
+      return (
+        <div
+          className={`${spaceGrotesk.variable} min-h-screen bg-[#0a0e16] text-slate-200 antialiased`}
+        >
+          <div className="mx-auto max-w-md px-4 py-20 text-center">
+            <div className="mb-4 text-5xl">🔍</div>
+            <h1 className="mb-5 font-[family-name:var(--font-display)] text-xl font-bold tracking-tight text-white">
+              {loadError || t("checkout.loadFailed")}
+            </h1>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-white/12 bg-white/[0.03] px-6 text-sm font-semibold text-slate-100 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
+            >
+              {t("emptyBack")}
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">🔍</div>
@@ -265,6 +315,44 @@ export default function MercariCheckout() {
     // 金额以后端返回的权威 amount/amountRmb 为准。
     const amount = payment.amount ?? quote?.amountJpy ?? item.price;
     const amountRmb = pickAmountRmb(payment) ?? quote?.amountRmb;
+    if (isEn) {
+      // 设计 A 深色支付面板：二维码/payUrl/轮询入口逻辑与默认版完全一致，只换皮。
+      return (
+        <MercariPaymentTcgView
+          texts={{
+            paymentTitle: t("checkout.paymentTitle"),
+            paymentAmount: t("checkout.paymentAmount"),
+            paymentAmountRmb: t("checkout.paymentAmountRmb"),
+            scanToPayAlipay: t("checkout.scanToPayAlipay"),
+            scanToPay: t("checkout.scanToPay"),
+            qrAlt: t("checkout.qrAlt"),
+            openPaymentPage: t("checkout.openPaymentPage"),
+            paymentInProgress: t("checkout.paymentInProgress"),
+            paidGoToOrder: t("checkout.paidGoToOrder"),
+            approx: t("approx"),
+            cny: t("cny"),
+          }}
+          amount={amount}
+          amountRmb={amountRmb}
+          qrcodeUrl={qrcodeUrl}
+          payUrl={isHttpUrl(payUrl) ? payUrl : undefined}
+          onOpenPayUrl={
+            isHttpUrl(payUrl)
+              ? () => {
+                  window.location.href = payUrl;
+                }
+              : undefined
+          }
+          onGoToOrder={() => {
+            if (orderId) {
+              router.push(`/${lang}/orders/${orderId}?poll=1`);
+            } else {
+              router.push(`/${lang}/orders`);
+            }
+          }}
+        />
+      );
+    }
     return (
       <div className="max-w-md mx-auto px-4 py-10">
         <Card>
@@ -352,6 +440,62 @@ export default function MercariCheckout() {
   const displayPriceJpy = quote?.priceJpy ?? item.price;
   const displayPriceRmb = quote?.amountRmb ?? item.price_rmb;
   const canSubmit = !!quote && !quoteError && !isSoldOut && !submitting;
+
+  if (isEn) {
+    // 设计 A 深色结算页：金额口径 / 增值勾选 / 提交回调全部沿用上方逻辑，只换视觉。
+    const selectedVaList = valueAdded.filter((va) => selectedValues[va.id]);
+    return (
+      <MercariCheckoutTcgView
+        texts={{
+          title: t("checkout.title"),
+          sectionShipping: t("checkout.sectionShipping"),
+          warehouseNotice: t("checkout.warehouseNotice"),
+          sectionItem: t("checkout.sectionItem"),
+          sectionValueAdded: t("checkout.sectionValueAdded"),
+          noValueAdded: t("checkout.noValueAdded"),
+          quoteFailed: t("checkout.quoteFailed"),
+          buyerMessage: t("checkout.buyerMessage"),
+          buyerMessagePlaceholder: t("checkout.buyerMessagePlaceholder"),
+          summary: t("checkout.summary"),
+          itemPrice: t("checkout.itemPrice"),
+          serviceFee: t("checkout.serviceFee"),
+          internationalShipping: t("checkout.internationalShipping"),
+          internationalShippingNote: t("checkout.internationalShippingNote"),
+          totalDue: t("checkout.totalDue"),
+          fullPaymentNote: t("checkout.fullPaymentNote"),
+          payNow: t("checkout.payNow"),
+          submitting: t("checkout.submitting"),
+          lockNote: t("checkout.lockNote"),
+          soldOut: t("checkout.soldOut"),
+          noImage: t("noImage"),
+          approx: t("approx"),
+          cny: t("cny"),
+        }}
+        item={{ goods_name: item.goods_name, imgurls: item.imgurls }}
+        quoteError={quoteError}
+        isSoldOut={isSoldOut}
+        valueAdded={valueAdded}
+        selectedValues={selectedValues}
+        onToggleValue={(id, checked) =>
+          setSelectedValues((prev) => ({ ...prev, [id]: checked }))
+        }
+        valueAddedLabel={(va) => {
+          const labelKey = VALUE_ADDED_LABEL_KEYS[va.id];
+          return labelKey ? t(`checkout.${labelKey}`) : va.name;
+        }}
+        buyerMessage={buyerMessage}
+        onBuyerMessageChange={setBuyerMessage}
+        displayPriceJpy={displayPriceJpy}
+        displayPriceRmb={displayPriceRmb}
+        feeJpy={quote?.feeJpy ?? 0}
+        selectedVaList={selectedVaList}
+        totalDue={totalDue}
+        canSubmit={canSubmit}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+      />
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">

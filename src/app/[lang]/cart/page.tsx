@@ -13,6 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import {
+  CartTcgView,
+  CartTcgEmpty,
+  CartTcgLoading,
+} from "@/components/cart/cart-tcg";
 
 interface CartItem {
   id: string;
@@ -86,6 +91,8 @@ export default function CartPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  // en 走设计方向 A 深色呈现，其它语言保持现有渲染。仅影响视觉，业务逻辑共用。
+  const isEn = lang === "en";
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   // Simple i18n mapping
@@ -271,6 +278,9 @@ export default function CartPage() {
   };
 
   if (authLoading || loading) {
+    if (isEn) {
+      return <CartTcgLoading title={tr("shoppingCart")} />;
+    }
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-8">{tr("shoppingCart")}</h1>
@@ -293,6 +303,16 @@ export default function CartPage() {
   }
 
   if (!cart || cart.items.length === 0) {
+    if (isEn) {
+      return (
+        <CartTcgEmpty
+          lang={lang}
+          title={tr("yourCartIsEmpty")}
+          subtitle={tr("startShopping")}
+          browse={tr("browseProducts")}
+        />
+      );
+    }
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">🛒</div>
@@ -302,6 +322,45 @@ export default function CartPage() {
           <Button>{tr("browseProducts")}</Button>
         </Link>
       </div>
+    );
+  }
+
+  if (isEn) {
+    // 设计 A 深色购物车：增删/留言/合计/去结算回调全部沿用上方逻辑，只换视觉。
+    return (
+      <CartTcgView
+        texts={{
+          shoppingCart: tr("shoppingCart"),
+          clearAll: tr("clearAll"),
+          orderSummary: tr("orderSummary"),
+          items: tr("items"),
+          subtotalJpy: tr("subtotalJpy"),
+          estimatedShipping: tr("estimatedShipping"),
+          total: tr("total"),
+          proceedToCheckout: tr("proceedToCheckout"),
+          shippingFinalized: tr("shippingFinalized"),
+          unknownSeller: tr("unknownSeller"),
+          noImage: tr("noImage"),
+          giftWrap: tr("giftWrap"),
+          messageForSeller: tr("messageForSeller"),
+          save: tr("save"),
+          remove: tr("remove"),
+          subtotal: tr("subtotal"),
+        }}
+        lang={lang}
+        groupedBySeller={cart.groupedBySeller}
+        summary={cart.summary}
+        messages={messages}
+        updating={updating}
+        onMessageChange={(itemId, value) =>
+          setMessages((prev) => ({ ...prev, [itemId]: value }))
+        }
+        onSaveMessage={handleSaveMessage}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onClearCart={handleClearCart}
+        onCheckout={() => router.push(`/${lang}/checkout`)}
+      />
     );
   }
 
