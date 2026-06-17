@@ -4,7 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { api, type MercariProxySubmitResult } from "@/lib/api";
+import { QRCodeSVG } from "qrcode.react";
+import {
+  api,
+  type MercariProxySubmitResult,
+  type MercariQuote,
+} from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,19 +23,19 @@ import { toast } from "sonner";
 interface MercariItem {
   goods_no: string;
   goods_name: string;
-  price: number; // JPY 整数
+  price: number; // JPY 整数（网页抓的展示价，非权威；金额一律以后端 quote 为准）
   price_rmb?: number;
   rate?: number;
   imgurls?: string[];
   status?: string;
 }
 
-// 增值服务选项（与小程序/详情页费用结构一致；具体费用以到仓实际为准）
-const VALUE_ADDED_OPTIONS = [
-  { key: "inspection", labelKey: "vaInspection" },
-  { key: "photo", labelKey: "vaPhoto" },
-  { key: "slimPack", labelKey: "vaSlimPack" },
-] as const;
+// 真实增值服务名称按 id 映射 i18n key（后端 quote.valueAdded[].name 兜底）：
+//   id=5 错发漏发检查服务 ¥100；id=6 入库前拍照服务 ¥100。
+const VALUE_ADDED_LABEL_KEYS: Record<number, string> = {
+  5: "vaMissingCheck",
+  6: "vaInboundPhoto",
+};
 
 // 金额一律 JPY 整数显示，不除以 100
 function formatJpy(amount: number): string {
@@ -40,6 +45,11 @@ function formatJpy(amount: number): string {
 // 人民币金额：保留旧端精度，沿用详情页 price_rmb 的展示（¥ 符号 + 两位小数）。
 function formatRmb(amount: number): string {
   return `¥${Number(amount).toFixed(2)}`;
+}
+
+// 二维码内容判定：只有真 http(s) URL 才允许跳转；NewAge 收银码是二维码内容（非网址），必须渲染成码。
+function isHttpUrl(value?: string | null): value is string {
+  return !!value && /^https?:\/\//i.test(value);
 }
 
 function pickAmountRmb(r: MercariProxySubmitResult): number | undefined {
@@ -68,12 +78,17 @@ export default function MercariCheckout() {
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [item, setItem] = useState<MercariItem | null>(null);
-  const [selectedValues, setSelectedValues] = useState<Record<string, boolean>>(
+  // 后端权威报价：商品价/手续费/增值服务列表均以此为准。
+  const [quote, setQuote] = useState<MercariQuote | null>(null);
+  // 勾选的增值服务，按数字 id 记录（如 {5:true,6:true}）。
+  const [selectedValues, setSelectedValues] = useState<Record<number, boolean>>(
     {},
   );
   const [buyerMessage, setBuyerMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // 报价单独失败时，仍可展示商品但禁止下单（金额不可信）。
+  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // 支付阶段状态
@@ -82,12 +97,16 @@ export default function MercariCheckout() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setQuoteError(null);
     try {
-      // 代购流程：下单不收地址，故只拉商品详情（地址在后续转运/出库单再填）。
-      const detailRes = await api.request(`/integrations/mercari/detail`, {
-        method: "POST",
-        body: { id: goodsNo },
-      });
+      // 代购流程：下单不收地址，故只拉商品详情（地址在后续转运/出库单再填）+ 后端权威报价。
+      const [detailRes, quoteRes] = await Promise.all([
+        api.request(`/integrations/mercari/detail`, {
+          method: "POST",
+          body: { id: goodsNo },
+        }),
+        api.getMercariQuote(goodsNo),
+      ]);
 
       if (detailRes.success && detailRes.data) {
         const data = detailRes.data as Record<string, unknown>;
@@ -95,6 +114,15 @@ export default function MercariCheckout() {
         setItem(d);
       } else {
         setLoadError(t("checkout.loadFailed"));
+      }
+
+      // 报价是金额唯一权威来源；失败则置 quoteError，下方禁用提交。
+      if (quoteRes.success && quoteRes.data) {
+        setQuote(quoteRes.data);
+      } else {
+        setQuoteError(
+          quoteRes.error?.message || t("checkout.quoteFailed"),
+        );
       }
     } catch (error) {
       console.error("Failed to load Mercari checkout:", error);
@@ -122,16 +150,23 @@ export default function MercariCheckout() {
   const isSoldOut =
     item?.status === "sold_out" || item?.status === "ITEM_STATUS_TRADING";
 
+  // 提交时把勾选的增值服务【数字 id】以逗号拼接（如 "5,6"），交后端。
   const serializeValues = (): string => {
-    const picked = VALUE_ADDED_OPTIONS.filter((o) => selectedValues[o.key]).map(
-      (o) => o.key,
-    );
-    return picked.join(",");
+    if (!quote) return "";
+    return quote.valueAdded
+      .filter((va) => selectedValues[va.id])
+      .map((va) => va.id)
+      .join(",");
   };
 
   const handleSubmit = async () => {
     if (!item || isSoldOut) {
       toast.error(t("checkout.soldOut"));
+      return;
+    }
+    if (!quote) {
+      // 没有权威报价绝不下单（金额不可信）。
+      toast.error(quoteError || t("checkout.quoteFailed"));
       return;
     }
 
@@ -149,17 +184,19 @@ export default function MercariCheckout() {
         const payUrl = pickPayUrl(result);
         const qrcodeUrl = pickQrcodeUrl(result);
 
-        // 兼容两种支付形态：有 payUrl 直接跳 NewAge 收银台；否则展示二维码面板。
-        if (payUrl) {
-          setPayment(result);
-          window.location.href = payUrl;
-          return;
-        }
+        // 支付凭证两种形态：
+        //  1) qrcodeUrl 是 NewAge 二维码【内容】（非网址）——渲染成二维码让用户扫码付。
+        //  2) payUrl 只有在是真 http(s) URL 时才跳转（NewAge 收银台网页）。
         if (qrcodeUrl) {
           setPayment(result);
           return;
         }
-        // 没有任何支付凭证：下单可能已建，但拿不到支付信息——引导去我的订单，不伪装成功。
+        if (isHttpUrl(payUrl)) {
+          setPayment(result);
+          window.location.href = payUrl;
+          return;
+        }
+        // 没有可用支付凭证：下单可能已建，引导去我的订单，不伪装成功。
         if (orderId) {
           toast.warning(t("checkout.paymentUnavailable"));
           router.push(`/${lang}/orders/${orderId}?poll=1`);
@@ -225,8 +262,9 @@ export default function MercariCheckout() {
     const orderId = pickOrderId(payment);
     const qrcodeUrl = pickQrcodeUrl(payment);
     const payUrl = pickPayUrl(payment);
-    const amount = payment.amount ?? item.price;
-    const amountRmb = pickAmountRmb(payment) ?? item.price_rmb;
+    // 金额以后端返回的权威 amount/amountRmb 为准。
+    const amount = payment.amount ?? quote?.estimatedAmountJpy ?? item.price;
+    const amountRmb = pickAmountRmb(payment) ?? quote?.priceRmb;
     return (
       <div className="max-w-md mx-auto px-4 py-10">
         <Card>
@@ -255,17 +293,23 @@ export default function MercariCheckout() {
             <Separator />
             {qrcodeUrl ? (
               <div className="flex flex-col items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={qrcodeUrl}
-                  alt={t("checkout.qrAlt")}
-                  className="w-56 h-56 object-contain border rounded-lg bg-white"
-                />
+                {/* NewAge 收银二维码内容（非网址），用 qrcode.react 编码成二维码图片展示，用户扫码付。 */}
+                <div className="border rounded-lg bg-white p-3">
+                  <QRCodeSVG
+                    value={qrcodeUrl}
+                    size={208}
+                    level="M"
+                    aria-label={t("checkout.qrAlt")}
+                  />
+                </div>
+                <p className="text-sm font-medium text-center">
+                  {t("checkout.scanToPayAlipay")}
+                </p>
                 <p className="text-xs text-muted-foreground text-center">
                   {t("checkout.scanToPay")}
                 </p>
               </div>
-            ) : payUrl ? (
+            ) : isHttpUrl(payUrl) ? (
               <Button
                 className="w-full"
                 onClick={() => {
@@ -297,11 +341,19 @@ export default function MercariCheckout() {
     );
   }
 
-  const selectedVaCount = VALUE_ADDED_OPTIONS.filter(
-    (o) => selectedValues[o.key],
-  ).length;
-  // 国际运费、增值服务费均为到仓后实际产生，下单时不计入应付；应付=商品价格（+后端按快照锁定的手续费，由后端 amount 为准）。
-  const totalDue = item.price;
+  // 金额一律以后端权威报价为准（priceJpy/shopFeeJpy/valueAdded）。
+  const valueAdded = quote?.valueAdded ?? [];
+  const selectedVaTotal = valueAdded
+    .filter((va) => selectedValues[va.id])
+    .reduce((sum, va) => sum + va.priceJpy, 0);
+  // 应付金额 = 商品价 + 手续费 + 勾选的增值服务之和（实时随勾选变化）。
+  const totalDue = quote
+    ? quote.priceJpy + quote.shopFeeJpy + selectedVaTotal
+    : 0;
+  // 展示用商品价/人民币价：有报价用报价，否则退回详情页（仅展示，禁止据此下单）。
+  const displayPriceJpy = quote?.priceJpy ?? item.price;
+  const displayPriceRmb = quote?.priceRmb ?? item.price_rmb;
+  const canSubmit = !!quote && !quoteError && !isSoldOut && !submitting;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -357,7 +409,7 @@ export default function MercariCheckout() {
                   </div>
                 </div>
                 <div className="text-sm font-medium whitespace-nowrap">
-                  {formatJpy(item.price)}
+                  {formatJpy(displayPriceJpy)}
                 </div>
               </div>
               {isSoldOut && (
@@ -368,7 +420,7 @@ export default function MercariCheckout() {
             </CardContent>
           </Card>
 
-          {/* 增值服务 */}
+          {/* 增值服务（真实选项，来自后端报价） */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
@@ -376,28 +428,43 @@ export default function MercariCheckout() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {VALUE_ADDED_OPTIONS.map((opt) => (
-                <label
-                  key={opt.key}
-                  className="flex items-center gap-3 text-sm cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={!!selectedValues[opt.key]}
-                    onChange={(e) =>
-                      setSelectedValues((prev) => ({
-                        ...prev,
-                        [opt.key]: e.target.checked,
-                      }))
-                    }
-                  />
-                  <span>{t(`checkout.${opt.labelKey}`)}</span>
-                </label>
-              ))}
-              <p className="text-xs text-muted-foreground">
-                {t("checkout.valueAddedNote")}
-              </p>
+              {valueAdded.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {quoteError
+                    ? t("checkout.quoteFailed")
+                    : t("checkout.noValueAdded")}
+                </p>
+              ) : (
+                valueAdded.map((va) => {
+                  const labelKey = VALUE_ADDED_LABEL_KEYS[va.id];
+                  // 优先用本地化文案；后端无对应 key 时退回 quote 返回的 name。
+                  const label = labelKey ? t(`checkout.${labelKey}`) : va.name;
+                  return (
+                    <label
+                      key={va.id}
+                      className="flex items-center justify-between gap-3 text-sm cursor-pointer"
+                    >
+                      <span className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={!!selectedValues[va.id]}
+                          onChange={(e) =>
+                            setSelectedValues((prev) => ({
+                              ...prev,
+                              [va.id]: e.target.checked,
+                            }))
+                          }
+                        />
+                        <span>{label}</span>
+                      </span>
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        {formatJpy(va.priceJpy)}
+                      </span>
+                    </label>
+                  );
+                })
+              )}
             </CardContent>
           </Card>
 
@@ -430,52 +497,71 @@ export default function MercariCheckout() {
               <CardTitle className="text-lg">{t("checkout.summary")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    {t("checkout.itemPrice")}
-                  </span>
-                  <span>{formatJpy(item.price)}</span>
+              {quoteError ? (
+                <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-600">
+                  {quoteError}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    {t("checkout.serviceFee")}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {t("serviceFeeValue")}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    {t("checkout.internationalShipping")}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {t("checkout.internationalShippingNote")}
-                  </span>
-                </div>
-                {selectedVaCount > 0 && (
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{t("checkout.sectionValueAdded")}</span>
-                    <span>x{selectedVaCount}</span>
+              ) : (
+                <>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {t("checkout.itemPrice")}
+                      </span>
+                      <span>{formatJpy(displayPriceJpy)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {t("checkout.serviceFee")}
+                      </span>
+                      <span>{formatJpy(quote?.shopFeeJpy ?? 0)}</span>
+                    </div>
+                    {valueAdded
+                      .filter((va) => selectedValues[va.id])
+                      .map((va) => {
+                        const labelKey = VALUE_ADDED_LABEL_KEYS[va.id];
+                        const label = labelKey
+                          ? t(`checkout.${labelKey}`)
+                          : va.name;
+                        return (
+                          <div
+                            key={va.id}
+                            className="flex justify-between text-muted-foreground"
+                          >
+                            <span className="truncate pr-2">{label}</span>
+                            <span className="whitespace-nowrap">
+                              {formatJpy(va.priceJpy)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {t("checkout.internationalShipping")}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {t("checkout.internationalShippingNote")}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <Separator />
+                  <Separator />
 
-              <div className="flex justify-between font-semibold text-base">
-                <span>{t("checkout.totalDue")}</span>
-                <span>{formatJpy(totalDue)}</span>
-              </div>
+                  <div className="flex justify-between font-semibold text-base">
+                    <span>{t("checkout.totalDue")}</span>
+                    <span>{formatJpy(totalDue)}</span>
+                  </div>
 
-              {item.price_rmb !== undefined && item.price_rmb !== null && (
-                <div className="flex justify-end text-xs text-muted-foreground -mt-1">
-                  <span>
-                    {t("approx")}
-                    {formatRmb(item.price_rmb)}
-                    {t("cny")}
-                  </span>
-                </div>
+                  {displayPriceRmb !== undefined && displayPriceRmb !== null && (
+                    <div className="flex justify-end text-xs text-muted-foreground -mt-1">
+                      <span>
+                        {t("approx")}
+                        {formatRmb(displayPriceRmb)}
+                        {t("cny")}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
 
               <p className="text-xs text-muted-foreground">
@@ -486,7 +572,7 @@ export default function MercariCheckout() {
                 className="w-full mt-2 bg-orange-500 hover:bg-orange-600"
                 size="lg"
                 onClick={handleSubmit}
-                disabled={submitting || isSoldOut}
+                disabled={!canSubmit}
               >
                 {submitting ? t("checkout.submitting") : t("checkout.payNow")}
               </Button>

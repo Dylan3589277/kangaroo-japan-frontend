@@ -49,6 +49,25 @@ export interface MercariProxySubmitResult {
   pay_out_trade_no?: string;
 }
 
+// Mercari 后端权威报价。前端不再瞎算价/手续费/增值费，一切以此为准。
+// 经 /api/backend 代理 → 后端 GET /api/v1/mercari/quote?goodsNo=...，JWT 自动带。
+// priceJpy 为旧系统权威价（JPY 整数，例 560，不是网页抓的 300）。
+// valueAdded 为真实增值服务列表，目前仅 id=5/6 两项，各 ¥100。
+// estimatedAmountJpy = priceJpy + shopFeeJpy（不含增值费，前端按勾选实时累加）。
+export interface MercariQuoteValueAdded {
+  id: number;
+  name: string;
+  priceJpy: number;
+}
+
+export interface MercariQuote {
+  priceJpy: number;
+  priceRmb?: number;
+  shopFeeJpy: number;
+  valueAdded: MercariQuoteValueAdded[];
+  estimatedAmountJpy: number;
+}
+
 interface SupportChatResponse {
   conversationId?: string;
   reply?: string;
@@ -1767,6 +1786,14 @@ class ApiClient {
     return this.request(`/orders/${id}/cancel`, {
       method: "PUT",
     });
+  }
+
+  // Mercari 后端权威报价。组件加载时调用，拿真实商品价/手续费/增值服务列表。
+  // 经 /api/backend 代理 → 后端 GET /api/v1/mercari/quote?goodsNo=...，JWT 自动带。
+  async getMercariQuote(goodsNo: string) {
+    return this.request<MercariQuote>(
+      `/mercari/quote?goodsNo=${encodeURIComponent(goodsNo)}`,
+    );
   }
 
   // Mercari 委托下单 + NewAge 在线全额支付（零押金）
