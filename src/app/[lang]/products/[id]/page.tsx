@@ -250,7 +250,13 @@ export default function ProductDetailPage() {
   const productImages = getProductImages(product);
   const priceDisplay = getPriceByCurrency(product.priceJpy, product.priceCny, product.priceUsd);
 
-  // JSON-LD Structured Data for SEO
+  // JSON-LD Structured Data for SEO —— 币种随站点：英文站面向海外用 USD，绝不对外暴露人民币。
+  const jsonLdOffer =
+    lang === "en"
+      ? { price: safeNumber(product.priceUsd).toFixed(2), priceCurrency: "USD" }
+      : lang === "ja"
+        ? { price: String(Math.round(safeNumber(product.priceJpy))), priceCurrency: "JPY" }
+        : { price: safeNumber(product.priceCny).toFixed(2), priceCurrency: "CNY" };
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -259,8 +265,8 @@ export default function ProductDetailPage() {
     image: productImages,
     offers: {
       "@type": "Offer",
-      price: safeNumber(product.priceCny).toFixed(2),
-      priceCurrency: "CNY",
+      price: jsonLdOffer.price,
+      priceCurrency: jsonLdOffer.priceCurrency,
       availability: product.inStock
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",

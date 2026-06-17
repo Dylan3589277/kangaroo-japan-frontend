@@ -275,15 +275,18 @@ export default function AmazonDetailPage() {
               </span>
               <span className="text-sm text-muted-foreground">{t("yen")}</span>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {t("approx")}¥{Number(detail.price_rmb).toFixed(2)}
-              {t("cny")}
-              {detail.rate && (
-                <span className="ml-2">
-                  ({t("rate")}: {detail.rate})
-                </span>
-              )}
-            </div>
+            {/* CNY 近似仅对非英文站展示；英文站面向海外，绝不显示人民币（只保留权威 JPY）。 */}
+            {lang !== "en" && (
+              <div className="text-sm text-muted-foreground">
+                {t("approx")}¥{Number(detail.price_rmb).toFixed(2)}
+                {t("cny")}
+                {detail.rate && (
+                  <span className="ml-2">
+                    ({t("rate")}: {detail.rate})
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Extra Info / Attributes */}

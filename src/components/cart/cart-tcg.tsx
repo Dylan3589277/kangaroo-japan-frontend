@@ -23,7 +23,7 @@ interface CartItemView {
   };
   quantity: number;
   unitPriceJpy: number;
-  subtotalCny: number;
+  subtotalJpy: number;
   options: Record<string, unknown>;
   buyerMessage?: string;
 }
@@ -37,9 +37,8 @@ interface SellerGroupView {
 interface CartSummaryView {
   totalItems: number;
   subtotalJpy: number;
-  subtotalCny: number;
-  estimatedShippingCny: number;
-  totalCny: number;
+  estimatedShippingJpy: number;
+  totalJpy: number;
 }
 
 export interface TcgCartTexts {
@@ -68,8 +67,10 @@ const PLATFORM_NAMES: Record<string, string> = {
   yahoo: "Yahoo",
 };
 
-function formatCny(amount: number): string {
-  return `¥${Number(amount).toFixed(2)}`;
+// 英文站面向海外，绝不显示人民币。后端购物车仅在 subtotal 级别返回 USD，
+// 单品/运费/合计无 USD，故 en 站统一显示权威 JPY（金额一律 JPY 整数）。
+function formatJpy(amount: number): string {
+  return `JPY ${Math.round(amount).toLocaleString("en-US")}`;
 }
 
 export function CartTcgView({
@@ -248,11 +249,8 @@ export function CartTcgView({
                             {texts.remove}
                           </button>
                           <div className="text-sm">
-                            <span className="mr-2 text-slate-500 line-through">
-                              ¥{item.unitPriceJpy.toLocaleString("en-US")}
-                            </span>
                             <span className="font-semibold text-cyan-300">
-                              {formatCny(item.subtotalCny)}
+                              {formatJpy(item.subtotalJpy)}
                             </span>
                           </div>
                         </div>
@@ -285,13 +283,7 @@ export function CartTcgView({
                     {texts.items} ({summary.totalItems})
                   </span>
                   <span className="text-slate-200">
-                    {formatCny(summary.subtotalCny)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">{texts.subtotalJpy}</span>
-                  <span className="text-slate-200">
-                    ¥{Math.round(summary.subtotalJpy).toLocaleString("en-US")}
+                    {formatJpy(summary.subtotalJpy)}
                   </span>
                 </div>
                 <div className="border-t border-white/10" />
@@ -300,7 +292,7 @@ export function CartTcgView({
                     {texts.estimatedShipping}
                   </span>
                   <span className="text-slate-200">
-                    {formatCny(summary.estimatedShippingCny)}
+                    {formatJpy(summary.estimatedShippingJpy)}
                   </span>
                 </div>
                 <div className="border-t border-white/10" />
@@ -309,7 +301,7 @@ export function CartTcgView({
                     {texts.total}
                   </span>
                   <span className="font-[family-name:var(--font-display)] text-lg font-bold text-cyan-300">
-                    {formatCny(summary.totalCny)}
+                    {formatJpy(summary.totalJpy)}
                   </span>
                 </div>
               </div>

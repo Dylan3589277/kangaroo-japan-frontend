@@ -205,7 +205,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("profile.currency")}</span>
-                  <span className="font-medium">{user?.preferredCurrency || "CNY"}</span>
+                  <span className="font-medium">{user?.preferredCurrency || (lang === "en" ? "USD" : "CNY")}</span>
                 </div>
               </div>
               <Separator className="my-4" />

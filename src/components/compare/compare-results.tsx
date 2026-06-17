@@ -109,6 +109,7 @@ export function CompareResults({
                   <CompareCard
                     key={`${item.platform}-${item.id}`}
                     item={item}
+                    locale={locale}
                     numberFormatter={numberFormatter}
                     isCheapest={
                       cheapestPlatform === result.platform &&
@@ -129,11 +130,13 @@ export function CompareResults({
 
 function CompareCard({
   item,
+  locale,
   numberFormatter,
   isCheapest,
   t,
 }: {
   item: CompareItem;
+  locale: string;
   numberFormatter: Intl.NumberFormat;
   isCheapest: boolean;
   t: ReturnType<typeof useTranslations>;
@@ -175,7 +178,8 @@ function CompareCard({
               ? t("priceUnavailable")
               : `JPY ${numberFormatter.format(item.priceJpy)}`}
           </span>
-          {item.priceCny !== undefined && (
+          {/* CNY 近似仅非英文站展示；英文站面向海外只显权威 JPY，绝不显人民币。 */}
+          {locale !== "en" && item.priceCny !== undefined && (
             <span className="text-[11px] text-muted-foreground">
               {t("approxCny", {
                 amount: numberFormatter.format(Math.round(item.priceCny)),

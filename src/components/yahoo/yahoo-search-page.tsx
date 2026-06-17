@@ -420,15 +420,17 @@ export function YahooSearchPage({
                                 ? t("priceUnavailable")
                                 : `JPY ${numberFormatter.format(item.currentPrice)}`}
                             </span>
-                            {item.priceCnyApprox !== undefined && (
-                              <span className="text-[11px] text-muted-foreground">
-                                {t("approxCny", {
-                                  amount: numberFormatter.format(
-                                    item.priceCnyApprox,
-                                  ),
-                                })}
-                              </span>
-                            )}
+                            {/* CNY 近似仅非英文站展示；英文站面向海外只显权威 JPY，绝不显人民币。 */}
+                            {locale !== "en" &&
+                              item.priceCnyApprox !== undefined && (
+                                <span className="text-[11px] text-muted-foreground">
+                                  {t("approxCny", {
+                                    amount: numberFormatter.format(
+                                      item.priceCnyApprox,
+                                    ),
+                                  })}
+                                </span>
+                              )}
                           </p>
                           {/* 一口价（直接购买）—— 无则显示「仅竞拍」 */}
                           <p className="mt-0.5 text-[11px]">

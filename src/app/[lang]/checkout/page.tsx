@@ -108,12 +108,16 @@ function CartCheckoutPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  // 英文站面向海外，绝不显示人民币：默认美元，币种选择器也剔除 CNY。
+  const isEn = lang === "en";
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [cart, setCart] = useState<CartData | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
-  const [selectedCurrency, setSelectedCurrency] = useState<string>("CNY");
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(
+    isEn ? "USD" : "CNY",
+  );
   const [buyerMessage, setBuyerMessage] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [loading, setLoading] = useState(true);
@@ -362,12 +366,10 @@ function CartCheckoutPage() {
                       </div>
                     </div>
                     <div className="text-sm font-medium">
-                      {formatCurrency(
-                        selectedCurrency === "JPY"
-                          ? item.subtotalJpy
-                          : item.subtotalCny,
-                        selectedCurrency,
-                      )}
+                      {/* 单品无 USD 字段：选 USD 时退回权威 JPY，绝不把人民币数值贴上 $ 误导英文用户。 */}
+                      {selectedCurrency === "CNY"
+                        ? formatCurrency(item.subtotalCny, "CNY")
+                        : formatCurrency(item.subtotalJpy, "JPY")}
                     </div>
                   </div>
                 ))}
@@ -418,7 +420,7 @@ function CartCheckoutPage() {
             <CardContent className="space-y-3">
               {/* Currency Selection */}
               <div className="flex gap-2">
-                {["CNY", "USD", "JPY"].map((cur) => (
+                {(isEn ? ["USD", "JPY"] : ["CNY", "USD", "JPY"]).map((cur) => (
                   <Button
                     key={cur}
                     variant={selectedCurrency === cur ? "default" : "outline"}

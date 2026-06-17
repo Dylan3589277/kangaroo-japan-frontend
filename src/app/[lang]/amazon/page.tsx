@@ -480,7 +480,8 @@ export default function AmazonPage() {
                         <span className="text-lg font-bold text-orange-500">
                           ¥{Number(item.price).toLocaleString()}
                         </span>
-                        {item.price_rmb && (
+                        {/* CNY 近似仅非英文站展示；英文站面向海外只显权威 JPY，绝不显人民币。 */}
+                        {lang !== "en" && item.price_rmb && (
                           <span className="text-xs text-muted-foreground">
                             ≈¥{Number(item.price_rmb).toFixed(2)}
                           </span>
