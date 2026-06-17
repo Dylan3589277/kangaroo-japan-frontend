@@ -8,20 +8,28 @@ import { spaceGrotesk } from "@/app/fonts";
  * 仅由 [lang]/layout.tsx 在 locale === "en" 时渲染。配色与 TcgHeader / 英文页面
  * 对齐（石墨近黑底 + 电光青 + Space Grotesk 展示字体）。英文内容、纯文字品牌。
  *
- * 链接尽量指向已存在的英文页；尚未建好的 How it works 与 buyer protection 暂指
- * /how-it-works（后续建页），与 TcgHeader 的导航保持一致。
+ * 所有链接指向已存在的英文路由：FAQ→/faq、Buyer protection→/buyer-protection、
+ * About→/about、Shipping→/buyer-protection（含合箱/包装/运输段）、Fees→/fees。
+ * Cards 列指向 TCG 品类落地页 /pokemon-cards、/yugioh-cards（由另一分身建好）。
  */
 
 const SUPPORT_LINKS = [
   { key: "contact", href: "/contact" },
-  { key: "faq", href: "/help" },
-  { key: "buyerProtection", href: "/how-it-works" },
+  { key: "faq", href: "/faq" },
+  { key: "buyerProtection", href: "/buyer-protection" },
 ] as const;
 
 const COMPANY_LINKS = [
   { key: "fees", href: "/fees" },
-  { key: "shipping", href: "/fees" },
-  { key: "about", href: "/contact" },
+  { key: "shipping", href: "/buyer-protection" },
+  { key: "about", href: "/about" },
+] as const;
+
+// TCG 品类落地页（由另一分身建好的路由），底部新增一列避免死链。
+const CARDS_LINKS = [
+  { key: "pokemon", href: "/pokemon-cards" },
+  { key: "yugioh", href: "/yugioh-cards" },
+  { key: "howItWorks", href: "/how-it-works" },
 ] as const;
 
 export function TcgFooter() {
@@ -33,7 +41,7 @@ export function TcgFooter() {
       className={`${spaceGrotesk.variable} border-t border-white/[0.08] bg-[#080b12] text-slate-300`}
     >
       <div className="mx-auto max-w-6xl px-4 py-14">
-        <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr]">
+        <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           {/* 品牌 + 简介 */}
           <div className="max-w-sm">
             <span className="font-[family-name:var(--font-display)] text-lg font-bold tracking-tight text-white">
@@ -57,6 +65,25 @@ export function TcgFooter() {
                     className="text-sm text-slate-400 transition-colors hover:text-cyan-300"
                   >
                     {t(`footer.columns.support.${item.key}`)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Cards 列（TCG 品类落地页） */}
+          <div>
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {t("footer.columns.cards.title")}
+            </h2>
+            <ul className="mt-4 space-y-3">
+              {CARDS_LINKS.map((item) => (
+                <li key={item.key}>
+                  <Link
+                    href={item.href}
+                    className="text-sm text-slate-400 transition-colors hover:text-cyan-300"
+                  >
+                    {t(`footer.columns.cards.${item.key}`)}
                   </Link>
                 </li>
               ))}

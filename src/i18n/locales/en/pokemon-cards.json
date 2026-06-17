@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "title": "Buy Japanese Pokémon Cards from Japan | Kangaroo Japan Proxy",
+    "description": "Buy Japanese Pokémon cards directly from Japan. Search Mercari Japan and Yahoo! Auctions listings, get seller notes translated, request photo inspection, and consolidate shipping. Estimated fees, no over-declaration. Built for U.S. collectors and resellers."
+  },
+  "hero": {
+    "eyebrow": "Pokémon Japan proxy buying",
+    "title": "Buy Japanese Pokémon cards from Japan",
+    "subtitle": "Search Japan-only Pokémon listings on Mercari Japan and Yahoo! Auctions, understand the seller's Japanese condition notes, and have us buy, inspect, and ship to you. Built for U.S. collectors and resellers.",
+    "ctaSearch": "Search Pokémon cards",
+    "ctaFees": "See estimated fees",
+    "trust": {
+      "shipsTo": "Ships worldwide from Japan",
+      "marketplaces": "Mercari Japan & Yahoo! Auctions",
+      "inspection": "Optional photo inspection"
+    }
+  },
+  "value": {
+    "title": "Why buy Pokémon cards through us",
+    "subtitle": "We are not a generic forwarder. We focus on Japanese trading cards so you can find source-of-origin Pokémon listings, understand them, and bring them home with less risk.",
+    "points": {
+      "source": {
+        "title": "Source-of-origin listings",
+        "body": "Reach Japan-only Pokémon listings — Japanese-language Mercari Japan and Yahoo! Auctions cards that rarely surface on U.S. marketplaces, often before they get marked up overseas."
+      },
+      "translate": {
+        "title": "Condition notes, translated",
+        "body": "Japanese sellers describe cards with terms like 美品, 傷あり, 白かけ, 未開封 or シュリンク付き. We help you read the condition so you know what you're bidding on before you commit."
+      },
+      "inspect": {
+        "title": "Inspect before it ships",
+        "body": "Request photos of corners, edges, surface and back before international shipping — recommended for graded, sealed, and high-value chase cards. Estimated add-on, priced per order."
+      }
+    }
+  },
+  "popular": {
+    "title": "Popular Pokémon sets & cards",
+    "subtitle": "Tap a set or card to see real, in-stock Japanese listings right now. Each link searches the Japanese keyword that surfaces the most genuine cards.",
+    "note": "English names are shown for reference; we search the Japanese keyword used by sellers."
+  },
+  "live": {
+    "title": "Pokémon cards in stock now",
+    "subtitle": "Live Japanese listings pulled from Mercari Japan. Prices are the seller's listed amount in JPY and change as items sell.",
+    "viewAll": "View all results",
+    "note": "Live listings from Japanese sellers. Availability and prices change constantly; the price shown is the seller's listed item price only and does not include proxy, shipping, payment, or customs costs."
+  },
+  "how": {
+    "title": "How it works",
+    "steps": {
+      "search": {
+        "title": "Search",
+        "body": "Find the Japanese Pokémon card or set you want from live Mercari Japan and Yahoo! Auctions listings."
+      },
+      "request": {
+        "title": "Request",
+        "body": "Place a buy or bid request. We purchase on your behalf and communicate with the Japanese seller."
+      },
+      "inspect": {
+        "title": "Inspect",
+        "body": "Optionally request photos of the card's condition before it leaves our Japan warehouse."
+      },
+      "ship": {
+        "title": "Ship",
+        "body": "Consolidate multiple cards into one parcel and ship worldwide with your chosen carrier."
+      }
+    }
+  },
+  "protection": {
+    "title": "Buyer protection",
+    "subtitle": "Trading cards are sensitive to condition and authenticity. We make the risky parts visible instead of hiding them.",
+    "points": {
+      "inspection": {
+        "title": "Photo inspection",
+        "body": "Front, back, corners, edges and surface photos on request before international shipping — especially for high-value or sealed Pokémon products."
+      },
+      "translation": {
+        "title": "Seller-note translation",
+        "body": "We translate Japanese condition and disclosure notes so you understand defects, play wear, or reseal risk before buying."
+      },
+      "consolidation": {
+        "title": "Consolidation & safe packing",
+        "body": "Combine small card orders into one parcel and pack with sleeves and rigid protection to reduce damage and shipping waste."
+      },
+      "customs": {
+        "title": "Honest declarations",
+        "body": "We declare the actual transaction value and do not under-declare. We provide HS code guidance for trading cards to help your parcel clear customs."
+      }
+    },
+    "feesLink": "See the full estimated fee breakdown"
+  },
+  "detail": {
+    "title": "About Japanese Pokémon cards",
+    "body1": "Japanese Pokémon cards are produced by The Pokémon Company and often release sets, promos, and special rarities (such as SAR, SSR, and Character Rare cards) that differ from the English-language line. Sets like Pokémon 151, Shiny Treasure ex, and Eevee Heroes, along with chase cards like Charizard, Iono (Nanjamo) SAR, and Pikachu promos, are widely traded on Japanese marketplaces.",
+    "body2": "Buyers value Japanese cards for their print quality, exclusive artwork, and source pricing before overseas markups. Because grading and authenticity matter, we recommend reading the seller's condition notes and requesting photo inspection for any high-value or sealed item. Kangaroo Japan is an independent proxy buying service and is not affiliated with, endorsed by, or sponsored by The Pokémon Company."
+  },
+  "customs": {
+    "title": "U.S. customs & taxes",
+    "body": "Importing trading cards into the United States is not automatically duty-free. We provide HS code guidance for trading cards, but U.S. customs duties and taxes are ultimately determined by U.S. Customs and Border Protection (CBP) and the carrier. Any duties, taxes, or brokerage fees are the buyer's responsibility and are not included in our estimates."
+  },
+  "cta": {
+    "title": "Ready to find your Japanese Pokémon cards?",
+    "body": "Search live Japanese listings now, or review our estimated fees first. Your exact total is always shown at checkout.",
+    "primary": "Search Pokémon cards",
+    "secondary": "See estimated fees"
+  }
+}

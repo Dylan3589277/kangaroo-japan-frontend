@@ -171,7 +171,12 @@
       "searchCards": "Search cards",
       "howItWorks": "How it works",
       "fees": "Fees",
+      "cards": "Cards",
       "marketplaces": "Marketplaces"
+    },
+    "cards": {
+      "pokemon": "Pokémon cards",
+      "yugioh": "Yu-Gi-Oh cards"
     },
     "marketplaces": {
       "mercari": "Mercari",
@@ -193,6 +198,12 @@
         "contact": "Contact support",
         "faq": "FAQ",
         "buyerProtection": "Buyer protection"
+      },
+      "cards": {
+        "title": "Cards",
+        "pokemon": "Pokémon cards",
+        "yugioh": "Yu-Gi-Oh cards",
+        "howItWorks": "How it works"
       },
       "company": {
         "title": "Company",

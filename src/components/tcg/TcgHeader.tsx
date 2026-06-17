@@ -27,6 +27,12 @@ const NAV_LINKS = [
   { key: "fees", href: "/fees" },
 ] as const;
 
+// TCG 品类落地页（由另一分身建好的 /pokemon-cards、/yugioh-cards 路由）。
+const CARD_CATEGORIES = [
+  { key: "pokemon", href: "/pokemon-cards" },
+  { key: "yugioh", href: "/yugioh-cards" },
+] as const;
+
 // 仅在售平台（与 home/tcg/Marketplaces.tsx 的 live 列表保持一致）。
 const MARKETPLACES = [
   { key: "mercari", href: "/mercari" },
@@ -42,6 +48,10 @@ export function TcgHeader() {
   const [marketsOpen, setMarketsOpen] = useState(false);
   const marketsRef = useRef<HTMLDivElement>(null);
   const marketsMenuId = useId();
+
+  const [cardsOpen, setCardsOpen] = useState(false);
+  const cardsRef = useRef<HTMLDivElement>(null);
+  const cardsMenuId = useId();
 
   useEffect(() => {
     if (!marketsOpen) return;
@@ -60,6 +70,24 @@ export function TcgHeader() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [marketsOpen]);
+
+  useEffect(() => {
+    if (!cardsOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (cardsRef.current && !cardsRef.current.contains(event.target as Node)) {
+        setCardsOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCardsOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [cardsOpen]);
 
   // admin / warehouse 走自身布局，不渲染买家头部。
   const isInternal = INTERNAL_PREFIXES.some(
@@ -103,6 +131,48 @@ export function TcgHeader() {
               {t(`nav.${item.key}`)}
             </Link>
           ))}
+
+          {/* Cards 下拉（TCG 品类落地页） */}
+          <div
+            ref={cardsRef}
+            className="relative"
+            onMouseEnter={() => setCardsOpen(true)}
+            onMouseLeave={() => setCardsOpen(false)}
+          >
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={cardsOpen}
+              aria-controls={cardsMenuId}
+              onClick={() => setCardsOpen((open) => !open)}
+              className="flex items-center gap-1 whitespace-nowrap text-sm font-medium text-slate-300 transition-colors hover:text-cyan-300"
+            >
+              {t("nav.cards")}
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${cardsOpen ? "rotate-180" : ""}`}
+                aria-hidden="true"
+              />
+            </button>
+            <ul
+              id={cardsMenuId}
+              role="menu"
+              aria-label={t("nav.cards")}
+              className={`absolute left-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-white/10 bg-[#0d1320] py-1.5 shadow-2xl shadow-black/50 ${cardsOpen ? "block" : "hidden"}`}
+            >
+              {CARD_CATEGORIES.map((c) => (
+                <li key={c.key} role="none">
+                  <Link
+                    href={c.href}
+                    role="menuitem"
+                    onClick={() => setCardsOpen(false)}
+                    className="block px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
+                  >
+                    {t(`cards.${c.key}`)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
           {/* Marketplaces 下拉（仅在售平台） */}
           <div
@@ -184,6 +254,19 @@ export function TcgHeader() {
                     className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
                   >
                     {t(`nav.${item.key}`)}
+                  </Link>
+                ))}
+
+                <div className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  {t("nav.cards")}
+                </div>
+                {CARD_CATEGORIES.map((c) => (
+                  <Link
+                    key={c.key}
+                    href={c.href}
+                    className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
+                  >
+                    {t(`cards.${c.key}`)}
                   </Link>
                 ))}
 

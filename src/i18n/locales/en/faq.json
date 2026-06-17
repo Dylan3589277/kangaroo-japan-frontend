@@ -1,0 +1,127 @@
+{
+  "meta": {
+    "title": "FAQ — Buying Japanese TCG with Kangaroo Japan",
+    "description": "Answers for U.S. TCG buyers: how proxy ordering works, fees and shipping, U.S. customs after the 2025 de minimis change, Japanese card-condition terms, graded and sealed cards, and returns."
+  },
+  "hero": {
+    "eyebrow": "FAQ",
+    "title": "Questions, answered honestly",
+    "subtitle": "How proxy buying works, what it costs, how shipping and U.S. customs work, plus the TCG-specific details collectors and resellers ask about most.",
+    "primaryCta": "Search cards",
+    "secondaryCta": "Contact support"
+  },
+  "groups": {
+    "ordering": {
+      "title": "Ordering & proxy buying",
+      "items": {
+        "whatIsProxy": {
+          "q": "What is proxy buying?",
+          "a": "You tell us which Japanese card you want; we buy or bid on it locally in Japan on your behalf, receive it at our warehouse, then forward it to you in the U.S. It's how you reach sellers and marketplaces that don't ship internationally."
+        },
+        "marketplaces": {
+          "q": "Which marketplaces can I buy from?",
+          "a": "Mercari Japan, Yahoo Auctions and Amazon Japan are live today. You can also paste a listing link from a supported marketplace, and we're adding more sources over time."
+        },
+        "manualEntry": {
+          "q": "Why does my listing need manual entry?",
+          "a": "Some listings (certain Mercari Shops, Amazon or special links) can't be fetched automatically. Send the full product URL, quantity and variant — not just a screenshot or item ID — and once we confirm availability we'll create the order for you to pay."
+        },
+        "orderStatus": {
+          "q": "Did my order go through?",
+          "a": "If it shows Pending or Awaiting warehouse, the purchase, seller shipment or warehouse intake may still be in progress. Share your order number and a human agent can check it for you."
+        }
+      }
+    },
+    "fees": {
+      "title": "Fees & payment",
+      "items": {
+        "whatFees": {
+          "q": "What fees are there?",
+          "a": "Typically: the item price, Japan domestic shipping, our proxy service fee, optional photo inspection, consolidation, international shipping, payment processing, and any U.S. customs duty or tax. Every figure is an estimate shown before you order; see the Fees page for the full breakdown."
+        },
+        "intlShipping": {
+          "q": "How is international shipping calculated?",
+          "a": "By the actual weight, package dimensions, destination and the carrier you choose after the item arrives at our warehouse. Packing adds box and filler, so final weight can exceed the card's own weight. It's an estimate until checkout."
+        },
+        "estimates": {
+          "q": "Are the prices final?",
+          "a": "No. All fee figures on the site are estimates to help you plan. Your exact, itemized total is always shown before you pay at checkout."
+        }
+      }
+    },
+    "shipping": {
+      "title": "Shipping & consolidation",
+      "items": {
+        "consolidation": {
+          "q": "Can you consolidate multiple orders?",
+          "a": "Yes. Items already in our Japan warehouse can usually be combined into one shipment when you submit shipping. Whether not-yet-arrived items make the same batch depends on seller shipping and intake timing."
+        },
+        "protection": {
+          "q": "How do you protect cards from bending or corner damage?",
+          "a": "Cards ship in TCG-safe packaging — sleeve, toploader and rigid mailer, or a reinforced box for slabs. You can add reinforcement at shipping. We pack to TCG standards but can't guarantee zero transit damage."
+        },
+        "shippingTime": {
+          "q": "Which carriers and how long to the U.S.?",
+          "a": "Shipping time depends on the method you choose and customs processing, so we can't commit to an exact delivery date. Consolidating orders into one parcel is the most cost-effective option."
+        }
+      }
+    },
+    "customs": {
+      "title": "U.S. customs & taxes",
+      "items": {
+        "willIPay": {
+          "q": "Will I pay U.S. customs duty?",
+          "a": "Possibly. As of 2025 the U.S. removed the $800 de minimis exemption for all countries, so any import — regardless of value — can be assessed duty or tax by U.S. Customs and Border Protection (CBP). From 2026, postal parcels are taxed by HTS classification. We can't predict or guarantee the amount; HS code guidance helps, but CBP and the carrier make the final call, and any duties are the buyer's responsibility."
+        },
+        "underDeclare": {
+          "q": "Can you under-declare the value to avoid duty?",
+          "a": "No. We declare the actual item type and value honestly. Under-declaring is illegal, and it would also cap any insurance compensation to the declared amount."
+        }
+      }
+    },
+    "tcg": {
+      "title": "TCG specifics",
+      "items": {
+        "conditionTerms": {
+          "q": "What do the Japanese condition terms mean?",
+          "a": "Common terms: 美品 (bihin) = excellent / near-mint; 傷あり (kizu ari) = has scratches or damage; 未開封 (mikaifu) = sealed / unopened. We translate the seller's condition notes, but secondhand grading is the seller's subjective claim — final condition follows the photos, and disputes go to a human agent."
+        },
+        "graded": {
+          "q": "Are PSA / BGS graded cards genuine, and will the slab survive shipping?",
+          "a": "We buy the exact graded card as listed; the grade is the grading company's call, not ours. For slabs we recommend reinforced, consolidated packaging to reduce transit damage. We can't guarantee a slab won't crack in transit, but we pack to minimize risk. We are not a grading-submission service."
+        },
+        "sealed": {
+          "q": "Is there a risk of resealed booster boxes?",
+          "a": "Yes — sealed products carry a known secondhand risk of resealing or being weighed and searched. We can request extra photos of the shrink-wrap, seams and weight and prioritize sellers with strong reputations, but we can't certify a sealed box is factory-original. For high-value sealed purchases we'll flag the risk before buying. Tip: search Japanese terms like シュリンク付き (shrink-wrapped) and 未開封 (unopened)."
+        },
+        "highValue": {
+          "q": "Can you inspect a high-value card before it ships?",
+          "a": "Yes. For high-value cards we recommend paid photo inspection on arrival (front, back, corners). If you want condition confirmed before international shipping, request inspection on the order. Photos can't capture every possible flaw, so we don't promise they reveal everything."
+        }
+      }
+    },
+    "afterSales": {
+      "title": "Returns & support",
+      "items": {
+        "soldOut": {
+          "q": "What if the item sells out or the purchase fails?",
+          "a": "TCG listings sell fast, so an item may already be sold when we try to buy it. If a purchase fails we refund per policy; refund progress and amount are handled by a human agent."
+        },
+        "refunds": {
+          "q": "How do refunds, cancellations and address changes work?",
+          "a": "For your order and fund safety, our AI doesn't process refunds, cancellations, address changes or payment issues directly. We connect you to a human agent to verify and handle these."
+        },
+        "dispute": {
+          "q": "What if the card's condition is wrong on arrival?",
+          "a": "Secondhand condition follows the seller's photos and description. If there's an obvious problem on arrival, a human agent will review it against the order, the listing and our warehouse photos."
+        }
+      }
+    }
+  },
+  "cta": {
+    "title": "Still have a question?",
+    "body": "Our support team can help with anything not covered here, including order-specific questions.",
+    "primary": "Contact support",
+    "secondary": "Search cards"
+  }
+}

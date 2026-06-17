@@ -23,6 +23,12 @@ const namespaces = [
   "fees",
   "contact",
   "photo-inspection",
+  "pokemon-cards",
+  "yugioh-cards",
+  "how-it-works",
+  "buyer-protection",
+  "faq",
+  "about",
 ] as const;
 
 const MESSAGE_LOCALES = ["zh", "en", "ko", "th", "id", "vi", "ja"] as const;

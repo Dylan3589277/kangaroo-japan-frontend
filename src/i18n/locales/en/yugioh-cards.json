@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "title": "Buy Japanese Yu-Gi-Oh (OCG) Cards from Japan | Kangaroo Japan Proxy",
+    "description": "Buy Japanese Yu-Gi-Oh OCG cards directly from Japan. Search Mercari Japan and Yahoo! Auctions listings, get seller notes translated, request photo inspection, and consolidate shipping. Estimated fees, no over-declaration. Built for U.S. collectors and resellers."
+  },
+  "hero": {
+    "eyebrow": "Yu-Gi-Oh OCG Japan proxy buying",
+    "title": "Buy Japanese Yu-Gi-Oh (OCG) cards from Japan",
+    "subtitle": "Search Japan-only Yu-Gi-Oh OCG listings on Mercari Japan and Yahoo! Auctions, understand the seller's Japanese condition notes, and have us buy, inspect, and ship to you. Built for U.S. collectors and resellers.",
+    "ctaSearch": "Search Yu-Gi-Oh cards",
+    "ctaFees": "See estimated fees",
+    "trust": {
+      "shipsTo": "Ships worldwide from Japan",
+      "marketplaces": "Mercari Japan & Yahoo! Auctions",
+      "inspection": "Optional photo inspection"
+    }
+  },
+  "value": {
+    "title": "Why buy Yu-Gi-Oh OCG cards through us",
+    "subtitle": "We are not a generic forwarder. We focus on Japanese trading cards so you can find source-of-origin OCG listings, understand them, and bring them home with less risk.",
+    "points": {
+      "source": {
+        "title": "Source-of-origin OCG listings",
+        "body": "Reach Japan-only Yu-Gi-Oh OCG listings — Japanese-language Mercari Japan and Yahoo! Auctions cards, including 25th Anniversary rarities, that rarely surface on U.S. marketplaces before overseas markups."
+      },
+      "translate": {
+        "title": "Condition notes, translated",
+        "body": "Japanese sellers describe cards with terms like 美品, 傷あり, 白かけ, 初期傷 or プレイ用. We help you read the condition and rarity so you know what you're bidding on before you commit."
+      },
+      "inspect": {
+        "title": "Inspect before it ships",
+        "body": "Request photos of corners, edges, surface and back before international shipping — recommended for graded and high-value chase cards. Estimated add-on, priced per order."
+      }
+    }
+  },
+  "popular": {
+    "title": "Popular Yu-Gi-Oh OCG cards",
+    "subtitle": "Tap a card to see real, in-stock Japanese listings right now. Each link searches the Japanese keyword that surfaces the most genuine cards.",
+    "note": "English names are shown for reference; we search the Japanese keyword used by sellers."
+  },
+  "live": {
+    "title": "Yu-Gi-Oh cards in stock now",
+    "subtitle": "Live Japanese listings pulled from Mercari Japan. Prices are the seller's listed amount in JPY and change as items sell.",
+    "viewAll": "View all results",
+    "note": "Live listings from Japanese sellers. Availability and prices change constantly; the price shown is the seller's listed item price only and does not include proxy, shipping, payment, or customs costs."
+  },
+  "how": {
+    "title": "How it works",
+    "steps": {
+      "search": {
+        "title": "Search",
+        "body": "Find the Japanese Yu-Gi-Oh OCG card you want from live Mercari Japan and Yahoo! Auctions listings."
+      },
+      "request": {
+        "title": "Request",
+        "body": "Place a buy or bid request. We purchase on your behalf and communicate with the Japanese seller."
+      },
+      "inspect": {
+        "title": "Inspect",
+        "body": "Optionally request photos of the card's condition before it leaves our Japan warehouse."
+      },
+      "ship": {
+        "title": "Ship",
+        "body": "Consolidate multiple cards into one parcel and ship worldwide with your chosen carrier."
+      }
+    }
+  },
+  "protection": {
+    "title": "Buyer protection",
+    "subtitle": "Trading cards are sensitive to condition and authenticity. We make the risky parts visible instead of hiding them.",
+    "points": {
+      "inspection": {
+        "title": "Photo inspection",
+        "body": "Front, back, corners, edges and surface photos on request before international shipping — especially for high-value OCG chase cards."
+      },
+      "translation": {
+        "title": "Seller-note translation",
+        "body": "We translate Japanese condition and disclosure notes so you understand defects, play wear, or early-print damage before buying."
+      },
+      "consolidation": {
+        "title": "Consolidation & safe packing",
+        "body": "Combine small card orders into one parcel and pack with sleeves and rigid protection to reduce damage and shipping waste."
+      },
+      "customs": {
+        "title": "Honest declarations",
+        "body": "We declare the actual transaction value and do not under-declare. We provide HS code guidance for trading cards to help your parcel clear customs."
+      }
+    },
+    "feesLink": "See the full estimated fee breakdown"
+  },
+  "detail": {
+    "title": "About Japanese Yu-Gi-Oh OCG cards",
+    "body1": "Yu-Gi-Oh has two distinct card games: the OCG (Official Card Game), printed in Japanese for the Japanese and Asian markets, and the TCG, printed in English and other languages for the West. OCG cards use different card numbers (e.g. JP set codes), can have different rarities and artwork, and follow a separate banlist and release schedule from the TCG.",
+    "body2": "Collectors and players buy OCG cards for exclusive prints, alternate art, and source pricing — including 25th Anniversary (クォーターセンチュリーシークレット) rarities and classic cards like Blue-Eyes White Dragon, Dark Magician, Red-Eyes Black Dragon, and modern staples like Ash Blossom. Because rarity and authenticity matter, we recommend reading the seller's condition notes and requesting photo inspection for high-value items. Kangaroo Japan is an independent proxy buying service and is not affiliated with, endorsed by, or sponsored by Konami."
+  },
+  "customs": {
+    "title": "U.S. customs & taxes",
+    "body": "Importing trading cards into the United States is not automatically duty-free. We provide HS code guidance for trading cards, but U.S. customs duties and taxes are ultimately determined by U.S. Customs and Border Protection (CBP) and the carrier. Any duties, taxes, or brokerage fees are the buyer's responsibility and are not included in our estimates."
+  },
+  "cta": {
+    "title": "Ready to find your Japanese Yu-Gi-Oh OCG cards?",
+    "body": "Search live Japanese listings now, or review our estimated fees first. Your exact total is always shown at checkout.",
+    "primary": "Search Yu-Gi-Oh cards",
+    "secondary": "See estimated fees"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "title": "Buyer Protection for Japanese TCG",
+    "description": "How Kangaroo Japan protects U.S. TCG buyers: seller-risk screening, photo inspection before shipping, TCG-safe packaging, consolidated shipping, transparent estimated fees, and tracked, insurable delivery."
+  },
+  "hero": {
+    "eyebrow": "Buyer protection",
+    "title": "Safeguards built for card collectors",
+    "subtitle": "Buying secondhand cards from Japan carries real risks. These are the checks and habits we use to reduce them — explained honestly, with no false promises.",
+    "primaryCta": "Search cards",
+    "secondaryCta": "How it works"
+  },
+  "safeguards": {
+    "title": "What we do to protect your order",
+    "subtitle": "Practical safeguards at each stage, from purchase to delivery.",
+    "items": {
+      "sellerRisk": {
+        "title": "Seller-risk screening",
+        "body": "Before higher-value orders we review the seller's rating count, positive percentage, negative reviews and listing details. A strong reputation lowers risk but never removes it — secondhand condition still follows the seller's photos and description."
+      },
+      "photoInspection": {
+        "title": "Photo inspection before shipping",
+        "body": "On request we photograph your actual card — front, back, corners and surface — before anything leaves our Japan warehouse, so you can review condition before international shipping. Recommended for graded, sealed and high-value cards."
+      },
+      "packaging": {
+        "title": "TCG-safe packaging",
+        "body": "Cards ship in sleeves, toploaders and rigid mailers; graded slabs get reinforced packing. We pack to TCG standards to protect corners and edges, though no packaging can guarantee zero transit damage."
+      },
+      "consolidation": {
+        "title": "Consolidated shipping",
+        "body": "Buy from several sellers or marketplaces and we receive everything at our Japan warehouse, then combine it into one parcel to the U.S. — fewer packages, less postage, lower handling risk."
+      },
+      "transparentFees": {
+        "title": "Transparent estimated fees",
+        "body": "Service fee, domestic and international shipping are shown as estimates before you order, and your exact itemized total is confirmed at checkout. See the Fees page for the full breakdown."
+      },
+      "tracking": {
+        "title": "Tracking & insurance options",
+        "body": "Shipments go out with tracking, and insurable shipping methods are available at checkout. Insurance compensation is capped at the declared value, which we always declare honestly."
+      }
+    }
+  },
+  "honest": {
+    "title": "What we won't promise",
+    "subtitle": "TCG buyers deserve straight talk. Beware of any proxy that guarantees these things.",
+    "items": {
+      "authenticity": {
+        "title": "We don't certify authenticity or grade",
+        "body": "We buy the exact item as listed. A card's grade is the grading company's call, and authenticity ultimately depends on the seller and grader — not us. We are not a grading or authentication service."
+      },
+      "sealed": {
+        "title": "We can't certify a sealed box is factory-original",
+        "body": "Sealed products carry a known secondhand risk of resealing or being weighed and searched. We can request extra photos of shrink-wrap, seams and weight and prioritize reputable sellers, but we can't guarantee a box is untouched."
+      },
+      "noTax": {
+        "title": "We don't promise no customs or lowest price",
+        "body": "We never promise a tax-free import or the lowest price anywhere, and we don't under-declare value. For high-value cards we'll flag the risks before buying so you can decide."
+      }
+    }
+  },
+  "cta": {
+    "title": "Buy with fewer surprises",
+    "body": "Start with seller-screened listings and request photo inspection on the cards that matter most.",
+    "primary": "Search cards",
+    "secondary": "Read the FAQ"
+  }
+}

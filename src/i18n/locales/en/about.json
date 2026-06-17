@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "title": "About Kangaroo Japan — Japanese TCG Proxy",
+    "description": "Kangaroo Japan is a proxy buying service built for U.S. TCG collectors and resellers. We source Japanese Pokémon and Yu-Gi-Oh cards from Mercari, Yahoo Auctions and Amazon Japan, then inspect, consolidate and ship to the United States."
+  },
+  "hero": {
+    "eyebrow": "About us",
+    "title": "Built for U.S. TCG collectors & resellers",
+    "subtitle": "We're a Japan-based proxy buying service focused on one thing: getting Japanese trading cards into the hands of U.S. collectors and resellers, with less risk and a clearer total cost.",
+    "primaryCta": "Search cards",
+    "secondaryCta": "How it works"
+  },
+  "story": {
+    "title": "Why we exist",
+    "body1": "Some of the best Pokémon and Yu-Gi-Oh cards — Japanese singles, sealed booster boxes, promos and graded slabs — live on Japanese marketplaces like Mercari, Yahoo Auctions and Amazon Japan. Most of those sellers don't ship to the United States, and the listings, condition notes and seller communication are all in Japanese.",
+    "body2": "We bridge that gap. Our team buys and bids locally in Japan, translates condition notes into clear English, can take inspection photos before anything ships, and consolidates orders into one TCG-safe parcel to the U.S. — so you can source from Japan without the language barrier or the guesswork."
+  },
+  "values": {
+    "title": "What we stand for",
+    "items": {
+      "sourcing": {
+        "title": "Real Japan sourcing",
+        "body": "On-the-ground buying from Mercari, Yahoo Auctions, Amazon Japan and more — including sellers who never ship abroad."
+      },
+      "transparency": {
+        "title": "Honest, estimated costs",
+        "body": "We show estimated fees up front and confirm the exact total at checkout. We never promise tax-free imports or under-declare value."
+      },
+      "protection": {
+        "title": "Collector-grade care",
+        "body": "Seller-risk screening, optional photo inspection and TCG-safe packaging so your corners and edges arrive the way you expect."
+      },
+      "focus": {
+        "title": "Made for the hobby",
+        "body": "We speak TCG — condition terms, grading, sealed-box risk and high-value handling — because we're built for collectors and resellers, not generic shopping."
+      }
+    }
+  },
+  "cta": {
+    "title": "Start sourcing from Japan",
+    "body": "Browse live Japanese listings and let us handle the buying, inspection and shipping to your U.S. address.",
+    "primary": "Search cards",
+    "secondary": "See fees"
+  }
+}

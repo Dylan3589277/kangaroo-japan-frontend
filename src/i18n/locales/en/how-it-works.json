@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "title": "How It Works — Japanese TCG Proxy Buying",
+    "description": "How Kangaroo Japan proxy buying works for U.S. collectors and resellers: search Japanese listings, we buy in Japan, inspect and consolidate, then ship to the U.S. with tracking."
+  },
+  "hero": {
+    "eyebrow": "How it works",
+    "title": "From a Japanese listing to your door",
+    "subtitle": "We're your buying agent in Japan. Find the card, we purchase it locally, inspect and consolidate it, then ship it to the United States. Here's the full flow.",
+    "primaryCta": "Search cards",
+    "secondaryCta": "See estimated fees"
+  },
+  "steps": {
+    "title": "Four steps to your cards",
+    "subtitle": "Simple from start to finish. You stay in control at every stage.",
+    "items": {
+      "search": {
+        "step": "Step 1",
+        "title": "Search cards",
+        "body": "Search live Pokémon and Yu-Gi-Oh listings across Mercari, Yahoo Auctions and Amazon Japan, or paste a listing link for any card you want — including sellers who don't ship internationally."
+      },
+      "buy": {
+        "step": "Step 2",
+        "title": "We buy in Japan",
+        "body": "Our team in Japan places the order or bids on your behalf, communicates with the seller, and receives the item at our warehouse. You pay an estimated total up front; auctions are won at your set limit."
+      },
+      "inspect": {
+        "step": "Step 3",
+        "title": "Inspect & consolidate",
+        "body": "We log each item, translate the seller's Japanese condition notes into English, and can take inspection photos on request. Buy from several sellers and we consolidate everything into one parcel."
+      },
+      "ship": {
+        "step": "Step 4",
+        "title": "Ship to the U.S.",
+        "body": "Your consolidated, TCG-safe package ships to your U.S. address with tracking. International shipping is priced by actual weight and the method you choose at checkout."
+      }
+    }
+  },
+  "details": {
+    "title": "Good to know",
+    "items": {
+      "estimates": {
+        "title": "Fees are estimated until checkout",
+        "body": "Item price, Japan domestic shipping, our service fee and international postage are shown as estimates. Your exact, itemized total is always confirmed at checkout."
+      },
+      "manual": {
+        "title": "Some listings need manual entry",
+        "body": "A few sources can't be fetched automatically. Send the full listing link, quantity and variant, and once we confirm availability we'll create the order for you to pay."
+      },
+      "customs": {
+        "title": "U.S. customs may apply",
+        "body": "As of 2025 the U.S. removed the $800 de minimis exemption, so any import can be assessed duty or tax by U.S. Customs. We declare the actual value honestly and never under-declare."
+      }
+    }
+  },
+  "cta": {
+    "title": "Ready to pull from Japan?",
+    "body": "Search live listings across Japanese marketplaces and let us handle the buying, inspection and shipping.",
+    "primary": "Search cards",
+    "secondary": "See fees"
+  }
+}
