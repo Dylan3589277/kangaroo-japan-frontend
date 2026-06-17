@@ -263,8 +263,8 @@ export default function MercariCheckout() {
     const qrcodeUrl = pickQrcodeUrl(payment);
     const payUrl = pickPayUrl(payment);
     // 金额以后端返回的权威 amount/amountRmb 为准。
-    const amount = payment.amount ?? quote?.estimatedAmountJpy ?? item.price;
-    const amountRmb = pickAmountRmb(payment) ?? quote?.priceRmb;
+    const amount = payment.amount ?? quote?.amountJpy ?? item.price;
+    const amountRmb = pickAmountRmb(payment) ?? quote?.amountRmb;
     return (
       <div className="max-w-md mx-auto px-4 py-10">
         <Card>
@@ -341,18 +341,16 @@ export default function MercariCheckout() {
     );
   }
 
-  // 金额一律以后端权威报价为准（priceJpy/shopFeeJpy/valueAdded）。
+  // 金额一律以后端权威报价为准（priceJpy/feeJpy/amountJpy/valueAdded，手续费动态）。
   const valueAdded = quote?.valueAdded ?? [];
   const selectedVaTotal = valueAdded
     .filter((va) => selectedValues[va.id])
     .reduce((sum, va) => sum + va.priceJpy, 0);
-  // 应付金额 = 商品价 + 手续费 + 勾选的增值服务之和（实时随勾选变化）。
-  const totalDue = quote
-    ? quote.priceJpy + quote.shopFeeJpy + selectedVaTotal
-    : 0;
+  // 应付金额 = 后端权威应付(amountJpy=商品价+动态手续费) + 勾选的增值服务之和。
+  const totalDue = quote ? quote.amountJpy + selectedVaTotal : 0;
   // 展示用商品价/人民币价：有报价用报价，否则退回详情页（仅展示，禁止据此下单）。
   const displayPriceJpy = quote?.priceJpy ?? item.price;
-  const displayPriceRmb = quote?.priceRmb ?? item.price_rmb;
+  const displayPriceRmb = quote?.amountRmb ?? item.price_rmb;
   const canSubmit = !!quote && !quoteError && !isSoldOut && !submitting;
 
   return (
@@ -514,7 +512,7 @@ export default function MercariCheckout() {
                       <span className="text-muted-foreground">
                         {t("checkout.serviceFee")}
                       </span>
-                      <span>{formatJpy(quote?.shopFeeJpy ?? 0)}</span>
+                      <span>{formatJpy(quote?.feeJpy ?? 0)}</span>
                     </div>
                     {valueAdded
                       .filter((va) => selectedValues[va.id])

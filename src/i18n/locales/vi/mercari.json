@@ -41,7 +41,7 @@
   "domesticShipping": "Phí vận chuyển nội địa",
   "zeroYen": "0 JPY",
   "serviceFee": "Phí dịch vụ",
-  "serviceFeeValue": "200 JPY (~11 CNY)",
+  "serviceFeeAtCheckout": "Tính khi thanh toán",
   "internationalShipping": "Phí vận chuyển quốc tế",
   "internationalShippingDesc": "Cân sau khi về kho Nhật",
   "copied": "Đã sao chép!",

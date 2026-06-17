@@ -41,7 +41,7 @@
   "domesticShipping": "ค่าจัดส่งในญี่ปุ่น",
   "zeroYen": "0 JPY",
   "serviceFee": "ค่าบริการ",
-  "serviceFeeValue": "200 JPY (~11 CNY)",
+  "serviceFeeAtCheckout": "คำนวณตอนชำระเงิน",
   "internationalShipping": "ค่าจัดส่งระหว่างประเทศ",
   "internationalShippingDesc": "ชั่งน้ำหนักเมื่อถึงคลังสินค้าญี่ปุ่น",
   "copied": "คัดลอกแล้ว!",

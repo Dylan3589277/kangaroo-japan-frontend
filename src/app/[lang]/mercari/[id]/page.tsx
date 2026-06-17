@@ -47,6 +47,9 @@ export default function MercariDetailPage() {
 
   const [detail, setDetail] = useState<MercariDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  // 动态手续费（来自后端 quote → 旧 proxyconfirm，随后台/会员等级实时变）。
+  // 未登录/报价失败时为 null：只展示商品价 + 「手续费结算时计算」，绝不显示写死的固定值。
+  const [feeJpy, setFeeJpy] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [tabIndex, setTabIndex] = useState<1 | 2>(1);
   const [copied, setCopied] = useState(false);
@@ -56,7 +59,23 @@ export default function MercariDetailPage() {
 
   useEffect(() => {
     fetchDetail();
+    fetchFee();
   }, [id]);
+
+  // 拉动态手续费（需登录态 JWT）：成功则展示真实 feeJpy；未登录/失败保持 null，
+  // 页面退化为「手续费结算时计算」——绝不显示写死的固定手续费值。
+  const fetchFee = async () => {
+    try {
+      const res = await api.getMercariQuote(id);
+      if (res.success && res.data && typeof res.data.feeJpy === "number") {
+        setFeeJpy(res.data.feeJpy);
+      } else {
+        setFeeJpy(null);
+      }
+    } catch {
+      setFeeJpy(null);
+    }
+  };
 
   const fetchDetail = async () => {
     setLoading(true);
@@ -341,7 +360,9 @@ export default function MercariDetailPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('serviceFee')}</span>
                 <span className="font-medium text-orange-500">
-                  {t('serviceFeeValue')}
+                  {feeJpy !== null
+                    ? `¥${feeJpy.toLocaleString()}`
+                    : t('serviceFeeAtCheckout')}
                 </span>
               </div>
               <div className="flex justify-between">

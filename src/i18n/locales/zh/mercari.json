@@ -41,7 +41,7 @@
   "domesticShipping": "日本国内运费",
   "zeroYen": "0日元",
   "serviceFee": "手续费",
-  "serviceFeeValue": "200日元(约11元人民币)",
+  "serviceFeeAtCheckout": "结算时计算",
   "internationalShipping": "国际运费",
   "internationalShippingDesc": "到达日本仓库后称重收取",
   "copied": "已复制",
