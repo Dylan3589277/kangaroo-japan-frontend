@@ -5,9 +5,12 @@ import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/lib/auth";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Menu, Search, X } from "lucide-react";
 import { SITE_MENU } from "./siteMenu";
+
+// 移出后延迟收起的毫秒数：给鼠标从触发器斜向移到菜单项留出余量（hover 意图）。
+const HOVER_CLOSE_DELAY = 240;
 
 interface HeaderProps {
   showSearch?: boolean;
@@ -25,6 +28,41 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
   const [sitesOpen, setSitesOpen] = useState(false);
   const sitesRef = useRef<HTMLDivElement>(null);
   const sitesMenuId = useId();
+  // hover 离开后延迟收起的计时器句柄；只在事件处理器里读写（不在 render 读 ref.current）。
+  const sitesCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSitesCloseTimer = useCallback(() => {
+    if (sitesCloseTimer.current !== null) {
+      clearTimeout(sitesCloseTimer.current);
+      sitesCloseTimer.current = null;
+    }
+  }, []);
+
+  // hover 进入立即展开；进入时清掉待关闭计时器，避免刚移到菜单又被关掉。
+  const openSitesNow = useCallback(() => {
+    clearSitesCloseTimer();
+    setSitesOpen(true);
+  }, [clearSitesCloseTimer]);
+
+  // 选完菜单项 / Esc / 点外部：立即收起。
+  const closeSitesNow = useCallback(() => {
+    clearSitesCloseTimer();
+    setSitesOpen(false);
+  }, [clearSitesCloseTimer]);
+
+  // hover 离开后 ~240ms 才收起，给鼠标移到菜单项留余量；配合触发器与菜单间的 pt-2 桥接。
+  const scheduleSitesClose = useCallback(() => {
+    clearSitesCloseTimer();
+    sitesCloseTimer.current = setTimeout(() => {
+      sitesCloseTimer.current = null;
+      setSitesOpen(false);
+    }, HOVER_CLOSE_DELAY);
+  }, [clearSitesCloseTimer]);
+
+  const toggleSites = useCallback(() => {
+    clearSitesCloseTimer();
+    setSitesOpen((open) => !open);
+  }, [clearSitesCloseTimer]);
 
   useEffect(() => {
     if (!sitesOpen) return;
@@ -43,6 +81,9 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [sitesOpen]);
+
+  // 卸载时清掉计时器，避免泄漏。
+  useEffect(() => clearSitesCloseTimer, [clearSitesCloseTimer]);
 
   const navItems = [
     { key: "home", href: "/", label: t("nav.home") },
@@ -100,15 +141,15 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
             <div
               ref={sitesRef}
               className="relative"
-              onMouseEnter={() => setSitesOpen(true)}
-              onMouseLeave={() => setSitesOpen(false)}
+              onMouseEnter={openSitesNow}
+              onMouseLeave={scheduleSitesClose}
             >
               <button
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={sitesOpen}
                 aria-controls={sitesMenuId}
-                onClick={() => setSitesOpen((open) => !open)}
+                onClick={toggleSites}
                 className="flex items-center gap-1 whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
               >
                 {t("nav.sites")}
@@ -117,38 +158,43 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
                   aria-hidden="true"
                 />
               </button>
-              <ul
-                id={sitesMenuId}
-                role="menu"
-                aria-label={t("nav.sites")}
-                className={`absolute left-0 top-full z-50 mt-2 w-56 rounded-lg border bg-white py-1.5 shadow-xl ${sitesOpen ? "block" : "hidden"}`}
+              {/* pt-2 桥接触发器与菜单之间的空隙，移动鼠标不会触发 onMouseLeave */}
+              <div
+                className={`absolute left-0 top-full z-50 pt-2 ${sitesOpen ? "block" : "hidden"}`}
               >
-                {SITE_MENU.map((site) => (
-                  <li key={site.key} role="none">
-                    {site.href ? (
-                      <Link
-                        href={site.href}
-                        role="menuitem"
-                        onClick={() => setSitesOpen(false)}
-                        className="block px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                      >
-                        {t(`siteMenu.${site.key}`)}
-                      </Link>
-                    ) : (
-                      <span
-                        role="menuitem"
-                        aria-disabled="true"
-                        className="flex cursor-not-allowed items-center justify-between gap-2 px-4 py-2 text-sm font-medium text-zinc-400"
-                      >
-                        {t(`siteMenu.${site.key}`)}
-                        <span className="text-[10px] font-normal text-zinc-400">
-                          {t("siteMenu.comingSoon")}
+                <ul
+                  id={sitesMenuId}
+                  role="menu"
+                  aria-label={t("nav.sites")}
+                  className="w-56 rounded-lg border bg-white py-1.5 shadow-xl"
+                >
+                  {SITE_MENU.map((site) => (
+                    <li key={site.key} role="none">
+                      {site.href ? (
+                        <Link
+                          href={site.href}
+                          role="menuitem"
+                          onClick={closeSitesNow}
+                          className="block px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                        >
+                          {t(`siteMenu.${site.key}`)}
+                        </Link>
+                      ) : (
+                        <span
+                          role="menuitem"
+                          aria-disabled="true"
+                          className="flex cursor-not-allowed items-center justify-between gap-2 px-4 py-2 text-sm font-medium text-zinc-400"
+                        >
+                          {t(`siteMenu.${site.key}`)}
+                          <span className="text-[10px] font-normal text-zinc-400">
+                            {t("siteMenu.comingSoon")}
+                          </span>
                         </span>
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             {navItems
