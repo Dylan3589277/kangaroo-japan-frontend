@@ -63,5 +63,15 @@
   "shoppingNote1": "该商品下单后无法取消和退换货，介意勿拍。",
   "shoppingNote2": "如商品存在未标明的瑕疵，请在收到商品后24小时内联系客服处理。",
   "back": "返回",
-  "selectAll": "全选"
+  "selectAll": "全选",
+  "zoom": {
+    "open": "放大查看",
+    "close": "关闭",
+    "prev": "上一张",
+    "next": "下一张",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "reset": "复位",
+    "hint": "滚轮或双击放大 · 拖拽平移 · 左右键切换 · Esc 关闭"
+  }
 }

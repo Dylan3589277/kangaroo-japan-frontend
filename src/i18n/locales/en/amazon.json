@@ -63,5 +63,15 @@
   "shoppingNote1": "This item cannot be cancelled or returned after ordering. Please consider carefully before purchasing.",
   "shoppingNote2": "If there are undisclosed defects, please contact customer service within 24 hours of receipt.",
   "back": "Back",
-  "selectAll": "All"
+  "selectAll": "All",
+  "zoom": {
+    "open": "Zoom",
+    "close": "Close",
+    "prev": "Previous image",
+    "next": "Next image",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "reset": "Reset",
+    "hint": "Scroll or double-click to zoom · drag to pan · arrow keys to switch · Esc to close"
+  }
 }

@@ -250,7 +250,11 @@ export function TcgChatWidget() {
                   <p
                     className={`text-[10px] font-semibold uppercase tracking-wider ${skin.cardPlatform}`}
                   >
-                    {product.platform === "mercari" ? "Mercari" : "Yahoo Auctions"}
+                    {product.platform === "mercari"
+                      ? "Mercari"
+                      : product.platform === "amazon"
+                        ? "Amazon"
+                        : "Yahoo Auctions"}
                   </p>
                   <p
                     className={`line-clamp-2 text-xs font-medium leading-snug ${skin.cardTitle}`}

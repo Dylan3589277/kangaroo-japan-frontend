@@ -12,6 +12,8 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChatLauncher } from "@/components/tcg/ChatProvider";
+import { ImageLightbox } from "@/components/tcg/ImageLightbox";
+import { TcgInfoBar } from "@/components/tcg/TcgInfoBar";
 
 interface MercariDetail {
   goods_no: string;
@@ -63,6 +65,7 @@ export function MercariDetailClassic() {
   // 未登录/报价失败时为 null：退化为「登录后查看」，绝不用单品价×固定汇率算出误导值。
   const [amountRmb, setAmountRmb] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isCollected, setIsCollected] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
@@ -233,16 +236,30 @@ export function MercariDetailClassic() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         {/* Image Gallery */}
         <div>
-          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden mb-4">
+          <div className="group relative aspect-square bg-muted rounded-lg overflow-hidden mb-4">
             {images.length > 0 ? (
-              <Image
-                src={images[selectedImage] || images[0]}
-                alt={detail.goods_name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-                priority
-              />
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                aria-label={t('designA.zoom.open')}
+                className="absolute inset-0 cursor-zoom-in"
+              >
+                <Image
+                  src={images[selectedImage] || images[0]}
+                  alt={detail.goods_name}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  priority
+                />
+                <span className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white backdrop-blur transition-opacity group-hover:bg-black/70">
+                  <svg className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <circle cx="11" cy="11" r="7" strokeWidth={1.6} />
+                    <path strokeLinecap="round" strokeWidth={1.6} d="m21 21-4.3-4.3M11 8v6M8 11h6" />
+                  </svg>
+                  {t('designA.zoom.open')}
+                </span>
+              </button>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                 {t('noImage')}
@@ -414,6 +431,17 @@ export function MercariDetailClassic() {
             </div>
           </Card>
 
+          {/* TCG 信息栏（解析卡况/套系/稀有度 + PriceCharting 外链），浅色风。
+              复用与 en Design-A 同一个 TcgInfoBar 组件，传 variant="light"；
+              卡牌类才有内容、非卡牌自然返回 null。 */}
+          <TcgInfoBar
+            name={detail.goods_name}
+            description={detail.content || detail.description || ""}
+            extras={detail.extras}
+            searchName={detail.goods_name}
+            variant="light"
+          />
+
           {/* 次要操作：复制链接 / 收藏 / 咨询客服（带商品卡，去重底栏大客服按钮） */}
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <Button
@@ -528,6 +556,27 @@ export function MercariDetailClassic() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 图片放大查看（纯前端 lightbox，复用 en Design-A 同一个组件，全屏深色遮罩与皮肤无关）。 */}
+      {images.length > 0 && (
+        <ImageLightbox
+          images={images}
+          index={selectedImage}
+          alt={detail.goods_name}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onIndexChange={setSelectedImage}
+          labels={{
+            close: t('designA.zoom.close'),
+            prev: t('designA.zoom.prev'),
+            next: t('designA.zoom.next'),
+            zoomIn: t('designA.zoom.zoomIn'),
+            zoomOut: t('designA.zoom.zoomOut'),
+            reset: t('designA.zoom.reset'),
+            hint: t('designA.zoom.hint'),
+          }}
+        />
+      )}
 
       {/* 底部吸底操作条 — 仅移动端（md 以下）。桌面端用右栏内联主按钮，不显这条。
           结构与 Yahoo 详情统一：购物车图标 + 两个主按钮（仅主按钮文案不同）。

@@ -30,7 +30,7 @@ export interface ChatProduct {
   /** 商品价（日元整数；数据库值即日元，不除以 100）。缺失时不显价。 */
   priceJpy?: number;
   /** 平台标识，用于商品卡角标与 CTA 文案。 */
-  platform: "mercari" | "yahoo";
+  platform: "mercari" | "yahoo" | "amazon";
   /** 点击商品卡跳转的「现有」结算/下单或联系客服路由（含 /[lang] 前缀）。 */
   href: string;
 }

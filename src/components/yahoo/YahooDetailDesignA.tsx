@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 import { spaceGrotesk } from "@/app/fonts";
 import {
   CameraIcon,
@@ -34,15 +36,21 @@ type YahooDetailDesignAProps = {
  */
 export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps) {
   const t = useTranslations("yahoo");
+  const router = useRouter();
   const { openWithProduct } = useChatLauncher();
+  const { isAuthenticated } = useAuthStore();
   const [detail, setDetail] = useState<YahooDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [imageBroken, setImageBroken] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isCollected, setIsCollected] = useState(false);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const [bidOpen, setBidOpen] = useState(false);
+  // 复制链接「已复制」提示的复位定时器，卸载时清掉避免 setState after unmount。
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -59,6 +67,7 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
         }
         const normalized = normalizeYahooDetail(response.data, goodsNo);
         setDetail(normalized);
+        setIsCollected(normalized?.collect ?? false);
         setError(!normalized);
       })
       .catch(() => {
@@ -72,6 +81,43 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
       active = false;
     };
   }, [goodsNo, locale]);
+
+  // 卸载时清掉「已复制」复位定时器。
+  useEffect(() => {
+    return () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    };
+  }, []);
+
+  // 复制 Yahoo 拍卖原始链接（与站内既有口径一致）。
+  const copyLink = () => {
+    const url = `https://auctions.yahoo.co.jp/jp/auction/${goodsNo}`;
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // 收藏：复用通用 /users/docollect（shop=yahoo），与 Amazon 详情同一后端端点。
+  // 未登录先跳登录。后端 fail 时不翻转本地态。
+  const toggleCollect = async () => {
+    if (!isAuthenticated) {
+      router.push(`/${locale}/login`);
+      return;
+    }
+    try {
+      const res = await api.request("/users/docollect", {
+        method: "POST",
+        body: { goods_no: goodsNo, shop: "yahoo" },
+      });
+      if (res.success) {
+        setIsCollected((prev) => !prev);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     if (!detail?.endTimestamp) return;
@@ -495,6 +541,56 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
                   </svg>
                 </Link>
 
+                {/* 次要操作：复制链接 / 收藏。与 Mercari 设计 A 详情统一，收藏复用 /users/docollect。 */}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={copyLink}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200 transition-colors hover:border-white/25"
+                  >
+                    <svg
+                      className="size-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.6}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                    {copied ? t("copied") : t("copyLink")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleCollect}
+                    className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-sm transition-colors ${
+                      isCollected
+                        ? "border-rose-400/40 bg-rose-500/10 text-rose-300"
+                        : "border-white/10 bg-white/[0.04] text-slate-200 hover:border-white/25"
+                    }`}
+                  >
+                    <svg
+                      className="size-4"
+                      fill={isCollected ? "currentColor" : "none"}
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.6}
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                    {isCollected ? t("favorited") : t("favorite")}
+                  </button>
+                </div>
+
                 {/* 主操作（桌面端内联）：在线出价 / 联系客服代拍。移动端隐藏，改用底部吸底条。
                     结构与 Mercari 详情统一：两个主按钮等宽并排（仅主按钮文案/动作不同）。
                     「联系客服代拍」调用 openWithProduct 带当前商品卡 → 右下全站浮窗（客服去重）。 */}
@@ -563,12 +659,16 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
           <button
             type="button"
-            aria-disabled="true"
-            className="inline-flex size-12 shrink-0 cursor-default flex-col items-center justify-center gap-0.5 rounded-xl border border-white/10 text-[10px] text-slate-500"
+            onClick={toggleCollect}
+            className={`inline-flex size-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border text-[10px] transition-colors ${
+              isCollected
+                ? "border-rose-400/40 text-rose-300"
+                : "border-white/10 text-slate-500 hover:border-white/25"
+            }`}
           >
             <svg
               className="size-5"
-              fill="none"
+              fill={isCollected ? "currentColor" : "none"}
               stroke="currentColor"
               viewBox="0 0 24 24"
               aria-hidden
@@ -580,7 +680,7 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
                 d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
               />
             </svg>
-            <span>{t("favorite")}</span>
+            <span>{isCollected ? t("favorited") : t("favorite")}</span>
           </button>
           <button
             type="button"

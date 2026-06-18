@@ -67,6 +67,8 @@ export type YahooDetail = {
   domesticShipping?: string;
   priceCnyApprox?: number;
   exchangeRate?: number;
+  // 是否已收藏（后端 /yahoo/goods 透传，登录态才有意义）。缺省视为未收藏。
+  collect?: boolean;
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -363,7 +365,13 @@ function normalizeCategory(
   parentLabel?: string,
 ): YahooCategory[] {
   const record = asRecord(value);
+  // 旧 ycats 返回 { id, name, icon, data }，其中 data 才是雅虎竞拍真正用来筛选的
+  // auccat 分类号（后端 /yahoo/goods 的 cat 参数会原样转给旧 search 的 auccat）。
+  // 必须优先取 data/auccat，绝不能用 id（那是旧库自增主键，传给雅虎匹配不到任何商品，
+  // 表现为「点了类目没反应」）。其余键仅为兼容兜底。
   const categoryValue = firstString(record, [
+    "data",
+    "auccat",
     "categoryId",
     "category_id",
     "catId",
@@ -541,5 +549,8 @@ export function normalizeYahooDetail(
       "price_cny_approx",
     ]),
     exchangeRate: firstNumber(record, ["exchangeRate", "exchange_rate", "rate"]),
+    collect:
+      firstBoolean([record], ["collect", "is_collect", "isCollect", "collected"]) ??
+      undefined,
   };
 }

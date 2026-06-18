@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Clock3, Heart } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatLauncher } from "@/components/tcg/ChatProvider";
+import { ImageLightbox } from "@/components/tcg/ImageLightbox";
+import { TcgInfoBarClassic } from "@/components/tcg/TcgInfoBarClassic";
 import { normalizeYahooDetail, type YahooDetail } from "./yahoo-data";
 import { YahooBidModal } from "./YahooBidModal";
 import { YahooRelated } from "./yahoo-related";
@@ -26,14 +30,21 @@ export function YahooDetailPage({
   locale,
 }: YahooDetailPageProps) {
   const t = useTranslations("yahoo");
+  const router = useRouter();
   const { openWithProduct } = useChatLauncher();
+  const { isAuthenticated } = useAuthStore();
   const [detail, setDetail] = useState<YahooDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [imageBroken, setImageBroken] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isCollected, setIsCollected] = useState(false);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const [bidOpen, setBidOpen] = useState(false);
+  // 复制链接「已复制」提示的复位定时器，卸载时清掉避免 setState after unmount。
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +61,7 @@ export function YahooDetailPage({
         }
         const normalized = normalizeYahooDetail(response.data, goodsNo);
         setDetail(normalized);
+        setIsCollected(normalized?.collect ?? false);
         setError(!normalized);
       })
       .catch(() => {
@@ -63,6 +75,43 @@ export function YahooDetailPage({
       active = false;
     };
   }, [goodsNo, locale]);
+
+  // 卸载时清掉「已复制」复位定时器。
+  useEffect(() => {
+    return () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    };
+  }, []);
+
+  // 复制 Yahoo 拍卖原始链接（与站内既有口径一致：page.auctions 形式）。
+  const copyLink = () => {
+    const url = `https://auctions.yahoo.co.jp/jp/auction/${goodsNo}`;
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // 收藏：复用通用 /users/docollect（shop=yahoo），与 Amazon 详情同一后端端点。
+  // 未登录先跳登录。后端 fail 时不翻转本地态。
+  const toggleCollect = async () => {
+    if (!isAuthenticated) {
+      router.push(`/${locale}/login`);
+      return;
+    }
+    try {
+      const res = await api.request("/users/docollect", {
+        method: "POST",
+        body: { goods_no: goodsNo, shop: "yahoo" },
+      });
+      if (res.success) {
+        setIsCollected((prev) => !prev);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     if (!detail?.endTimestamp) return;
@@ -109,17 +158,31 @@ export function YahooDetailPage({
         <>
           <div className="grid gap-6 md:grid-cols-[minmax(0,1.05fr)_minmax(300px,1fr)] md:items-start md:gap-8">
             <div className="md:sticky md:top-6">
-              <div className="relative aspect-square overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10">
+              <div className="group relative aspect-square overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10">
                 {activeImage && !imageBroken ? (
-                  <Image
-                    src={activeImage}
-                    alt={detail.title}
-                    fill
-                    priority
-                    className="object-contain"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    onError={() => setImageBroken(true)}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setLightboxOpen(true)}
+                    aria-label={t("zoom.open")}
+                    className="absolute inset-0 cursor-zoom-in"
+                  >
+                    <Image
+                      src={activeImage}
+                      alt={detail.title}
+                      fill
+                      priority
+                      className="object-contain"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      onError={() => setImageBroken(true)}
+                    />
+                    <span className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white backdrop-blur transition-opacity group-hover:bg-black/70">
+                      <svg className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <circle cx="11" cy="11" r="7" strokeWidth={1.6} />
+                        <path strokeLinecap="round" strokeWidth={1.6} d="m21 21-4.3-4.3M11 8v6M8 11h6" />
+                      </svg>
+                      {t("zoom.open")}
+                    </span>
+                  </button>
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                     {t("noImage")}
@@ -233,6 +296,15 @@ export function YahooDetailPage({
                   </div>
                 )}
               </div>
+
+              {/* TCG 信息栏（卡况/套系/稀有度 + PriceCharting 外链）。复用与设计 A 同一份
+                  解析逻辑，浅色皮；雅虎多为杂货解析不出即整块不渲染。 */}
+              <TcgInfoBarClassic
+                name={detail.titleJa || detail.title}
+                description={detail.description}
+                extras={detail.extras}
+                searchName={detail.titleJa || detail.title}
+              />
 
               <div
                 className={`mt-5 flex items-center gap-3 rounded-xl px-4 py-4 ${URGENCY_COUNTDOWN_CLASS[urgency]}`}
@@ -404,6 +476,35 @@ export function YahooDetailPage({
                 {t("feeNotice")}
               </p>
 
+              {/* 次要操作：复制链接 / 收藏。与 Mercari 详情统一，收藏复用 /users/docollect。 */}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={copyLink}
+                  className="gap-2"
+                >
+                  <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  {copied ? t("copied") : t("copyLink")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleCollect}
+                  className={`gap-2 ${isCollected ? "border-red-200 text-red-500" : ""}`}
+                >
+                  <Heart
+                    className="size-4"
+                    fill={isCollected ? "currentColor" : "none"}
+                  />
+                  {isCollected ? t("favorited") : t("favorite")}
+                </Button>
+              </div>
+
               {/* 主操作（桌面端内联）：在线出价 / 联系客服代拍。移动端隐藏，改用底部吸底条。
                   结构与 Mercari 详情统一：两个主按钮等宽并排（仅主按钮文案/动作不同）。
                   「联系客服代拍」调用 openWithProduct 带当前商品卡 → 右下全站浮窗（客服去重）。 */}
@@ -448,11 +549,18 @@ export function YahooDetailPage({
         <div className="mx-auto flex max-w-5xl items-center gap-3">
           <button
             type="button"
-            aria-disabled="true"
-            className="flex size-12 shrink-0 cursor-default flex-col items-center justify-center gap-0.5 rounded-xl border text-[10px] text-muted-foreground"
+            onClick={toggleCollect}
+            className={`flex size-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border text-[10px] transition-colors ${
+              isCollected
+                ? "border-red-200 text-red-500"
+                : "text-muted-foreground"
+            }`}
           >
-            <Heart className="size-5" />
-            <span>{t("favorite")}</span>
+            <Heart
+              className="size-5"
+              fill={isCollected ? "currentColor" : "none"}
+            />
+            <span>{isCollected ? t("favorited") : t("favorite")}</span>
           </button>
           <Button
             type="button"
@@ -493,6 +601,30 @@ export function YahooDetailPage({
           title={detail.titleTranslated || detail.title}
           currentPrice={detail.currentPrice}
           variant="classic"
+        />
+      )}
+
+      {/* 图片放大查看（纯前端 lightbox，复用 ImageLightbox） */}
+      {detail && gallery.length > 0 && (
+        <ImageLightbox
+          images={gallery}
+          index={activeImageIndex}
+          alt={detail.title}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onIndexChange={(next) => {
+            setActiveImageIndex(next);
+            setImageBroken(false);
+          }}
+          labels={{
+            close: t("zoom.close"),
+            prev: t("zoom.prev"),
+            next: t("zoom.next"),
+            zoomIn: t("zoom.zoomIn"),
+            zoomOut: t("zoom.zoomOut"),
+            reset: t("zoom.reset"),
+            hint: t("zoom.hint"),
+          }}
         />
       )}
     </main>

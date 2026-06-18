@@ -12,6 +12,8 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthStore } from "@/lib/auth";
+import { ImageLightbox } from "@/components/tcg/ImageLightbox";
+import { useChatLauncher } from "@/components/tcg/ChatProvider";
 
 interface AmazonDetail {
   goods_no: string;
@@ -40,10 +42,12 @@ export default function AmazonDetailPage() {
   const id = params.id as string;
   const { isAuthenticated } = useAuthStore();
   const t = useTranslations("amazon");
+  const { openWithProduct } = useChatLauncher();
 
   const [detail, setDetail] = useState<AmazonDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [isCollected, setIsCollected] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [cartNum, setCartNum] = useState(0);
@@ -142,11 +146,18 @@ export default function AmazonDetailPage() {
     }
   };
 
+  // 从商品页打开客服：带「当前 Amazon 商品」上下文（标题/图/价 JPY/平台/下单路由），
+  // 右下全站浮窗顶部据此渲染商品卡 + CTA → 跳现有 Amazon 自助结算路由。
+  // 参考 Mercari/Yahoo 详情同样的 openWithProduct 调用。
   const openKefu = () => {
-    if (detail?.url) {
-      navigator.clipboard.writeText(detail.url);
-    }
-    router.push(`/${lang}/contact?type=amazon&id=${id}`);
+    if (!detail) return;
+    openWithProduct({
+      title: detail.goods_name,
+      image: detail.imgurls?.[0],
+      priceJpy: Number(detail.price),
+      platform: "amazon",
+      href: `/${lang}/checkout?type=amazon&id=${id}`,
+    });
   };
 
   if (loading) {
@@ -204,16 +215,30 @@ export default function AmazonDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         {/* Image Gallery */}
         <div>
-          <div className="relative aspect-square bg-muted rounded-lg overflow-hidden mb-4">
+          <div className="group relative aspect-square bg-muted rounded-lg overflow-hidden mb-4">
             {images.length > 0 ? (
-              <Image
-                src={images[selectedImage] || images[0]}
-                alt={detail.goods_name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-                priority
-              />
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                aria-label={t("zoom.open")}
+                className="absolute inset-0 cursor-zoom-in"
+              >
+                <Image
+                  src={images[selectedImage] || images[0]}
+                  alt={detail.goods_name}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  priority
+                />
+                <span className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white backdrop-blur transition-opacity group-hover:bg-black/70">
+                  <svg className="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <circle cx="11" cy="11" r="7" strokeWidth={1.6} />
+                    <path strokeLinecap="round" strokeWidth={1.6} d="m21 21-4.3-4.3M11 8v6M8 11h6" />
+                  </svg>
+                  {t("zoom.open")}
+                </span>
+              </button>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                 {t("noImage")}
@@ -436,6 +461,27 @@ export default function AmazonDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 图片放大查看（纯前端 lightbox，复用 Mercari/Yahoo Design-A 同一个组件，全屏深色遮罩与皮肤无关）。 */}
+      {images.length > 0 && (
+        <ImageLightbox
+          images={images}
+          index={selectedImage}
+          alt={detail.goods_name}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onIndexChange={setSelectedImage}
+          labels={{
+            close: t("zoom.close"),
+            prev: t("zoom.prev"),
+            next: t("zoom.next"),
+            zoomIn: t("zoom.zoomIn"),
+            zoomOut: t("zoom.zoomOut"),
+            reset: t("zoom.reset"),
+            hint: t("zoom.hint"),
+          }}
+        />
+      )}
 
       {/* Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">

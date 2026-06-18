@@ -3,6 +3,18 @@
     "title": "Buy Japanese Pokémon & Yu-Gi-Oh Cards from Japan",
     "description": "Proxy buying built for U.S. TCG collectors and resellers. Buy Japanese Pokémon and Yu-Gi-Oh cards from Mercari, Yahoo Auctions and Amazon Japan, then inspect, consolidate and ship to the United States."
   },
+  "infoBar": {
+    "title": "卡牌信息",
+    "condition": "成色",
+    "conditionNote": "成色以卖家描述为准，不作保证。",
+    "requestInspection": "申请拍照验货。",
+    "set": "套系 / 系列",
+    "rarity": "稀有度",
+    "year": "年份",
+    "priceTrend": "价格走势",
+    "viewHistory": "查看近期价格记录",
+    "external": "（外部站）"
+  },
   "hero": {
     "eyebrow": "Built for U.S. TCG collectors & resellers",
     "title": "Buy Japanese Pokémon & Yu-Gi-Oh cards from Japan",
