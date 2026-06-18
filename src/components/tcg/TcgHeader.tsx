@@ -23,6 +23,7 @@ const INTERNAL_PREFIXES = ["/admin", "/warehouse"];
 
 const NAV_LINKS = [
   { key: "searchCards", href: "/cards" },
+  { key: "restockAlerts", href: "/alerts" },
   { key: "howItWorks", href: "/how-it-works" },
   { key: "fees", href: "/fees" },
 ] as const;

@@ -21,6 +21,7 @@ const namespaces = [
   "warehouse",
   "tcg",
   "tcg-chat",
+  "tcg-alerts",
   "fees",
   "contact",
   "photo-inspection",

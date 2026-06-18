@@ -1,0 +1,102 @@
+{
+  "meta": {
+    "title": "Restock Alerts for Japanese TCG Cards",
+    "description": "Get an email or Discord ping the moment a card you want is listed on Japanese marketplaces. Subscribe to any keyword, set rarity, set and price filters, and never miss a restock."
+  },
+  "banner": {
+    "confirmed": "You're all set — your restock alert is now active. We'll ping you the moment a match shows up.",
+    "unsubscribed": "You've been unsubscribed. You won't receive alerts for this search anymore.",
+    "dismiss": "Dismiss"
+  },
+  "hero": {
+    "eyebrow": "Restock alerts",
+    "title": "Never miss a restock again",
+    "subtitle": "Japanese listings sell out in minutes. Subscribe to the cards you want and we'll email or Discord-ping you the instant a matching listing goes live on Mercari, Yahoo Auctions or Amazon Japan.",
+    "points": {
+      "instant": "Instant alerts when a match is listed",
+      "filters": "Filter by rarity, set and max price",
+      "channels": "Delivered by email or Discord"
+    }
+  },
+  "form": {
+    "title": "Create a restock alert",
+    "subtitle": "Tell us what to watch for. We'll notify you when a matching listing appears.",
+    "keywordLabel": "Card or keyword",
+    "keywordPlaceholder": "Pokémon 151, Charizard ex SAR, Blue-Eyes...",
+    "keywordHint": "Use the same words you'd type into search. Japanese or English both work.",
+    "keywordRequired": "Enter a card name or keyword to watch.",
+    "filtersToggle": "Add filters (optional)",
+    "filtersHide": "Hide filters",
+    "rarityLabel": "Rarity",
+    "rarityAny": "Any rarity",
+    "rarity": {
+      "sar": "SAR",
+      "ssr": "SSR",
+      "ar": "AR",
+      "sr": "SR",
+      "ur": "UR",
+      "promo": "Promo",
+      "psa": "PSA graded",
+      "sealed": "Sealed"
+    },
+    "setLabel": "Set / series",
+    "setPlaceholder": "e.g. 151, Eevee Heroes, Quarter Century",
+    "maxPriceLabel": "Max price (JPY)",
+    "maxPricePlaceholder": "e.g. 20000",
+    "maxPriceHint": "Only alert me when a match is at or below this price.",
+    "maxPriceInvalid": "Enter a whole number in JPY (e.g. 20000).",
+    "conditionLabel": "Condition",
+    "conditionAny": "Any condition",
+    "condition": {
+      "new": "New / sealed",
+      "likeNew": "Like new",
+      "good": "Good",
+      "acceptable": "Acceptable"
+    },
+    "channelLabel": "How should we reach you?",
+    "channel": {
+      "email": "Email",
+      "discord": "Discord"
+    },
+    "emailLabel": "Your email",
+    "emailPlaceholder": "you@example.com",
+    "emailInvalid": "Enter a valid email address.",
+    "emailRequired": "Enter your email address.",
+    "discordLabel": "Discord webhook URL",
+    "discordPlaceholder": "https://discord.com/api/webhooks/...",
+    "discordHint": "Server Settings → Integrations → Webhooks → Copy Webhook URL.",
+    "discordInvalid": "Enter a valid Discord webhook URL (starts with https://discord.com/api/webhooks/).",
+    "discordRequired": "Paste your Discord webhook URL.",
+    "submit": "Create alert",
+    "submitting": "Creating...",
+    "successEmailTitle": "Almost there — confirm your email",
+    "successEmailBody": "We sent a confirmation link to {email}. Click it to start receiving restock alerts.",
+    "successDiscordTitle": "Alert created",
+    "successDiscordBody": "Your Discord alert is live. We'll post to your webhook the moment a match is listed.",
+    "createAnother": "Create another alert",
+    "errorTitle": "Couldn't create your alert",
+    "errorGeneric": "Something went wrong. Please check your details and try again.",
+    "privacyNote": "We only use your contact details to send the restock alerts you request. Unsubscribe anytime from any alert."
+  },
+  "preview": {
+    "title": "Here's what an alert looks like",
+    "subtitle": "When a match is listed, you'll get a card just like this — image, name, price and a button to buy.",
+    "badge": "Restock alert",
+    "sampleName": "Pokémon 151 Booster Box (Japanese, sealed)",
+    "sampleMeta": "Mercari Japan · Sealed",
+    "viewListing": "View listing",
+    "footnote": "Sample alert. Real alerts use the actual listing image, title and price."
+  },
+  "cta": {
+    "title": "Watching a specific search?",
+    "subtitle": "Run a search and turn it into an alert in one click.",
+    "browse": "Browse cards"
+  },
+  "modal": {
+    "title": "Alert me for this search",
+    "subtitle": "We'll notify you when a new listing matches this search.",
+    "close": "Close",
+    "prefillNote": "Pre-filled from your current search and filters."
+  },
+  "searchButton": "Alert me for this search"
+}

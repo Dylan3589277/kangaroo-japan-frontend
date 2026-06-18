@@ -213,6 +213,7 @@
     "tagline": "Japanese TCG proxy",
     "nav": {
       "searchCards": "Search cards",
+      "restockAlerts": "Restock alerts",
       "howItWorks": "How it works",
       "fees": "Fees",
       "cards": "Cards",

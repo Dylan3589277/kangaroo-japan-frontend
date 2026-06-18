@@ -9,6 +9,8 @@ import { SearchIcon, ArrowRightIcon } from "@/components/home/tcg/icons";
 import { TcgCard, TcgCardSkeleton } from "@/components/home/tcg/TcgCard";
 import { searchMercariTcg, type TcgCardItem } from "@/components/home/tcg/tcg-data";
 import { POPULAR_CHIPS } from "@/components/home/tcg/tcg-keywords";
+import { AlertModal } from "@/components/tcg/alerts/AlertModal";
+import type { AlertFilters } from "@/components/tcg/alerts/alerts-data";
 
 // 人话排序标签 → Mercari 旧端 sort 值（不暴露 createdAt_desc 之类技术字段）。
 const SORT_OPTIONS = [
@@ -72,9 +74,13 @@ function nameMatchesPatterns(
  */
 export function CardsSearchPage() {
   const t = useTranslations("tcg.cards");
+  const tAlerts = useTranslations("tcg-alerts");
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get("q") || "";
+
+  // 一键建提醒 modal 开关。
+  const [alertOpen, setAlertOpen] = useState(false);
 
   const [draft, setDraft] = useState(urlQuery);
   const [items, setItems] = useState<TcgCardItem[]>([]);
@@ -157,6 +163,17 @@ export function CardsSearchPage() {
     typeof minJpy === "number" ||
     typeof maxJpy === "number" ||
     activeRarities.length > 0;
+
+  // 一键建提醒的预填值：当前搜索词 + 已选筛选映射到后端 alert filters 形态。
+  // 后端 filters 只接单个 rarity（取第一个选中的）+ maxPriceJpy；setName/condition
+  // 搜索页没有，留空由用户在 modal 里补。纯派生，无 effect/setState。
+  const alertKeyword = (urlQuery.trim() || draft.trim());
+  const alertFilters = useMemo<AlertFilters>(() => {
+    const f: AlertFilters = {};
+    if (activeRarities.length > 0) f.rarity = activeRarities[0];
+    if (typeof maxJpy === "number") f.maxPriceJpy = maxJpy;
+    return f;
+  }, [activeRarities, maxJpy]);
 
   const toggleRarity = (key: string) => {
     setActiveRarities((prev) =>
@@ -250,8 +267,28 @@ export function CardsSearchPage() {
               </button>
             </div>
           </form>
+
+          {/* 一键建提醒：用当前搜索词 + 已选筛选打开 modal（复用 AlertForm 预填）。 */}
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setAlertOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition-colors hover:border-cyan-400/50 hover:bg-cyan-400/15 hover:text-cyan-100"
+            >
+              <span aria-hidden>🔔</span>
+              {tAlerts("searchButton")}
+            </button>
+          </div>
         </div>
       </section>
+
+      {/* 一键建提醒 modal（预填当前 keyword + filters） */}
+      <AlertModal
+        open={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        defaultKeyword={alertKeyword}
+        defaultFilters={alertFilters}
+      />
 
       {/* 筛选 + 排序工具条 */}
       <section className="border-b border-white/[0.06]">
