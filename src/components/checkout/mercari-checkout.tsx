@@ -36,10 +36,15 @@ interface MercariItem {
 }
 
 // 真实增值服务名称按 id 映射 i18n key（后端 quote.valueAdded[].name 兜底）：
-//   id=5 错发漏发检查服务 ¥100；id=6 入库前拍照服务 ¥100。
+//   id=5 错发漏发检查服务；id=6 高清特写拍照服务（费用由后台 photo_service_fee_jpy 配置）。
 const VALUE_ADDED_LABEL_KEYS: Record<number, string> = {
   5: "vaMissingCheck",
   6: "vaInboundPhoto",
+};
+
+// 增值服务的一句话说明 i18n key（仅高清特写拍照有，其余无说明）。
+const VALUE_ADDED_DESC_KEYS: Record<number, string> = {
+  6: "vaInboundPhotoDesc",
 };
 
 // 金额一律 JPY 整数显示，不除以 100
@@ -112,7 +117,9 @@ export default function MercariCheckout() {
           method: "POST",
           body: { id: goodsNo },
         }),
-        api.getMercariQuote(goodsNo),
+        // tcg 门控：仅 en（TCG）通道传 tcg=true，才启用后台手续费/拍照费覆盖 + 返美元；
+        // 中文通道走旧端动态价，零影响（铁规：TCG 费用不影响中文用户）。
+        api.getMercariQuote(goodsNo, { tcg: isEn }),
       ]);
 
       if (detailRes.success && detailRes.data) {
@@ -137,7 +144,7 @@ export default function MercariCheckout() {
     } finally {
       setLoading(false);
     }
-  }, [goodsNo, t]);
+  }, [goodsNo, t, isEn]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -513,6 +520,13 @@ export default function MercariCheckout() {
         valueAddedLabel={(va) => {
           const labelKey = VALUE_ADDED_LABEL_KEYS[va.id];
           return labelKey ? t(`checkout.${labelKey}`) : va.name;
+        }}
+        valueAddedDescription={(va) => {
+          // 中文（非 en）没有这些描述的 i18n key，返回空串避免渲染出原始 key
+          // （如 "checkout.vaInboundPhotoDesc"）。仅 en（TCG）通道才返回真实描述。
+          if (!isEn) return "";
+          const descKey = VALUE_ADDED_DESC_KEYS[va.id];
+          return descKey ? t(`checkout.${descKey}`) : "";
         }}
         buyerMessage={buyerMessage}
         onBuyerMessageChange={setBuyerMessage}

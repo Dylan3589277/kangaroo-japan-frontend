@@ -328,6 +328,8 @@ export interface ExchangeRatesResponse {
   };
   // 可选 TCG 手续费覆盖（JPY 整数）；null = 不覆盖，TCG 站用旧 proxyconfirm 动态 feeJpy。
   tcgServiceFeeJpy: number | null;
+  // 可选「高清特写拍照服务费」（JPY 整数）；null = 未配置，结算页该增值服务回退默认。
+  photoServiceFeeJpy: number | null;
   source: "env" | "admin_override";
   lastUpdated: string;
   updatedBy?: string;
@@ -1798,9 +1800,12 @@ class ApiClient {
 
   // Mercari 后端权威报价。组件加载时调用，拿真实商品价/手续费/增值服务列表。
   // 经 /api/backend 代理 → 后端 GET /api/v1/mercari/quote?goodsNo=...，JWT 自动带。
-  async getMercariQuote(goodsNo: string) {
+  // opts.tcg=true 仅 TCG（en）结算页传：才启用后台手续费/拍照费覆盖 + 返美元；
+  // 中文结算页不传（默认），走旧端动态价，零影响（铁规：TCG 费用不影响中文用户）。
+  async getMercariQuote(goodsNo: string, opts?: { tcg?: boolean }) {
+    const tcgQuery = opts?.tcg ? "&tcg=true" : "";
     return this.request<MercariQuote>(
-      `/mercari/quote?goodsNo=${encodeURIComponent(goodsNo)}`,
+      `/mercari/quote?goodsNo=${encodeURIComponent(goodsNo)}${tcgQuery}`,
     );
   }
 
@@ -2664,6 +2669,8 @@ class ApiClient {
     cnyToUsd?: number;
     // 可选 TCG 手续费覆盖（JPY 整数）：传 null 清除覆盖（回退动态费），不传保持现值。
     tcgServiceFeeJpy?: number | null;
+    // 可选「高清特写拍照服务费」（JPY 整数）：传 null 清除（结算页回退默认），不传保持现值。
+    photoServiceFeeJpy?: number | null;
   }) {
     return this.request<ExchangeRatesResponse>("/exchange-rates/admin", {
       method: "PATCH",

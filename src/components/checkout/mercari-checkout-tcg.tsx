@@ -72,6 +72,7 @@ export function MercariCheckoutTcgView({
   selectedValues,
   onToggleValue,
   valueAddedLabel,
+  valueAddedDescription,
   buyerMessage,
   onBuyerMessageChange,
   displayPriceJpy,
@@ -91,6 +92,8 @@ export function MercariCheckoutTcgView({
   selectedValues: Record<number, boolean>;
   onToggleValue: (id: number, checked: boolean) => void;
   valueAddedLabel: (va: ValueAddedView) => string;
+  // 可选的增值服务说明（如高清特写拍照的一句话介绍）；无说明返回空串。
+  valueAddedDescription?: (va: ValueAddedView) => string;
   buyerMessage: string;
   onBuyerMessageChange: (value: string) => void;
   displayPriceJpy: number;
@@ -169,25 +172,37 @@ export function MercariCheckoutTcgView({
                     {quoteError ? texts.quoteFailed : texts.noValueAdded}
                   </p>
                 ) : (
-                  valueAdded.map((va) => (
-                    <label
-                      key={va.id}
-                      className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-sm transition-colors hover:border-cyan-400/30"
-                    >
-                      <span className="flex items-center gap-3 text-slate-200">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-cyan-400"
-                          checked={!!selectedValues[va.id]}
-                          onChange={(e) => onToggleValue(va.id, e.target.checked)}
-                        />
-                        <span>{valueAddedLabel(va)}</span>
-                      </span>
-                      <span className="whitespace-nowrap text-slate-400">
-                        {formatJpy(va.priceJpy)}
-                      </span>
-                    </label>
-                  ))
+                  valueAdded.map((va) => {
+                    const desc = valueAddedDescription?.(va) ?? "";
+                    return (
+                      <label
+                        key={va.id}
+                        className="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-sm transition-colors hover:border-cyan-400/30"
+                      >
+                        <span className="flex items-start gap-3 text-slate-200">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 accent-cyan-400"
+                            checked={!!selectedValues[va.id]}
+                            onChange={(e) =>
+                              onToggleValue(va.id, e.target.checked)
+                            }
+                          />
+                          <span className="min-w-0">
+                            <span className="block">{valueAddedLabel(va)}</span>
+                            {desc ? (
+                              <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">
+                                {desc}
+                              </span>
+                            ) : null}
+                          </span>
+                        </span>
+                        <span className="whitespace-nowrap text-slate-400">
+                          {formatJpy(va.priceJpy)}
+                        </span>
+                      </label>
+                    );
+                  })
                 )}
               </div>
             </section>

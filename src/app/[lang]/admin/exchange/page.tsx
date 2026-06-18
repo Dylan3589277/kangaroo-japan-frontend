@@ -21,6 +21,8 @@ type ExchangeForm = {
   cnyToUsd: string;
   // TCG 手续费覆盖（JPY 整数）；空字符串 = 不覆盖（沿用旧 proxyconfirm 动态手续费）。
   tcgServiceFeeJpy: string;
+  // 高清特写拍照服务费（JPY 整数）；空字符串 = 未配置（结算页回退默认 ¥300）。
+  photoServiceFeeJpy: string;
 };
 
 function toForm(rates: ExchangeRatesResponse): ExchangeForm {
@@ -32,6 +34,11 @@ function toForm(rates: ExchangeRatesResponse): ExchangeForm {
       rates.tcgServiceFeeJpy === null || rates.tcgServiceFeeJpy === undefined
         ? ""
         : String(rates.tcgServiceFeeJpy),
+    photoServiceFeeJpy:
+      rates.photoServiceFeeJpy === null ||
+      rates.photoServiceFeeJpy === undefined
+        ? ""
+        : String(rates.photoServiceFeeJpy),
   };
 }
 
@@ -61,6 +68,7 @@ export default function AdminExchangePage() {
     jpyToUsd: "",
     cnyToUsd: "",
     tcgServiceFeeJpy: "",
+    photoServiceFeeJpy: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -139,8 +147,13 @@ export default function AdminExchangePage() {
       setError("TCG 手续费必须留空（不覆盖）或填大于等于 0 的整数日元");
       return;
     }
-    // 留空 → 传 null 清除覆盖（回退动态手续费）；填了 → 覆盖。
-    const payload = { ...ratePayload, tcgServiceFeeJpy };
+    const photoServiceFeeJpy = parseTcgFee(form.photoServiceFeeJpy);
+    if (photoServiceFeeJpy === undefined) {
+      setError("高清特写拍照服务费必须留空（用默认）或填大于等于 0 的整数日元");
+      return;
+    }
+    // 留空 → 传 null 清除覆盖（回退动态手续费/默认）；填了 → 覆盖。
+    const payload = { ...ratePayload, tcgServiceFeeJpy, photoServiceFeeJpy };
 
     setSaving(true);
     setError("");
@@ -196,6 +209,13 @@ export default function AdminExchangePage() {
               rates?.tcgServiceFeeJpy === undefined
                 ? "旧系统动态（proxyconfirm）"
                 : `固定覆盖 ¥${rates.tcgServiceFeeJpy} JPY`}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              高清特写拍照服务费：
+              {rates?.photoServiceFeeJpy === null ||
+              rates?.photoServiceFeeJpy === undefined
+                ? "未配置（结算页默认 ¥300 JPY）"
+                : `¥${rates.photoServiceFeeJpy} JPY`}
             </div>
           </CardContent>
         </Card>
@@ -305,6 +325,21 @@ export default function AdminExchangePage() {
               <span className="block text-xs font-normal text-muted-foreground">
                 英文 TCG 站「应付美元」= (商品价 + 手续费) ×（JPY → USD）。手续费默认走旧系统
                 proxyconfirm 动态计算；如需为 TCG 站统一覆盖一个固定手续费，在此填日元整数，留空则清除覆盖。
+              </span>
+            </label>
+            <label className="space-y-2 text-sm font-medium md:col-span-3">
+              <span>高清特写拍照服务费（JPY，留空 = 用默认 ¥300）</span>
+              <Input
+                inputMode="numeric"
+                value={form.photoServiceFeeJpy}
+                onChange={(event) =>
+                  updateField("photoServiceFeeJpy", event.target.value)
+                }
+                placeholder="留空 = 结算页回退默认 ¥300"
+              />
+              <span className="block text-xs font-normal text-muted-foreground">
+                结算页「高清特写拍照」增值服务的单价（每件商品多角度高清特写，入库前拍）。
+                填日元整数后结算页该项即按此价展示与计费；留空则回退默认 ¥300。
               </span>
             </label>
             <div className="md:col-span-3">
