@@ -141,6 +141,7 @@ export default function OrderDetailPage() {
   const orderId = params.id as string;
   const shouldPoll = searchParams.get("poll") === "1";
   const tm = useTranslations("mercari");
+  const t = useTranslations("order");
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -155,17 +156,17 @@ export default function OrderDetailPage() {
         if (res.success && res.data) {
           setOrder(res.data as Order);
         } else if (!silent) {
-          toast.error("Order not found");
+          toast.error(t("notFound"));
           router.push(`/${lang}/orders`);
         }
       } catch (error) {
         console.error("Failed to fetch order:", error);
-        if (!silent) toast.error("Failed to load order");
+        if (!silent) toast.error(t("loadFailed"));
       } finally {
         if (!silent) setLoading(false);
       }
     },
-    [orderId, lang, router],
+    [orderId, lang, router, t],
   );
 
   // 轮询：进入页面带 ?poll=1（支付后跳回）时，每 6s 静默刷新一次订单状态，直到进入终态。
@@ -202,19 +203,19 @@ export default function OrderDetailPage() {
   }, [isAuthenticated, authLoading, lang, orderId, fetchOrder, router]);
 
   const handleCancel = async () => {
-    if (!confirm("Are you sure you want to cancel this order?")) return;
+    if (!confirm(t("confirmCancel"))) return;
 
     setCancelling(true);
     try {
       const res = await api.cancelOrder(orderId);
       if (res.success) {
-        toast.success("Order cancelled successfully");
+        toast.success(t("orderCancelled"));
         fetchOrder();
       } else {
-        toast.error(res.error?.message || "Failed to cancel order");
+        toast.error(res.error?.message || t("cancelFailed"));
       }
     } catch {
-      toast.error("Failed to cancel order");
+      toast.error(t("cancelFailed"));
     } finally {
       setCancelling(false);
     }
@@ -222,7 +223,7 @@ export default function OrderDetailPage() {
 
   const handleTrack = async () => {
     if (!order?.tracking_number) {
-      toast.error("Tracking number not available yet");
+      toast.error(t("trackingUnavailable"));
       return;
     }
 
@@ -270,9 +271,9 @@ export default function OrderDetailPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">📦</div>
-        <h1 className="text-2xl font-bold mb-2">Order not found</h1>
+        <h1 className="text-2xl font-bold mb-2">{t("notFound")}</h1>
         <Link href={`/${lang}/orders`}>
-          <Button variant="outline">Back to Orders</Button>
+          <Button variant="outline">{t("backToOrders")}</Button>
         </Link>
       </div>
     );
@@ -344,11 +345,11 @@ export default function OrderDetailPage() {
         href={`/${lang}/orders`}
         className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1"
       >
-        ← Back to Orders
+        ← {t("backToOrders")}
       </Link>
 
       <h1 className="text-2xl font-bold mb-6">
-        Order {order.order_no}
+        {t("orderTitle", { no: order.order_no })}
       </h1>
 
       {/* Status Banner */}
@@ -364,13 +365,13 @@ export default function OrderDetailPage() {
                 {getStatusLabel(order.status, lang)}
               </Badge>
               <span className="text-sm text-muted-foreground">
-                Placed on {new Date(order.created_at).toLocaleDateString()}
+                {t("placedOnDate", { date: new Date(order.created_at).toLocaleDateString() })}
               </span>
             </div>
             <div className="flex items-center gap-2">
               {order.tracking_number && (
                 <Button variant="outline" size="sm" onClick={handleTrack}>
-                  Track Package
+                  {t("trackPackage")}
                 </Button>
               )}
               {order.status === "pending" && (
@@ -381,7 +382,7 @@ export default function OrderDetailPage() {
                   onClick={handleCancel}
                   disabled={cancelling}
                 >
-                  {cancelling ? "Cancelling..." : "Cancel Order"}
+                  {cancelling ? t("cancelling") : t("cancelOrder")}
                 </Button>
               )}
             </div>
@@ -427,7 +428,7 @@ export default function OrderDetailPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
-                Items ({order.items?.length || 0})
+                {t("itemsTitle", { count: order.items?.length || 0 })}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -444,7 +445,7 @@ export default function OrderDetailPage() {
                       />
                     ) : (
                       <div className="w-20 h-20 bg-gray-100 rounded border flex items-center justify-center text-gray-400 text-xs">
-                        No Image
+                        {t("noImage")}
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
@@ -489,7 +490,7 @@ export default function OrderDetailPage() {
           {order.address && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Shipping Address</CardTitle>
+                <CardTitle className="text-lg">{t("shippingAddress")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-sm">
@@ -517,27 +518,27 @@ export default function OrderDetailPage() {
           {order.tracking_number && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Logistics</CardTitle>
+                <CardTitle className="text-lg">{t("logistics")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Carrier</span>
-                    <span>{order.shipping_carrier || "N/A"}</span>
+                    <span className="text-muted-foreground">{t("carrier")}</span>
+                    <span>{order.shipping_carrier || t("na")}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Tracking Number</span>
+                    <span className="text-muted-foreground">{t("trackingNumber")}</span>
                     <span className="font-mono text-xs">{order.tracking_number}</span>
                   </div>
                   {order.shipped_at && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Shipped At</span>
+                      <span className="text-muted-foreground">{t("shippedAt")}</span>
                       <span>{new Date(order.shipped_at).toLocaleString()}</span>
                     </div>
                   )}
                   {order.estimated_delivery && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Est. Delivery</span>
+                      <span className="text-muted-foreground">{t("estimatedDelivery")}</span>
                       <span>{new Date(order.estimated_delivery).toLocaleDateString()}</span>
                     </div>
                   )}
@@ -550,7 +551,7 @@ export default function OrderDetailPage() {
           {order.buyer_message && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Your Message</CardTitle>
+                <CardTitle className="text-lg">{t("yourMessage")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
@@ -565,12 +566,12 @@ export default function OrderDetailPage() {
         <div className="lg:col-span-1">
           <Card className="sticky top-4">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Payment Summary</CardTitle>
+              <CardTitle className="text-lg">{t("paymentSummary")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="text-muted-foreground">{t("subtotal")}</span>
                   <span>
                     {formatCurrency(
                       order.total_currency === "JPY"
@@ -589,7 +590,7 @@ export default function OrderDetailPage() {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shipping</span>
+                  <span className="text-muted-foreground">{t("shipping")}</span>
                   <span>
                     {formatCurrency(
                       order.total_currency === "JPY"
@@ -600,7 +601,7 @@ export default function OrderDetailPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Service Fee</span>
+                  <span className="text-muted-foreground">{t("serviceFee")}</span>
                   <span>
                     {formatCurrency(
                       order.total_currency === "JPY"
@@ -612,7 +613,7 @@ export default function OrderDetailPage() {
                 </div>
                 {order.coupon_discount_cny > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <span>Coupon Discount</span>
+                    <span>{t("couponDiscount")}</span>
                     <span>-¥{order.coupon_discount_cny.toFixed(2)}</span>
                   </div>
                 )}
@@ -621,7 +622,7 @@ export default function OrderDetailPage() {
               <Separator />
 
               <div className="flex justify-between font-semibold text-base">
-                <span>Total</span>
+                <span>{t("total")}</span>
                 <span>
                   {formatCurrency(order.total_amount, order.total_currency)}
                 </span>
@@ -629,14 +630,14 @@ export default function OrderDetailPage() {
 
               {order.paid_at && (
                 <div className="text-xs text-muted-foreground text-center pt-2">
-                  Paid on {new Date(order.paid_at).toLocaleString()}
+                  {t("paidOnDate", { date: new Date(order.paid_at).toLocaleString() })}
                 </div>
               )}
 
               {order.payment_method && (
                 <div className="pt-2">
                   <div className="text-xs text-muted-foreground mb-1">
-                    Payment Method
+                    {t("paymentMethod")}
                   </div>
                   <div className="text-sm font-medium capitalize">
                     {order.payment_method.replace(/_/g, " ")}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import Image from "next/image";
 import { api } from "@/lib/api";
@@ -103,6 +104,7 @@ export default function OrdersPage() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
+  const t = useTranslations("order");
   // en 走设计方向 A 深色呈现，其它语言保持现有渲染。仅影响视觉，业务逻辑共用。
   const isEn = lang === "en";
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
@@ -151,27 +153,28 @@ export default function OrdersPage() {
   }, [isAuthenticated, authLoading, lang, fetchOrders, router]);
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!confirm("Are you sure you want to cancel this order?")) return;
+    if (!confirm(t("confirmCancel"))) return;
 
     try {
       const res = await api.cancelOrder(orderId);
       if (res.success) {
-        toast.success("Order cancelled successfully");
+        toast.success(t("orderCancelled"));
         fetchOrders();
       } else {
-        toast.error(res.error?.message || "Failed to cancel order");
+        toast.error(res.error?.message || t("cancelFailed"));
       }
     } catch {
-      toast.error("Failed to cancel order");
+      toast.error(t("cancelFailed"));
     }
   };
 
+  // 标签文案走 i18n：en namespace 仍是英文，故 en 深色版收到的也是英文，零回归。
   const statusTabs = [
-    { value: "all", label: "All" },
-    { value: "pending", label: "Pending" },
-    { value: "paid,processing,purchased", label: "Processing" },
-    { value: "shipped,in_transit", label: "Shipped" },
-    { value: "delivered", label: "Delivered" },
+    { value: "all", label: t("tabAll") },
+    { value: "pending", label: t("tabPending") },
+    { value: "paid,processing,purchased", label: t("tabProcessing") },
+    { value: "shipped,in_transit", label: t("tabShipped") },
+    { value: "delivered", label: t("tabDelivered") },
   ];
 
   if (isEn) {
@@ -217,7 +220,7 @@ export default function OrdersPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">My Orders</h1>
+      <h1 className="text-2xl font-bold mb-6">{t("title")}</h1>
 
       {/* Status Filter Tabs */}
       <Tabs
@@ -254,12 +257,12 @@ export default function OrdersPage() {
       ) : orders.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-6xl mb-4">📦</div>
-          <h2 className="text-xl font-bold mb-2">No orders yet</h2>
+          <h2 className="text-xl font-bold mb-2">{t("empty")}</h2>
           <p className="text-muted-foreground mb-8">
-            Start shopping to see your orders here
+            {t("emptySubtitle")}
           </p>
           <Link href={`/${lang}/products`}>
-            <Button>Browse Products</Button>
+            <Button>{t("browseProducts")}</Button>
           </Link>
         </div>
       ) : (
@@ -303,7 +306,7 @@ export default function OrdersPage() {
                         />
                       ) : (
                         <div className="w-12 h-12 bg-gray-100 rounded border flex items-center justify-center text-gray-400 text-xs">
-                          No Image
+                          {t("noImage")}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
@@ -336,7 +339,7 @@ export default function OrdersPage() {
 
                   {order.items_count > 3 && (
                     <div className="text-xs text-muted-foreground text-center py-1">
-                      +{order.items_count - 3} more items
+                      {t("moreItems", { count: order.items_count - 3 })}
                     </div>
                   )}
                 </div>
@@ -352,14 +355,14 @@ export default function OrdersPage() {
                     </span>
                     {order.tracking_number && (
                       <span className="text-xs text-muted-foreground">
-                        Tracking: {order.tracking_number}
+                        {t("tracking")}: {order.tracking_number}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Link href={`/${lang}/orders/${order.id}`}>
                       <Button variant="outline" size="sm">
-                        View Details
+                        {t("viewDetails")}
                       </Button>
                     </Link>
                     {order.status === "pending" && (
@@ -369,7 +372,7 @@ export default function OrdersPage() {
                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
                         onClick={() => handleCancelOrder(order.id)}
                       >
-                        Cancel
+                        {t("cancel")}
                       </Button>
                     )}
                   </div>
@@ -387,10 +390,10 @@ export default function OrdersPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
               >
-                Previous
+                {t("previous")}
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
+                {t("pageOf", { page, total: totalPages })}
               </span>
               <Button
                 variant="outline"
@@ -398,7 +401,7 @@ export default function OrdersPage() {
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Next
+                {t("next")}
               </Button>
             </div>
           )}
