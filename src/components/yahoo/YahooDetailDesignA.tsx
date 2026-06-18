@@ -107,7 +107,7 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
         }}
       />
 
-      <div className="relative mx-auto w-full max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:px-8">
+      <div className="relative mx-auto w-full max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:px-8 md:pb-12">
         {loading ? (
           <div className="grid gap-6 md:grid-cols-[minmax(0,1.05fr)_minmax(300px,1fr)]">
             <div className="aspect-square w-full animate-pulse rounded-2xl bg-white/[0.05]" />
@@ -494,6 +494,36 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
                     />
                   </svg>
                 </Link>
+
+                {/* 主操作（桌面端内联）：在线出价 / 联系客服代拍。移动端隐藏，改用底部吸底条。
+                    结构与 Mercari 详情统一：两个主按钮等宽并排（仅主按钮文案/动作不同）。
+                    「联系客服代拍」调用 openWithProduct 带当前商品卡 → 右下全站浮窗（客服去重）。 */}
+                <div className="mt-5 hidden gap-3 md:flex">
+                  <button
+                    type="button"
+                    disabled={!detail}
+                    onClick={() => setBidOpen(true)}
+                    className="inline-flex h-12 flex-1 items-center justify-center rounded-xl border border-cyan-400/40 text-sm font-semibold text-cyan-200 transition-colors hover:border-cyan-400/70 hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {t("onlineBid")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!detail) return;
+                      openWithProduct({
+                        title: detail.titleTranslated || detail.title,
+                        image: detail.imageUrl ?? detail.images?.[0],
+                        priceJpy: detail.currentPrice,
+                        platform: "yahoo",
+                        href: `/${locale}/contact?type=yahoo&id=${goodsNo}`,
+                      });
+                    }}
+                    className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-cyan-400 text-base font-semibold text-[#06121b] transition-colors hover:bg-cyan-300"
+                  >
+                    {t("contactService")}
+                  </button>
+                </div>
               </section>
             </div>
 
@@ -527,8 +557,9 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
         />
       )}
 
-      {/* 底部操作条 — read-only 边界：无出价输入、无提交、无写请求（与经典版一致）。 */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0e16]/90 backdrop-blur-md">
+      {/* 底部吸底操作条 — 仅移动端（md 以下）。桌面端用右栏内联主按钮，不显这条。
+          结构与 Mercari 详情统一：收藏图标 + 两个主按钮（仅主按钮文案/动作不同）。 */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0e16]/90 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
           <button
             type="button"

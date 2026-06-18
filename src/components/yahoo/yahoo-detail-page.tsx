@@ -87,7 +87,7 @@ export function YahooDetailPage({
   const urgency = urgencyFromTimestamp(detail?.endTimestamp, now);
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6 pb-28 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-5xl px-4 py-6 pb-28 sm:px-6 lg:px-8 md:pb-10">
       {loading ? (
         <div className="grid gap-6 md:grid-cols-[minmax(0,1.05fr)_minmax(300px,1fr)]">
           <Skeleton className="aspect-square w-full rounded-2xl" />
@@ -403,6 +403,37 @@ export function YahooDetailPage({
               <p className="mt-6 text-xs text-muted-foreground">
                 {t("feeNotice")}
               </p>
+
+              {/* 主操作（桌面端内联）：在线出价 / 联系客服代拍。移动端隐藏，改用底部吸底条。
+                  结构与 Mercari 详情统一：两个主按钮等宽并排（仅主按钮文案/动作不同）。
+                  「联系客服代拍」调用 openWithProduct 带当前商品卡 → 右下全站浮窗（客服去重）。 */}
+              <div className="mt-5 hidden gap-3 md:flex">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!detail}
+                  onClick={() => setBidOpen(true)}
+                  className="h-12 flex-1 rounded-xl text-sm"
+                >
+                  {t("onlineBid")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (!detail) return;
+                    openWithProduct({
+                      title: detail.titleTranslated || detail.title,
+                      image: detail.imageUrl ?? detail.images?.[0],
+                      priceJpy: detail.currentPrice,
+                      platform: "yahoo",
+                      href: `/${locale}/contact?type=yahoo&id=${goodsNo}`,
+                    });
+                  }}
+                  className="h-12 flex-1 rounded-xl bg-orange-600 text-base text-white hover:bg-orange-700"
+                >
+                  {t("contactService")}
+                </Button>
+              </div>
             </section>
           </div>
 
@@ -411,9 +442,9 @@ export function YahooDetailPage({
         </>
       )}
 
-      {/* Bottom action bar — read-only boundary: no bid input, no submit,
-          no navigation, no write requests. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-3 backdrop-blur-sm">
+      {/* 底部吸底操作条 — 仅移动端（md 以下）。桌面端用右栏内联主按钮，不显这条。
+          结构与 Mercari 详情统一：收藏图标 + 两个主按钮（仅主按钮文案/动作不同）。 */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-3 backdrop-blur-sm md:hidden">
         <div className="mx-auto flex max-w-5xl items-center gap-3">
           <button
             type="button"

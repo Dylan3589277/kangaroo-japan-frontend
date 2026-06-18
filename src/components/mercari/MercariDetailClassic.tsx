@@ -59,6 +59,9 @@ export function MercariDetailClassic() {
   // 动态手续费（来自后端 quote → 旧 proxyconfirm，随后台/会员等级实时变）。
   // 未登录/报价失败时为 null：只展示商品价 + 「手续费结算时计算」，绝不显示写死的固定值。
   const [feeJpy, setFeeJpy] = useState<number | null>(null);
+  // 人民币应付：后端 quote 的 amountRmb 才是「按会员等级、含手续费」的权威人民币值。
+  // 未登录/报价失败时为 null：退化为「登录后查看」，绝不用单品价×固定汇率算出误导值。
+  const [amountRmb, setAmountRmb] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [copied, setCopied] = useState(false);
   const [isCollected, setIsCollected] = useState(false);
@@ -71,18 +74,24 @@ export function MercariDetailClassic() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // 拉动态手续费（需登录态 JWT）：成功则展示真实 feeJpy；未登录/失败保持 null，
-  // 页面退化为「手续费结算时计算」——绝不显示写死的固定手续费值。
+  // 拉动态手续费 + 权威人民币应付（需登录态 JWT）：成功则展示真实 feeJpy / amountRmb；
+  // 未登录/失败保持 null，页面退化为「手续费结算时计算」「登录后查看人民币」——
+  // 绝不显示写死的固定手续费值或单品价×固定汇率算出的误导人民币值。
   const fetchFee = async () => {
     try {
       const res = await api.getMercariQuote(id);
       if (res.success && res.data && typeof res.data.feeJpy === "number") {
         setFeeJpy(res.data.feeJpy);
+        setAmountRmb(
+          typeof res.data.amountRmb === "number" ? res.data.amountRmb : null,
+        );
       } else {
         setFeeJpy(null);
+        setAmountRmb(null);
       }
     } catch {
       setFeeJpy(null);
+      setAmountRmb(null);
     }
   };
 
@@ -201,7 +210,7 @@ export function MercariDetailClassic() {
   const images = detail.imgurls || [];
 
   return (
-    <div className="container mx-auto py-6 px-4 pb-32">
+    <div className="container mx-auto py-6 px-4 pb-32 md:pb-8">
       {/* Breadcrumb */}
       <nav className="mb-6 text-sm">
         <ol className="flex items-center gap-2 text-muted-foreground">
@@ -292,15 +301,19 @@ export function MercariDetailClassic() {
                 {t('yen')}
               </span>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {t('approx')}¥{Number(detail.price_rmb).toFixed(2)}
-              {t('cny')}
-              {detail.rate && (
-                <span className="ml-2">
-                  ({t('rate')}: {detail.rate})
-                </span>
-              )}
-            </div>
+            {/* 人民币：用后端 quote 的 amountRmb（按会员等级、含手续费的权威值）。
+                未登录/无报价时不显误导的「单品价×固定汇率」，退化为「登录后查看」。 */}
+            {amountRmb !== null ? (
+              <div className="text-sm text-muted-foreground">
+                {t('approx')}¥{Number(amountRmb).toFixed(2)}
+                {t('cny')}
+                <span className="ml-1 text-xs">{t('amountRmbNote')}</span>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                {t('amountRmbAtLogin')}
+              </div>
+            )}
           </div>
 
           {/* Extra Info */}
@@ -320,9 +333,22 @@ export function MercariDetailClassic() {
             <div
               className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg mb-6 cursor-pointer hover:bg-muted/80 transition-colors"
               onClick={() => {
-                if (detail.seller_info?.id) {
-                  router.push(`/${lang}/mercari/seller/${detail.seller_info.id}`);
+                const seller = detail.seller_info;
+                if (!seller?.id) return;
+                // 把已从 mdetail 拿到的卖家基础信息用 query 带过去，卖家页头部直接渲染，省一次请求。
+                const query = new URLSearchParams();
+                if (seller.name) query.set("name", seller.name);
+                if (seller.photo_url) query.set("photo", seller.photo_url);
+                if (typeof seller.num_sell_items === "number") {
+                  query.set("num", String(seller.num_sell_items));
                 }
+                if (typeof seller.score === "number") {
+                  query.set("score", String(seller.score));
+                }
+                const qs = query.toString();
+                router.push(
+                  `/${lang}/mercari/seller/${seller.id}${qs ? `?${qs}` : ""}`,
+                );
               }}
             >
               <div className="relative w-12 h-12 rounded-full overflow-hidden bg-muted flex-shrink-0">
@@ -388,8 +414,8 @@ export function MercariDetailClassic() {
             </div>
           </Card>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 mb-4">
+          {/* 次要操作：复制链接 / 收藏 / 咨询客服（带商品卡，去重底栏大客服按钮） */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             <Button
               variant="outline"
               size="sm"
@@ -415,6 +441,40 @@ export function MercariDetailClassic() {
               {isCollected
                 ? t('favorited')
                 : t('favorite')}
+            </Button>
+            {/* 咨询客服文字链：调用 openWithProduct 带上当前商品卡 → 右下全站浮窗。
+                保留「带商品卡咨询」能力，同时底栏不再重复大客服按钮。 */}
+            <button
+              type="button"
+              onClick={openKefu}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 11-12.728 0 9 9 0 0112.728 0zM12 8v4m0 4h.01" />
+              </svg>
+              {t('askThisItem')}
+            </button>
+          </div>
+
+          {/* 主操作（桌面端内联）：加入购物车 / 立即购买。移动端隐藏，改用底部吸底条。 */}
+          <div className="hidden gap-3 md:flex">
+            <Button
+              variant={isInCart ? "secondary" : "outline"}
+              className="flex-1"
+              onClick={toggleCart}
+              disabled={detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"}
+            >
+              {isInCart ? t('removeFromCart') : t('addToCart')}
+            </Button>
+            <Button
+              variant="default"
+              className="flex-1 bg-orange-500 hover:bg-orange-600"
+              disabled={detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"}
+              onClick={() => router.push(`/${lang}/checkout?type=mercari&id=${id}`)}
+            >
+              {detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"
+                ? t('sold')
+                : t('buyNow')}
             </Button>
           </div>
         </div>
@@ -469,62 +529,50 @@ export function MercariDetailClassic() {
         </TabsContent>
       </Tabs>
 
-      {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
+      {/* 底部吸底操作条 — 仅移动端（md 以下）。桌面端用右栏内联主按钮，不显这条。
+          结构与 Yahoo 详情统一：购物车图标 + 两个主按钮（仅主按钮文案不同）。
+          客服已去重：底栏不再放大客服按钮，统一走右下全站浮窗（商品信息区有「咨询客服」文字链带商品卡）。 */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white shadow-lg md:hidden">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={openKefu}
-                className="flex-col gap-1 h-auto py-1 px-3"
-              >
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto flex-col gap-1 px-3 py-1"
+              onClick={() => router.push(`/${lang}/cart`)}
+            >
+              <div className="relative">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 11-12.728 0 9 9 0 0112.728 0zM12 8v4m0 4h.01" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
                 </svg>
-                <span className="text-xs">{t('customerService')}</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex-col gap-1 h-auto py-1 px-3"
-                onClick={() => router.push(`/${lang}/cart`)}
-              >
-                <div className="relative">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-                  </svg>
-                  {cartNum > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
-                      {cartNum}
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs">{t('cart')}</span>
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={isInCart ? "secondary" : "outline"}
-                onClick={toggleCart}
-                disabled={detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"}
-              >
-                {isInCart
-                  ? t('removeFromCart')
-                  : t('addToCart')}
-              </Button>
-              <Button
-                variant="default"
-                className="bg-orange-500 hover:bg-orange-600"
-                disabled={detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"}
-                onClick={() => router.push(`/${lang}/checkout?type=mercari&id=${id}`)}
-              >
-                {detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"
-                  ? t('sold')
-                  : t('buyNow')}
-              </Button>
-            </div>
+                {cartNum > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
+                    {cartNum}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs">{t('cart')}</span>
+            </Button>
+            <Button
+              variant={isInCart ? "secondary" : "outline"}
+              className="flex-1"
+              onClick={toggleCart}
+              disabled={detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"}
+            >
+              {isInCart
+                ? t('removeFromCart')
+                : t('addToCart')}
+            </Button>
+            <Button
+              variant="default"
+              className="flex-1 bg-orange-500 hover:bg-orange-600"
+              disabled={detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"}
+              onClick={() => router.push(`/${lang}/checkout?type=mercari&id=${id}`)}
+            >
+              {detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING"
+                ? t('sold')
+                : t('buyNow')}
+            </Button>
           </div>
         </div>
       </div>

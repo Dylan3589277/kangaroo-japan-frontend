@@ -278,7 +278,7 @@ export function MercariDetailDesignA() {
         }}
       />
 
-      <div className="relative mx-auto max-w-6xl px-4 pb-36 pt-6">
+      <div className="relative mx-auto max-w-6xl px-4 pb-36 pt-6 md:pb-12">
         {/* Breadcrumb */}
         <nav className="mb-6 text-xs">
           <ol className="flex items-center gap-2 text-slate-500">
@@ -635,6 +635,51 @@ export function MercariDetailDesignA() {
                 <CameraIcon className="size-4" />
                 {t("designA.requestInspection")}
               </Link>
+              {/* 咨询客服文字链：调用 openWithProduct 带上当前商品卡 → 右下全站浮窗。
+                  保留「带商品卡咨询」能力，同时底栏不再重复大客服按钮。 */}
+              <button
+                type="button"
+                onClick={() =>
+                  openWithProduct({
+                    title: detail.goods_name,
+                    image: detail.imgurls?.[0],
+                    priceJpy: Number(detail.price),
+                    platform: "mercari",
+                    href: `/${lang}/checkout?type=mercari&id=${id}`,
+                  })
+                }
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
+              >
+                <MessageCircle className="size-4" />
+                {t("askThisItem")}
+              </button>
+            </div>
+
+            {/* 主操作（桌面端内联）：Add to cart / Buy now。移动端隐藏，改用底部吸底条。
+                结构与 Yahoo 详情统一：两个主按钮等宽并排。 */}
+            <div className="mt-5 hidden gap-3 md:flex">
+              <button
+                type="button"
+                onClick={toggleCart}
+                disabled={soldOut}
+                className={`inline-flex h-12 flex-1 items-center justify-center rounded-xl border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  isInCart
+                    ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-200"
+                    : "border-white/15 bg-white/[0.04] text-slate-100 hover:border-cyan-400/40"
+                }`}
+              >
+                {isInCart ? t("removeFromCart") : t("addToCart")}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(`/${lang}/checkout?type=mercari&id=${id}`)
+                }
+                disabled={soldOut}
+                className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-cyan-400 text-base font-semibold text-[#06121b] transition-colors hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+              >
+                {soldOut ? t("sold") : t("buyNow")}
+              </button>
             </div>
           </section>
         </div>
@@ -709,27 +754,11 @@ export function MercariDetailDesignA() {
         />
       )}
 
-      {/* 底部操作条：Add to cart / Buy now（行为与经典版完全一致） */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0e16]/90 backdrop-blur-md">
+      {/* 底部吸底操作条 — 仅移动端（md 以下）。桌面端用右栏内联主按钮，不显这条。
+          结构与 Yahoo 详情统一：购物车图标 + 两个主按钮（仅主按钮文案不同）。
+          客服已去重：底栏不再放大客服按钮，统一走右下全站浮窗（信息区有「咨询客服」文字链带商品卡）。 */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0e16]/90 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-          {/* 从商品页打开客服：带「当前商品」上下文，浮窗顶部渲染商品卡 +
-              「Order this for me」CTA → 跳现有 Mercari 自助结算路由。 */}
-          <button
-            type="button"
-            onClick={() =>
-              openWithProduct({
-                title: detail.goods_name,
-                image: detail.imgurls?.[0],
-                priceJpy: Number(detail.price),
-                platform: "mercari",
-                href: `/${lang}/checkout?type=mercari&id=${id}`,
-              })
-            }
-            className="inline-flex size-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-white/10 text-[10px] text-slate-300 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
-          >
-            <MessageCircle className="size-5" />
-            <span>{t("designA.askChat")}</span>
-          </button>
           <button
             type="button"
             onClick={() => router.push(`/${lang}/cart`)}
