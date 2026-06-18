@@ -20,6 +20,10 @@
       "valueAdded": "What value-added services do you offer?"
     },
     "footerNote": "Order-specific help (refunds, payments, addresses) is handled by a human agent.",
-    "contactCta": "Contact options"
+    "contactCta": "Contact options",
+    "productCard": {
+      "cta": "Order this for me",
+      "dismiss": "Remove this item"
+    }
   }
 }

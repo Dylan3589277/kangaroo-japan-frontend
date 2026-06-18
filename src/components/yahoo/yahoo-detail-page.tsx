@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useChatLauncher } from "@/components/tcg/ChatProvider";
 import { normalizeYahooDetail, type YahooDetail } from "./yahoo-data";
 import { YahooRelated } from "./yahoo-related";
 import {
@@ -24,6 +25,7 @@ export function YahooDetailPage({
   locale,
 }: YahooDetailPageProps) {
   const t = useTranslations("yahoo");
+  const { openWithProduct } = useChatLauncher();
   const [detail, setDetail] = useState<YahooDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -432,6 +434,17 @@ export function YahooDetailPage({
           </Button>
           <Button
             type="button"
+            onClick={() => {
+              if (!detail) return;
+              openWithProduct({
+                title: detail.titleTranslated || detail.title,
+                image: detail.imageUrl ?? detail.images?.[0],
+                priceJpy: detail.currentPrice,
+                platform: "yahoo",
+                // Yahoo 暂无自助结算：CTA 走「联系客服代拍」现有 contact 路由。
+                href: `/${locale}/contact?type=yahoo&id=${goodsNo}`,
+              });
+            }}
             className="h-12 flex-1 rounded-xl bg-orange-600 text-base text-white hover:bg-orange-700"
           >
             {t("contactService")}

@@ -42,7 +42,8 @@ const TRUST_BADGES = [
   { icon: "🔨", label: "专业代拍保障" },
   { icon: "✅", label: "正品保证" },
   { icon: "✈️", label: "全球直邮" },
-  { icon: "💬", label: "人工客服代拍" },
+  // 自助下单：你自己在站内下单购物，客服全程辅助（而非「人工代拍」）。
+  { icon: "🛒", label: "自助下单·客服辅助" },
 ] as const;
 
 const HOT_KEYWORDS = [

@@ -7,7 +7,8 @@ import { isIndexable } from "@/lib/seo";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { TcgHeader } from "@/components/tcg/TcgHeader";
 import { TcgFooter } from "@/components/tcg/TcgFooter";
-import { TcgChatWidget } from "@/components/tcg/TcgChatWidget";
+import { ChatProvider } from "@/components/tcg/ChatProvider";
+import { ChatWidgetGate } from "@/components/tcg/ChatWidgetGate";
 import "@/app/globals.css";
 
 export async function generateMetadata({
@@ -56,23 +57,29 @@ export default async function LocaleLayout({
   //   英文页（首页/cards/fees + 后续英文页）外层，确保风格一致。
   // - 其它语言：保持现有通用买家头部 SiteHeader，原样不变（无 footer）。
   // 最小改动、两套外壳互不影响。
+  // 客服浮窗在所有公开页（zh + en）统一挂载：ChatProvider 提供「带商品上下文打开
+  // 客服」的能力（商品详情页用），ChatWidgetGate 排除 admin/warehouse 内部页并按
+  // locale 切皮（zh 暖色 / en 设计 A 深色）。商品页打开带商品卡，其它页纯 FAQ。
   if (lang === "en") {
     return (
-      <div className="flex min-h-screen flex-col bg-[#0a0e16]">
-        <TcgHeader />
-        <div className="flex-1">{children}</div>
-        <TcgFooter />
-        {/* FAQ-only live chat widget (v1). en-only mount; does not touch
-            TcgHeader/TcgFooter. */}
-        <TcgChatWidget />
-      </div>
+      <ChatProvider>
+        <div className="flex min-h-screen flex-col bg-[#0a0e16]">
+          <TcgHeader />
+          <div className="flex-1">{children}</div>
+          <TcgFooter />
+          <ChatWidgetGate />
+        </div>
+      </ChatProvider>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <SiteHeader />
-      {children}
-    </div>
+    <ChatProvider>
+      <div className="min-h-screen flex flex-col">
+        <SiteHeader />
+        {children}
+        <ChatWidgetGate />
+      </div>
+    </ChatProvider>
   );
 }

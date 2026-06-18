@@ -65,6 +65,7 @@
     "approxCny": "≈ ¥{amount} CNY",
     "approxUsd": "≈ ${amount} USD",
     "requestInspection": "Request photo inspection",
+    "askChat": "Chat",
     "relatedTitle": "Related cards",
     "trust": {
       "inspection": "Photo inspection",

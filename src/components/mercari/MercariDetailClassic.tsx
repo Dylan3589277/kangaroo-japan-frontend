@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useChatLauncher } from "@/components/tcg/ChatProvider";
 
 interface MercariDetail {
   goods_no: string;
@@ -51,6 +52,7 @@ export function MercariDetailClassic() {
   const lang = (params.lang as string) || "zh";
   const id = params.id as string;
   const t = useTranslations('mercari');
+  const { openWithProduct } = useChatLauncher();
 
   const [detail, setDetail] = useState<MercariDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -152,12 +154,17 @@ export function MercariDetailClassic() {
     }
   };
 
+  // 从商品页打开客服：带「当前商品」上下文（标题/图/价 JPY/平台/下单路由），
+  // 浮窗顶部渲染商品卡 + 「为我下单」CTA → 跳现有 Mercari 自助结算路由。
   const openKefu = () => {
-    if (detail?.url) {
-      navigator.clipboard.writeText(detail.url);
-    }
-    // Navigate to customer service page
-    router.push(`/${lang}/contact?type=mercari&id=${id}`);
+    if (!detail) return;
+    openWithProduct({
+      title: detail.goods_name,
+      image: detail.imgurls?.[0],
+      priceJpy: Number(detail.price),
+      platform: "mercari",
+      href: `/${lang}/checkout?type=mercari&id=${id}`,
+    });
   };
 
   if (loading) {

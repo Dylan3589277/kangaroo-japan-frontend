@@ -1,0 +1,29 @@
+{
+  "tcg-chat": {
+    "launcherOpen": "在线客服",
+    "launcherClose": "关闭客服",
+    "title": "袋鼠君在线客服",
+    "subtitle": "代拍代购、费用、下单、仓库物流，都可以问我。",
+    "faqBadge": "智能客服",
+    "greeting": "你好呀～我是袋鼠君智能客服。代购代拍怎么操作、费用怎么算、下单流程、仓库物流、平台商品这些都可以问我。涉及具体订单（退款、支付、地址）我会帮你转人工客服。",
+    "inputPlaceholder": "请输入你的问题…",
+    "inputAria": "请输入你的问题",
+    "send": "发送",
+    "thinking": "袋鼠君思考中…",
+    "requestError": "出了点小问题，请稍后再试，或在「联系我们」页找到人工客服。",
+    "transferNotice": "这个问题需要人工客服处理。",
+    "suggestionsLabel": "热门问题",
+    "suggestions": {
+      "fees": "代拍费用怎么算？",
+      "customs": "会产生关税吗？",
+      "condition": "怎么确认商品成色？",
+      "valueAdded": "你们有哪些增值服务？"
+    },
+    "footerNote": "退款、支付、地址等订单相关问题由人工客服处理。",
+    "contactCta": "联系人工客服",
+    "productCard": {
+      "cta": "为我下单",
+      "dismiss": "移除该商品"
+    }
+  }
+}

@@ -13,6 +13,7 @@ import {
 } from "@/components/home/tcg/icons";
 import { ImageLightbox } from "@/components/tcg/ImageLightbox";
 import { TcgInfoBar } from "@/components/tcg/TcgInfoBar";
+import { useChatLauncher } from "@/components/tcg/ChatProvider";
 import { normalizeYahooDetail, type YahooDetail } from "./yahoo-data";
 import { YahooRelatedDesignA } from "./YahooRelatedDesignA";
 
@@ -32,6 +33,7 @@ type YahooDetailDesignAProps = {
  */
 export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps) {
   const t = useTranslations("yahoo");
+  const { openWithProduct } = useChatLauncher();
   const [detail, setDetail] = useState<YahooDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -559,6 +561,17 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
           </button>
           <button
             type="button"
+            onClick={() => {
+              if (!detail) return;
+              openWithProduct({
+                title: detail.titleTranslated || detail.title,
+                image: detail.imageUrl ?? detail.images?.[0],
+                priceJpy: detail.currentPrice,
+                platform: "yahoo",
+                // Yahoo 暂无自助结算：CTA 走「联系客服代拍」现有 contact 路由。
+                href: `/${locale}/contact?type=yahoo&id=${goodsNo}`,
+              });
+            }}
             className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-cyan-400 text-base font-semibold text-[#06121b] transition-colors hover:bg-cyan-300"
           >
             {t("contactService")}

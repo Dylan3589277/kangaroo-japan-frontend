@@ -18,6 +18,8 @@ import { TcgCard, TcgCardSkeleton } from "@/components/home/tcg/TcgCard";
 import { searchMercariTcg, type TcgCardItem } from "@/components/home/tcg/tcg-data";
 import { ImageLightbox } from "@/components/tcg/ImageLightbox";
 import { TcgInfoBar } from "@/components/tcg/TcgInfoBar";
+import { useChatLauncher } from "@/components/tcg/ChatProvider";
+import { MessageCircle } from "lucide-react";
 
 /**
  * 设计 A（深色高级感）英文 Mercari 商品详情页。
@@ -69,6 +71,7 @@ export function MercariDetailDesignA() {
   const lang = (params.lang as string) || "en";
   const id = params.id as string;
   const t = useTranslations("mercari");
+  const { openWithProduct } = useChatLauncher();
 
   const [detail, setDetail] = useState<MercariDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -709,6 +712,24 @@ export function MercariDetailDesignA() {
       {/* 底部操作条：Add to cart / Buy now（行为与经典版完全一致） */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0e16]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
+          {/* 从商品页打开客服：带「当前商品」上下文，浮窗顶部渲染商品卡 +
+              「Order this for me」CTA → 跳现有 Mercari 自助结算路由。 */}
+          <button
+            type="button"
+            onClick={() =>
+              openWithProduct({
+                title: detail.goods_name,
+                image: detail.imgurls?.[0],
+                priceJpy: Number(detail.price),
+                platform: "mercari",
+                href: `/${lang}/checkout?type=mercari&id=${id}`,
+              })
+            }
+            className="inline-flex size-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-white/10 text-[10px] text-slate-300 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
+          >
+            <MessageCircle className="size-5" />
+            <span>{t("designA.askChat")}</span>
+          </button>
           <button
             type="button"
             onClick={() => router.push(`/${lang}/cart`)}
