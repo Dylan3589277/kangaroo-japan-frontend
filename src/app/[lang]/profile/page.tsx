@@ -186,6 +186,10 @@ export default function ProfilePage() {
                 </Avatar>
                 <h2 className="text-xl font-bold">{user?.name}</h2>
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {lang === "zh" ? "账号 ID" : "Account ID"}:{" "}
+                  <span className="select-all font-mono">{user?.id}</span>
+                </p>
                 {user?.phone && (
                   <p className="text-sm text-muted-foreground mt-1">
                     {t("profile.phone")}: {user.phone}
