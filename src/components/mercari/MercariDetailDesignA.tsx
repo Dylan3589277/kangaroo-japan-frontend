@@ -35,6 +35,9 @@ interface MercariDetail {
   goods_no: string;
   goods_name: string;
   price: number;
+  // 单品美元价（= 商品价 × 后台 USD 汇率，不含手续费；后端 mdetail 公开附加字段，
+  // 未登录访客也有）。汇率不可用/无价时后端不返回 → 可空。ITEM PRICE 优先用它。
+  price_usd?: number;
   price_rmb: number;
   rate: number;
   description: string;
@@ -384,13 +387,22 @@ export function MercariDetailDesignA() {
                   <span className="text-3xl font-bold tabular-nums text-cyan-300">
                     JPY {numberFormatter.format(Number(detail.price))}
                   </span>
-                  {priceUsd !== null && priceUsd > 0 && (
-                    <span className="text-sm text-slate-500">
-                      {t("designA.approxUsd", {
-                        amount: priceUsd.toFixed(2),
-                      })}
-                    </span>
-                  )}
+                  {/* ITEM PRICE 美元（不含手续费）：优先用 mdetail 的 price_usd（公开、
+                      未登录也有），拿不到再回退登录态 quote 的 priceUsd；都没有则不显。 */}
+                  {(() => {
+                    const itemPriceUsd =
+                      typeof detail.price_usd === "number"
+                        ? detail.price_usd
+                        : priceUsd;
+                    if (itemPriceUsd === null || itemPriceUsd <= 0) return null;
+                    return (
+                      <span className="text-sm text-slate-500">
+                        {t("designA.approxUsd", {
+                          amount: itemPriceUsd.toFixed(2),
+                        })}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
