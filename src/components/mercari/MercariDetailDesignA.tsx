@@ -51,6 +51,9 @@ interface MercariDetail {
     score: number;
     num_sell_items: number;
     num_ratings?: number;
+    // 评价分项 + 本人认证标记（后端 mdetail 透传）；用于卖家页头部 + 认证徽章。可空。
+    ratings?: { good?: number; normal?: number; bad?: number };
+    register_sms_confirmation?: string;
   };
   extras: { name: string; value: string }[];
   bid_count?: number;
@@ -444,16 +447,32 @@ export function MercariDetailDesignA() {
               searchName={detail.goods_name}
             />
 
-            {/* 卖家信息 */}
+            {/* 卖家信息：点击进入该卖家「其它在售」页（/mercari/seller/[id]），
+                把已从 mdetail 拿到的卖家基础信息用 query 带过去，卖家页头部直接渲染，省一次请求。 */}
             {detail.seller_info && (
               <button
                 type="button"
                 onClick={() => {
-                  if (detail.seller_info?.id) {
-                    router.push(
-                      `/${lang}/mercari/seller/${detail.seller_info.id}`,
-                    );
+                  const seller = detail.seller_info;
+                  if (!seller?.id) return;
+                  const query = new URLSearchParams();
+                  if (seller.name) query.set("name", seller.name);
+                  if (seller.photo_url) query.set("photo", seller.photo_url);
+                  if (typeof seller.num_sell_items === "number") {
+                    query.set("num", String(seller.num_sell_items));
                   }
+                  if (seller.ratings) {
+                    query.set("good", String(seller.ratings.good ?? 0));
+                    query.set("normal", String(seller.ratings.normal ?? 0));
+                    query.set("bad", String(seller.ratings.bad ?? 0));
+                  }
+                  if (seller.register_sms_confirmation === "yes") {
+                    query.set("verified", "yes");
+                  }
+                  const qs = query.toString();
+                  router.push(
+                    `/${lang}/mercari/seller/${seller.id}${qs ? `?${qs}` : ""}`,
+                  );
                 }}
                 className="mt-5 flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-cyan-400/30"
               >

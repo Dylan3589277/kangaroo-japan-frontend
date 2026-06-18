@@ -131,5 +131,22 @@
     "purchasing": "Purchasing",
     "purchased": "Purchased successfully",
     "refresh": "Refresh status"
+  },
+  "sellerPage": {
+    "breadcrumb": "Seller",
+    "title": "Seller's other listings",
+    "verified": "Identity-verified seller",
+    "ratingsGood": "Good",
+    "ratingsNormal": "Normal",
+    "ratingsBad": "Bad",
+    "itemsOnSale": "{count} items on sale",
+    "listingsTitle": "Currently on sale",
+    "empty": "This seller has no other items on sale right now.",
+    "loadFailed": "Failed to load this seller's listings. Please try again later.",
+    "backToItem": "Back",
+    "anonymous": "Mercari seller",
+    "prev": "Prev",
+    "next": "Next",
+    "page": "Page {page}"
   }
 }

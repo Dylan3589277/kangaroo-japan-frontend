@@ -167,3 +167,42 @@ export async function searchMercariTcg(
     return [];
   }
 }
+
+export interface SellerListingsResult {
+  items: TcgCardItem[];
+  totalPages: number;
+}
+
+/**
+ * 拉取某卖家「其它在售」列表并归一成 TcgCardItem[]。
+ * 走新后端 GET /integrations/mercari/seller?sellerId=<id>&page=<n>（GET 无 body，用 query），
+ * 后端再代理旧系统 mericaris（带 seller_id，无需登录）。复用同一 normalize / extractGoodsList。
+ * 默认展示全部在售（不过滤已售，由卡片置灰），与搜索结果页口径一致。
+ * 失败/无数据返回空列表 + totalPages:0，由调用方友好兜底。
+ */
+export async function searchSellerListings(
+  sellerId: string,
+  page = 1,
+): Promise<SellerListingsResult> {
+  const trimmed = (sellerId || "").trim();
+  if (!trimmed) return { items: [], totalPages: 0 };
+
+  try {
+    const res = await api.request(
+      `/integrations/mercari/seller?sellerId=${encodeURIComponent(trimmed)}&page=${page}`,
+    );
+
+    if (!res.success || !res.data) return { items: [], totalPages: 0 };
+
+    const items = extractGoodsList(res.data)
+      .map(normalizeMercariItem)
+      .filter((item): item is TcgCardItem => item !== null);
+
+    const totalPagesRaw = (asRecord(res.data) as UnknownRecord).totalPages;
+    const totalPages = firstNumber({ totalPages: totalPagesRaw }, ["totalPages"]) ?? 0;
+
+    return { items, totalPages };
+  } catch {
+    return { items: [], totalPages: 0 };
+  }
+}
