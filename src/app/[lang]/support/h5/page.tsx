@@ -392,6 +392,18 @@ function navigateToMiniProgramBuy(itemId: string) {
   return true;
 }
 
+// 小程序内「去出价」：跳袋鼠君小程序的雅虎竞拍详情页（出价/押金在该页操作）。
+// 路径依据 daishujunApp/pages/daishujun/index/yahoo_detail.vue：onLoad(e) 读 e.id，param 名是 `id`。
+function navigateToMiniProgramYahooBid(itemId: string) {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  win.wx.miniProgram.navigateTo({
+    url: "/pages/daishujun/index/yahoo_detail?id=" + encodeURIComponent(itemId),
+  });
+  return true;
+}
+
 function navigateToMiniProgramDepositRecharge() {
   if (!YAHOO_DEPOSIT_RECHARGE_PAGE_PATH) return false;
   if (typeof window === "undefined") return false;
@@ -874,6 +886,16 @@ export default function MiniProgramSupportH5Page() {
     );
   }
 
+  // 雅虎竞拍「去出价」：小程序内跳竞拍详情页（出价/押金在该页操作）；
+  // 跳不动（网页端等）则引导回小程序——竞拍出价是小程序专属流程。
+  function goYahooBid(itemId?: string) {
+    if (itemId && navigateToMiniProgramYahooBid(itemId)) return;
+    setHumanTransferVisible(true);
+    setHumanTransferNote(
+      "雅虎竞拍的出价与押金请在袋鼠君小程序内操作（打开该商品出价）。",
+    );
+  }
+
   const renderChatItem = (item: ChatItem, key: string) => {
     const amountText = item.orderRef?.amount_rmb
       ? `¥${item.orderRef.amount_rmb}`
@@ -1220,6 +1242,29 @@ export default function MiniProgramSupportH5Page() {
                     登录后可查看你的押金额度。
                   </div>
                 )}
+                {/* 竞拍卡动作：咨询(预填输入框) + 去出价(跳小程序竞拍详情页,出价/押金小程序专属) */}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                    onClick={consultQuote}
+                    disabled={loading}
+                    data-testid="support-quote-auction-btn-consult"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    咨询
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                    onClick={() => goYahooBid(item.quoteRef?.item_id)}
+                    disabled={loading}
+                    data-testid="support-quote-auction-btn-bid"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    去出价
+                  </button>
+                </div>
               </div>
             ) : isYahooSokketsu && item.quoteRef.purchasable !== false ? (
               // 雅虎即決：联系客服下单，不显示自动下单/购买按钮
