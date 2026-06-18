@@ -159,11 +159,20 @@ export default function MercariCheckout() {
 
   // 提交时把勾选的增值服务【数字 id】以逗号拼接（如 "5,6"），交后端。
   const serializeValues = (): string => {
-    if (!quote) return "";
-    return quote.valueAdded
-      .filter((va) => selectedValues[va.id])
-      .map((va) => va.id)
-      .join(",");
+    const ids = quote
+      ? quote.valueAdded
+          .filter((va) => selectedValues[va.id])
+          .map((va) => String(va.id))
+      : [];
+    // 报价卡勾了安心鉴定时,把 'anshin' 标记搭现有 values 字段透传(#2)：
+    // 后端 submitCore 从 values 识别 'anshin'→服务端重读真实鉴定费(买家承担)→runner 结账页勾选。
+    // 走 values 而非新字段,免改现代 NestJS 后端 DTO/转发(避免撞 L1/L2 的 src/mercari WIP)。
+    const wantAnshin = (searchParams.get("services") || "")
+      .split(",")
+      .map((s) => s.trim())
+      .includes("mercari_anshin_kantei");
+    if (wantAnshin) ids.push("anshin");
+    return ids.join(",");
   };
 
   const handleSubmit = async () => {
