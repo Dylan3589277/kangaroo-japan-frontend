@@ -15,6 +15,7 @@ import { ImageLightbox } from "@/components/tcg/ImageLightbox";
 import { TcgInfoBar } from "@/components/tcg/TcgInfoBar";
 import { useChatLauncher } from "@/components/tcg/ChatProvider";
 import { normalizeYahooDetail, type YahooDetail } from "./yahoo-data";
+import { YahooBidModal } from "./YahooBidModal";
 import { YahooRelatedDesignA } from "./YahooRelatedDesignA";
 
 type YahooDetailDesignAProps = {
@@ -41,6 +42,7 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  const [bidOpen, setBidOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -551,13 +553,11 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
           </button>
           <button
             type="button"
-            disabled
-            className="inline-flex h-12 flex-1 cursor-not-allowed flex-col items-center justify-center gap-0 rounded-xl border border-white/10 text-sm text-slate-400 opacity-70"
+            disabled={!detail}
+            onClick={() => setBidOpen(true)}
+            className="inline-flex h-12 flex-1 items-center justify-center rounded-xl border border-cyan-400/40 text-sm font-semibold text-cyan-200 transition-colors hover:border-cyan-400/70 hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span>{t("onlineBid")}</span>
-            <span className="text-[10px] font-normal opacity-80">
-              {t("comingSoon")}
-            </span>
+            {t("onlineBid")}
           </button>
           <button
             type="button"
@@ -578,6 +578,19 @@ export function YahooDetailDesignA({ goodsNo, locale }: YahooDetailDesignAProps)
           </button>
         </div>
       </div>
+
+      {/* 在线出价确认弹窗（替换原「Coming soon」占位）。仅发 goodsNo+money，
+          后端 fail-closed：未开放/不在白名单/未绑会员 → 礼貌拒绝、不会真出价。 */}
+      {detail && (
+        <YahooBidModal
+          open={bidOpen}
+          onClose={() => setBidOpen(false)}
+          goodsNo={detail.goodsNo}
+          title={detail.titleTranslated || detail.title}
+          currentPrice={detail.currentPrice}
+          variant="designA"
+        />
+      )}
     </main>
   );
 }

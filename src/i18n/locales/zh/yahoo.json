@@ -56,5 +56,23 @@
   "description": "商品描述",
   "translationNote": "翻译仅做参考，不承担因翻译功能失误造成的损失。如需准确了解商品详情请咨询客服。",
   "showOriginal": "查看日文原文",
-  "relatedTitle": "相关商品"
+  "relatedTitle": "相关商品",
+  "bidModal": {
+    "title": "在线出价",
+    "amountLabel": "你的出价金额",
+    "amountPlaceholder": "请输入出价金额（日元）",
+    "realBidNotice": "这是在 Yahoo 竞拍上的真实代拍出价，并非咨询。押金与限额以系统规则为准；中标后将按规则扣款。请确认金额后再提交出价。",
+    "confirm": "确认出价",
+    "submitting": "出价提交中…",
+    "cancel": "取消",
+    "done": "完成",
+    "success": "出价已提交。",
+    "errors": {
+      "required": "请输入出价金额。",
+      "integer": "请输入日元整数金额。",
+      "belowCurrent": "出价金额不能低于 JPY {amount}。",
+      "generic": "出价未能提交，请稍后重试。",
+      "network": "网络异常，请检查网络后重试。"
+    }
+  }
 }

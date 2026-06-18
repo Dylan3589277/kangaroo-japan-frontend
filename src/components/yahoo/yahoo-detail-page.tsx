@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatLauncher } from "@/components/tcg/ChatProvider";
 import { normalizeYahooDetail, type YahooDetail } from "./yahoo-data";
+import { YahooBidModal } from "./YahooBidModal";
 import { YahooRelated } from "./yahoo-related";
 import {
   URGENCY_COUNTDOWN_CLASS,
@@ -32,6 +33,7 @@ export function YahooDetailPage({
   const [imageBroken, setImageBroken] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  const [bidOpen, setBidOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -424,13 +426,11 @@ export function YahooDetailPage({
           <Button
             type="button"
             variant="outline"
-            disabled
-            className="h-12 flex-1 flex-col gap-0 rounded-xl text-sm"
+            disabled={!detail}
+            onClick={() => setBidOpen(true)}
+            className="h-12 flex-1 rounded-xl text-sm"
           >
-            <span>{t("onlineBid")}</span>
-            <span className="text-[10px] font-normal opacity-80">
-              {t("comingSoon")}
-            </span>
+            {t("onlineBid")}
           </Button>
           <Button
             type="button"
@@ -451,6 +451,19 @@ export function YahooDetailPage({
           </Button>
         </div>
       </div>
+
+      {/* 在线出价确认弹窗（替换原「即将开放」占位）。仅发 goodsNo+money 两字段，
+          后端 fail-closed：未开放/不在白名单/未绑会员 → 礼貌拒绝、不会真出价。 */}
+      {detail && (
+        <YahooBidModal
+          open={bidOpen}
+          onClose={() => setBidOpen(false)}
+          goodsNo={detail.goodsNo}
+          title={detail.titleTranslated || detail.title}
+          currentPrice={detail.currentPrice}
+          variant="classic"
+        />
+      )}
     </main>
   );
 }
