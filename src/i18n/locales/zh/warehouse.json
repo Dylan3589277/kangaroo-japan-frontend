@@ -1,6 +1,13 @@
 {
   "title": "仓库管理",
   "subtitle": "仓库运营概览与管理入口",
+  "searchFailed": "搜索打印机失败，请稍后重试",
+  "connectFailed": "连接打印机失败，请稍后重试",
+  "disconnectFailed": "断开打印机失败，请稍后重试",
+  "statusOnline": "在线",
+  "statusOffline": "离线",
+  "statusBusy": "忙碌",
+  "devFixtureWarning": "当前展示的是开发环境示例打印机",
   "dashboard": "仓库总览",
   "pendingInbound": "待入库",
   "pendingOutbound": "待出库",

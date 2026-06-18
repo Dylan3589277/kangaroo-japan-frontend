@@ -1,6 +1,13 @@
 {
   "title": "Warehouse",
   "subtitle": "Warehouse operations overview",
+  "searchFailed": "Printer search failed. Please try again later.",
+  "connectFailed": "Printer connection failed. Please try again later.",
+  "disconnectFailed": "Printer disconnect failed. Please try again later.",
+  "statusOnline": "Online",
+  "statusOffline": "Offline",
+  "statusBusy": "Busy",
+  "devFixtureWarning": "Local printer fixtures shown for development only.",
   "dashboard": "Dashboard",
   "pendingInbound": "Pending Inbound",
   "pendingOutbound": "Pending Outbound",

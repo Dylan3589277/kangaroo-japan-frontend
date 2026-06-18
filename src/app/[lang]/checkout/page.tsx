@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
@@ -107,6 +108,7 @@ export default function CheckoutPage() {
 function CartCheckoutPage() {
   const params = useParams();
   const router = useRouter();
+  const t = useTranslations("checkout");
   const lang = (params.lang as string) || "zh";
   // 英文站面向海外，绝不显示人民币：默认美元，币种选择器也剔除 CNY。
   const isEn = lang === "en";
@@ -158,11 +160,11 @@ function CartCheckoutPage() {
 
   const handleSubmitOrder = async () => {
     if (!selectedAddressId) {
-      toast.error("Please select a shipping address");
+      toast.error(t("selectAddress"));
       return;
     }
     if (!cart || cart.items.length === 0) {
-      toast.error("Cart is empty");
+      toast.error(t("cartEmpty"));
       return;
     }
 
@@ -177,14 +179,14 @@ function CartCheckoutPage() {
       });
 
       if (res.success && res.data) {
-        toast.success("Order created successfully!");
+        toast.success(t("orderSuccess"));
         const orderData = res.data as { order_id?: string };
         router.push(`/${lang}/orders/${orderData.order_id}`);
       } else {
-        toast.error(res.error?.message || "Failed to create order");
+        toast.error(res.error?.message || t("createOrderFailed"));
       }
     } catch (error) {
-      toast.error("Failed to create order");
+      toast.error(t("createOrderFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -193,7 +195,7 @@ function CartCheckoutPage() {
   if (authLoading || loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-8">Checkout</h1>
+        <h1 className="text-2xl font-bold mb-8">{t("title")}</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
             {[1, 2].map((i) => (
@@ -220,12 +222,12 @@ function CartCheckoutPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">🛒</div>
-        <h1 className="text-2xl font-bold mb-2">Your cart is empty</h1>
+        <h1 className="text-2xl font-bold mb-2">{t("cartEmpty")}</h1>
         <p className="text-muted-foreground mb-8">
-          Add items to your cart before checkout
+          {t("cartEmptySubtitle")}
         </p>
         <Link href={`/${lang}/products`}>
-          <Button>Browse Products</Button>
+          <Button>{t("browseProducts")}</Button>
         </Link>
       </div>
     );
@@ -251,7 +253,7 @@ function CartCheckoutPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-8">Checkout</h1>
+      <h1 className="text-2xl font-bold mb-8">{t("title")}</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column - Addresses & Items */}
@@ -260,24 +262,24 @@ function CartCheckoutPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center justify-between">
-                <span>1. Shipping Address</span>
+                <span>1. {t("step1")}</span>
                 <Link
                   href={`/${lang}/addresses`}
                   className="text-sm font-normal text-primary hover:underline"
                 >
-                  + Add new
+                  + {t("addNewAddress")}
                 </Link>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {addresses.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
-                  No addresses found.{" "}
+                  {t("noAddresses")}.{" "}
                   <Link
                     href={`/${lang}/addresses`}
                     className="text-primary"
                   >
-                    Add an address
+                    {t("addAnAddress")}
                   </Link>
                 </p>
               ) : (
@@ -297,7 +299,7 @@ function CartCheckoutPage() {
                           {addr.recipient_name}
                           {addr.is_default && (
                             <Badge className="ml-2 text-xs" variant="secondary">
-                              Default
+                              {t("defaultBadge")}
                             </Badge>
                           )}
                         </div>
@@ -327,7 +329,7 @@ function CartCheckoutPage() {
           {/* Order Items */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">2. Order Items</CardTitle>
+              <CardTitle className="text-lg">2. {t("step2")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -343,7 +345,7 @@ function CartCheckoutPage() {
                       />
                     ) : (
                       <div className="w-15 h-15 bg-gray-100 rounded border flex items-center justify-center text-gray-400 text-xs">
-                        No Image
+                        {t("noImage")}
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
@@ -380,14 +382,14 @@ function CartCheckoutPage() {
           {/* Buyer Message */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">3. Additional Info</CardTitle>
+              <CardTitle className="text-lg">3. {t("step3")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="buyerMessage">Message to Seller</Label>
+                <Label htmlFor="buyerMessage">{t("messageToSeller")}</Label>
                 <Input
                   id="buyerMessage"
-                  placeholder="Optional message for sellers..."
+                  placeholder={t("messagePlaceholder")}
                   value={buyerMessage}
                   onChange={(e) => setBuyerMessage(e.target.value)}
                   className="mt-1"
@@ -395,16 +397,16 @@ function CartCheckoutPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="coupon">Coupon Code</Label>
+                <Label htmlFor="coupon">{t("couponCode")}</Label>
                 <div className="flex gap-2 mt-1">
                   <Input
                     id="coupon"
-                    placeholder="Enter coupon code"
+                    placeholder={t("couponPlaceholder")}
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                     className="flex-1"
                   />
-                  <Button variant="outline">Apply</Button>
+                  <Button variant="outline">{t("apply")}</Button>
                 </div>
               </div>
             </CardContent>
@@ -415,7 +417,7 @@ function CartCheckoutPage() {
         <div className="lg:col-span-1">
           <Card className="sticky top-4">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Order Summary</CardTitle>
+              <CardTitle className="text-lg">{t("orderSummary")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {/* Currency Selection */}
@@ -438,14 +440,14 @@ function CartCheckoutPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
-                    Subtotal ({cart.summary.totalItems} items)
+                    {t("subtotalItems", { count: cart.summary.totalItems })}
                   </span>
                   <span>
                     {formatCurrency(getSubtotal(), selectedCurrency)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shipping</span>
+                  <span className="text-muted-foreground">{t("shipping")}</span>
                   <span>
                     {formatCurrency(getShipping(), selectedCurrency)}
                   </span>
@@ -461,7 +463,7 @@ function CartCheckoutPage() {
               <Separator />
 
               <div className="flex justify-between font-semibold text-base">
-                <span>Total</span>
+                <span>{t("total")}</span>
                 <span>{formatCurrency(total, selectedCurrency)}</span>
               </div>
 
@@ -471,11 +473,11 @@ function CartCheckoutPage() {
                 onClick={handleSubmitOrder}
                 disabled={submitting || !selectedAddressId || addresses.length === 0}
               >
-                {submitting ? "Processing..." : "Place Order"}
+                {submitting ? t("processing") : t("placeOrder")}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
-                Payment will be processed after order confirmation
+                {t("paymentNote")}
               </p>
             </CardContent>
           </Card>

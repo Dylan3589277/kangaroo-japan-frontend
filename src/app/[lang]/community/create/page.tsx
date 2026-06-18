@@ -92,7 +92,7 @@ export default function CommunityCreatePage() {
         return;
       }
 
-      alert("Submit failed. Please try again later.");
+      alert(t('submitFailed'));
     } finally {
       setSubmitting(false);
     }

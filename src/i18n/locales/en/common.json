@@ -237,7 +237,18 @@
     "selectAddress": "Please select a shipping address",
     "cartEmpty": "Your cart is empty",
     "cartEmptySubtitle": "Add items to your cart before checkout",
-    "currency": "Payment Currency"
+    "currency": "Payment Currency",
+    "addAnAddress": "Add an address",
+    "defaultBadge": "Default",
+    "noImage": "No Image",
+    "couponPlaceholder": "Enter coupon code",
+    "browseProducts": "Browse Products",
+    "subtotalItems": "Subtotal ({count} items)",
+    "shipping": "Shipping",
+    "total": "Total",
+    "paymentNote": "Payment will be processed after order confirmation",
+    "createOrderFailed": "Failed to create order",
+    "loginRequired": "Please log in"
   },
   "profile": {
     "title": "My Profile",

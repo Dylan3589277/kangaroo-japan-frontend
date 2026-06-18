@@ -237,7 +237,18 @@
     "selectAddress": "请选择收货地址",
     "cartEmpty": "购物车是空的",
     "cartEmptySubtitle": "结算前请先添加商品到购物车",
-    "currency": "支付货币"
+    "currency": "支付货币",
+    "addAnAddress": "添加地址",
+    "defaultBadge": "默认",
+    "noImage": "暂无图片",
+    "couponPlaceholder": "输入优惠券码",
+    "browseProducts": "浏览商品",
+    "subtotalItems": "小计（{count} 件商品）",
+    "shipping": "运费",
+    "total": "总计",
+    "paymentNote": "确认订单后将进行支付",
+    "createOrderFailed": "订单创建失败",
+    "loginRequired": "请先登录"
   },
   "profile": {
     "title": "个人中心",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
@@ -25,12 +26,6 @@ const PRINTER_TYPE_LABELS: Record<string, string> = {
   bluetooth: "Bluetooth",
   network: "Network",
   usb: "USB",
-};
-
-const PRINTER_STATUS_LABELS: Record<string, string> = {
-  online: "Online",
-  offline: "Offline",
-  busy: "Busy",
 };
 
 const PRINTER_STATUS_COLORS: Record<string, string> = {
@@ -92,8 +87,18 @@ const LOCAL_PRINTER_FIXTURES: Printer[] = [
 export default function PrintersPage() {
   const params = useParams();
   const router = useRouter();
+  const t = useTranslations("warehouse");
   const lang = (params.lang as string) || "zh";
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
+
+  const statusLabel = (status: string) =>
+    status === "online"
+      ? t("statusOnline")
+      : status === "offline"
+        ? t("statusOffline")
+        : status === "busy"
+          ? t("statusBusy")
+          : status;
 
   const [printers, setPrinters] = useState<Printer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,22 +144,22 @@ export default function PrintersPage() {
       });
       if (res.success && res.data?.list) {
         setPrinters(res.data.list);
-        toast.success(`Found ${res.data.list.length} printer(s)`);
+        toast.success(t("foundPrinters", { count: res.data.list.length }));
       } else if (isDevelopmentRuntime) {
         setPrinters(LOCAL_PRINTER_FIXTURES);
-        toast.warning("Local printer fixtures shown for development only.");
+        toast.warning(t("devFixtureWarning"));
       } else {
         setPrinters([]);
-        toast.error("Printer search failed. Please try again later.");
+        toast.error(t("searchFailed"));
       }
     } catch (error) {
       console.error("Failed to search printers:", error);
       if (isDevelopmentRuntime) {
         setPrinters(LOCAL_PRINTER_FIXTURES);
-        toast.warning("Local printer fixtures shown for development only.");
+        toast.warning(t("devFixtureWarning"));
       } else {
         setPrinters([]);
-        toast.error("Printer search failed. Please try again later.");
+        toast.error(t("searchFailed"));
       }
     } finally {
       setSearching(false);
@@ -168,7 +173,7 @@ export default function PrintersPage() {
         body: { printerId: printer.id },
       });
       if (res.success) {
-        toast.success(`Connected ${printer.name}`);
+        toast.success(t("connectedTo", { name: printer.name }));
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: true, status: "online" } : p
@@ -180,9 +185,9 @@ export default function PrintersPage() {
             p.id === printer.id ? { ...p, connected: true, status: "online" } : p
           )
         );
-        toast.warning("Local fixture connection updated locally.");
+        toast.warning(t("devFixtureWarning"));
       } else {
-        toast.error("Printer connection failed. Please try again later.");
+        toast.error(t("connectFailed"));
       }
     } catch (error) {
       console.error("Failed to connect printer:", error);
@@ -192,9 +197,9 @@ export default function PrintersPage() {
             p.id === printer.id ? { ...p, connected: true, status: "online" } : p
           )
         );
-        toast.warning("Local fixture connection updated locally.");
+        toast.warning(t("devFixtureWarning"));
       } else {
-        toast.error("Printer connection failed. Please try again later.");
+        toast.error(t("connectFailed"));
       }
     }
   };
@@ -206,7 +211,7 @@ export default function PrintersPage() {
         body: { printerId: printer.id },
       });
       if (res.success) {
-        toast.success(`Disconnected ${printer.name}`);
+        toast.success(t("disconnectedFrom", { name: printer.name }));
         setPrinters((prev) =>
           prev.map((p) =>
             p.id === printer.id ? { ...p, connected: false } : p
@@ -218,9 +223,9 @@ export default function PrintersPage() {
             p.id === printer.id ? { ...p, connected: false } : p
           )
         );
-        toast.warning("Local fixture connection updated locally.");
+        toast.warning(t("devFixtureWarning"));
       } else {
-        toast.error("Printer disconnect failed. Please try again later.");
+        toast.error(t("disconnectFailed"));
       }
     } catch (error) {
       console.error("Failed to disconnect printer:", error);
@@ -230,9 +235,9 @@ export default function PrintersPage() {
             p.id === printer.id ? { ...p, connected: false } : p
           )
         );
-        toast.warning("Local fixture connection updated locally.");
+        toast.warning(t("devFixtureWarning"));
       } else {
-        toast.error("Printer disconnect failed. Please try again later.");
+        toast.error(t("disconnectFailed"));
       }
     }
   };
@@ -253,9 +258,9 @@ export default function PrintersPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="text-6xl mb-4">!</div>
-        <h1 className="text-2xl font-bold mb-2">Please log in</h1>
+        <h1 className="text-2xl font-bold mb-2">{t("needLogin")}</h1>
         <Link href={`/${lang}/login`}>
-          <Button className="bg-rose-600 hover:bg-rose-700">Go to login</Button>
+          <Button className="bg-rose-600 hover:bg-rose-700">{t("goLogin")}</Button>
         </Link>
       </div>
     );
@@ -268,13 +273,13 @@ export default function PrintersPage() {
           href={`/${lang}/warehouse`}
           className="text-sm text-muted-foreground hover:text-foreground mb-2 inline-block"
         >
-          Back to warehouse
+          {t("backHome")}
         </Link>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Printer list</h1>
+            <h1 className="text-2xl font-bold">{t("printersTitle")}</h1>
             <p className="text-sm text-muted-foreground">
-              Search, connect, and manage available warehouse printers.
+              {t("printersDesc")}
             </p>
           </div>
           <Button
@@ -282,7 +287,7 @@ export default function PrintersPage() {
             disabled={searching}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            {searching ? "Searching..." : "Search printers"}
+            {searching ? t("searchingPrinters") : t("searchPrinters")}
           </Button>
         </div>
       </div>
@@ -307,16 +312,16 @@ export default function PrintersPage() {
       ) : printers.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-5xl mb-4">--</div>
-          <h2 className="text-lg font-semibold mb-1">No printers found</h2>
+          <h2 className="text-lg font-semibold mb-1">{t("noPrinters")}</h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Use search to query available warehouse printers.
+            {t("noPrintersDesc")}
           </p>
           <Button
             onClick={handleSearchPrinters}
             disabled={searching}
             variant="outline"
           >
-            {searching ? "Searching..." : "Search printers"}
+            {searching ? t("searchingPrinters") : t("searchPrinters")}
           </Button>
         </div>
       ) : (
@@ -336,7 +341,7 @@ export default function PrintersPage() {
                         </span>
                         {printer.connected && (
                           <Badge className="bg-green-600 text-white text-xs">
-                            Connected
+                            {t("connected")}
                           </Badge>
                         )}
                       </div>
@@ -346,7 +351,7 @@ export default function PrintersPage() {
                             PRINTER_STATUS_COLORS[printer.status] || "bg-gray-500"
                           } text-white text-xs`}
                         >
-                          {PRINTER_STATUS_LABELS[printer.status] || printer.status}
+                          {statusLabel(printer.status)}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           {PRINTER_TYPE_LABELS[printer.type] || printer.type}
@@ -365,7 +370,7 @@ export default function PrintersPage() {
                         onClick={() => handleDisconnect(printer)}
                         className="text-red-600 border-red-200 hover:bg-red-50"
                       >
-                        Disconnect
+                        {t("disconnect")}
                       </Button>
                     ) : (
                       <Button
@@ -379,7 +384,7 @@ export default function PrintersPage() {
                             : ""
                         }
                       >
-                        {printer.status === "offline" ? "Offline" : "Connect"}
+                        {printer.status === "offline" ? t("offline") : t("connect")}
                       </Button>
                     )}
                   </div>
@@ -390,9 +395,11 @@ export default function PrintersPage() {
 
           {/* Summary */}
           <div className="text-center text-xs text-muted-foreground pt-2">
-            Total {printers.length} printer(s) ·{" "}
-            Connected {printers.filter((p) => p.connected).length} ·{" "}
-            Online {printers.filter((p) => p.status === "online").length}
+            {t("summary", {
+              total: printers.length,
+              connected: printers.filter((p) => p.connected).length,
+              online: printers.filter((p) => p.status === "online").length,
+            })}
           </div>
         </div>
       )}

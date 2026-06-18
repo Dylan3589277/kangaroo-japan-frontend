@@ -121,6 +121,10 @@ export default function CartPage() {
       itemRemoved: "商品已从购物车移除",
       messageSaved: "留言已保存",
       confirmClear: "确定要清空购物车吗？",
+      updateQtyFailed: "更新数量失败",
+      removeItemFailed: "移除商品失败",
+      saveMessageFailed: "保存留言失败",
+      clearCartFailed: "清空购物车失败",
     },
     en: {
       shoppingCart: "Shopping Cart",
@@ -146,6 +150,10 @@ export default function CartPage() {
       itemRemoved: "Item removed from cart",
       messageSaved: "Message saved",
       confirmClear: "Are you sure you want to clear all items?",
+      updateQtyFailed: "Failed to update quantity",
+      removeItemFailed: "Failed to remove item",
+      saveMessageFailed: "Failed to save message",
+      clearCartFailed: "Failed to clear cart",
     },
     ja: {
       shoppingCart: "カート",
@@ -171,6 +179,10 @@ export default function CartPage() {
       itemRemoved: "商品をカートから削除しました",
       messageSaved: "メッセージを保存しました",
       confirmClear: "カートを空にしてよろしいですか？",
+      updateQtyFailed: "数量の更新に失敗しました",
+      removeItemFailed: "商品の削除に失敗しました",
+      saveMessageFailed: "メッセージの保存に失敗しました",
+      clearCartFailed: "カートのクリアに失敗しました",
     },
   };
   const tr = (key: string) => i18n[lang]?.[key] || i18n["en"][key] || key;
@@ -215,10 +227,10 @@ export default function CartPage() {
         setCart(res.data as CartData);
         toast.success(tr("quantityUpdated"));
       } else {
-        toast.error(res.error?.message || "Failed to update quantity");
+        toast.error(res.error?.message || tr("updateQtyFailed"));
       }
     } catch {
-      toast.error("Failed to update quantity");
+      toast.error(tr("updateQtyFailed"));
     } finally {
       setUpdating(null);
     }
@@ -232,10 +244,10 @@ export default function CartPage() {
         setCart(res.data as CartData);
         toast.success(tr("itemRemoved"));
       } else {
-        toast.error(res.error?.message || "Failed to remove item");
+        toast.error(res.error?.message || tr("removeItemFailed"));
       }
     } catch {
-      toast.error("Failed to remove item");
+      toast.error(tr("removeItemFailed"));
     } finally {
       setUpdating(null);
     }
@@ -250,10 +262,10 @@ export default function CartPage() {
         setCart(res.data as CartData);
         toast.success(tr("messageSaved"));
       } else {
-        toast.error(res.error?.message || "Failed to save message");
+        toast.error(res.error?.message || tr("saveMessageFailed"));
       }
     } catch {
-      toast.error("Failed to save message");
+      toast.error(tr("saveMessageFailed"));
     } finally {
       setUpdating(null);
     }
@@ -268,10 +280,10 @@ export default function CartPage() {
         setCart(null);
         toast.success(tr("shoppingCart") + " cleared");
       } else {
-        toast.error(res.error?.message || "Failed to clear cart");
+        toast.error(res.error?.message || tr("clearCartFailed"));
       }
     } catch {
-      toast.error("Failed to clear cart");
+      toast.error(tr("clearCartFailed"));
     } finally {
       setLoading(false);
     }
