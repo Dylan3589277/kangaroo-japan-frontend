@@ -117,7 +117,8 @@ export function MercariDetailDesignA() {
     // 保持 null，页面退化为「结算时计算」——绝不显示写死的固定手续费值。
     const fetchFee = async () => {
       try {
-        const res = await api.getMercariQuote(id);
+        // 本组件仅 en（TCG）渲染，传 tcg=true 才返 amountUsd/priceUsd（含手续费美元）。
+        const res = await api.getMercariQuote(id, { tcg: true });
         if (!active) return;
         if (res.success && res.data && typeof res.data.feeJpy === "number") {
           setFeeJpy(res.data.feeJpy);
