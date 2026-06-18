@@ -64,17 +64,51 @@ async function importNamespace(
   }
 }
 
-async function loadNamespace(locale: MessageLocale, namespace: (typeof namespaces)[number]) {
-  const messages = await importNamespace(locale, namespace);
+// Some existing files are already namespaced, e.g. auth.json contains
+// { "auth": ..., "address": ... }. Platform files such as amazon.json are
+// flat and must be wrapped so useTranslations("amazon") can resolve them.
+function wrapNamespace(
+  namespace: (typeof namespaces)[number],
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  return raw && typeof raw === "object" && raw[namespace] ? raw : { [namespace]: raw };
+}
 
-  // Some existing files are already namespaced, e.g. auth.json contains
-  // { "auth": ..., "address": ... }. Platform files such as amazon.json are
-  // flat and must be wrapped so useTranslations("amazon") can resolve them.
-  if (messages[namespace]) {
-    return messages;
+// Deep-merge `override` onto `base` (override wins; keys missing in override keep
+// the base value). Used so a partially-translated locale falls back to the English
+// copy *per key*, not just per missing file — otherwise a present-but-incomplete
+// file (e.g. zh/tcg.json without `header`) renders raw i18n keys.
+function deepMerge(base: unknown, override: unknown): unknown {
+  if (
+    base === null ||
+    typeof base !== "object" ||
+    Array.isArray(base) ||
+    override === null ||
+    typeof override !== "object" ||
+    Array.isArray(override)
+  ) {
+    return override === undefined ? base : override;
+  }
+  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+  for (const key of Object.keys(override as Record<string, unknown>)) {
+    out[key] = deepMerge(
+      (base as Record<string, unknown>)[key],
+      (override as Record<string, unknown>)[key],
+    );
+  }
+  return out;
+}
+
+async function loadNamespace(locale: MessageLocale, namespace: (typeof namespaces)[number]) {
+  const localeMessages = wrapNamespace(namespace, await importNamespace(locale, namespace));
+  if (locale === FALLBACK_LOCALE) {
+    return localeMessages;
   }
 
-  return { [namespace]: messages };
+  // Overlay the locale's keys on top of the English base so any missing key falls
+  // back to English instead of showing the raw key path.
+  const baseMessages = wrapNamespace(namespace, await importNamespace(FALLBACK_LOCALE, namespace));
+  return deepMerge(baseMessages, localeMessages) as Record<string, unknown>;
 }
 
 export default getRequestConfig(async ({ requestLocale }) => {

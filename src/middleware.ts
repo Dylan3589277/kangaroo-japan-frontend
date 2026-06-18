@@ -3,7 +3,9 @@ import createMiddleware from "next-intl/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
 
-// Written only by the language switcher. IP detection remains automatic until the user chooses manually.
+// Persisted whenever the user lands on an explicit /<locale> path, so their current
+// browsing locale sticks across unprefixed navigations. First-visit detection (IP /
+// Accept-Language) stays automatic only until they hit an explicit locale path.
 const LOCALE_COOKIE = "USER_LOCALE";
 const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -110,21 +112,34 @@ export default function middleware(request: NextRequest) {
       cleanedPathname.startsWith(`/${locale}/`)
   );
 
-  // Explicit locale paths should render as-is. Manual persistence is handled by
-  // the Header click handler, so IP auto redirects don't accidentally become a
-  // permanent preference after the browser lands on /en, /ja, etc.
+  // Explicit locale paths render as-is AND persist that locale to the cookie, so
+  // subsequent unprefixed navigations (default-locale `as-needed` links, the Home
+  // link, browser back) follow the locale the user is actually browsing instead of
+  // being re-detected from Accept-Language every time (which bounced zh users to
+  // /en and ignored a stale cookie). Still soft: visiting any other /<locale> path
+  // re-persists it; explicit paths are never force-redirected across locales.
   if (pathLocale) {
+    const cookieOptions = {
+      maxAge: LOCALE_COOKIE_MAX_AGE,
+      path: "/",
+      sameSite: "lax" as const,
+    };
+
     if (pathLocale === routing.defaultLocale) {
       const requestHeaders = new Headers(request.headers);
       requestHeaders.set("X-NEXT-INTL-LOCALE", routing.defaultLocale);
-      return NextResponse.next({
+      const response = NextResponse.next({
         request: {
           headers: requestHeaders,
         },
       });
+      response.cookies.set(LOCALE_COOKIE, pathLocale, cookieOptions);
+      return response;
     }
 
-    return intlMiddleware(request);
+    const response = intlMiddleware(request);
+    response.cookies.set(LOCALE_COOKIE, pathLocale, cookieOptions);
+    return response;
   }
 
   const requestOrigin = getRequestOrigin(request);
