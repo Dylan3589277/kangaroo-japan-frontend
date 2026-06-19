@@ -13,15 +13,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChatLauncher } from "@/components/tcg/ChatProvider";
 import { ImageLightbox } from "@/components/tcg/ImageLightbox";
-import { TcgInfoBar } from "@/components/tcg/TcgInfoBar";
-
 interface MercariDetail {
   goods_no: string;
   goods_name: string;
+  titleTranslated?: string;
   price: number;
   price_rmb: number;
   rate: number;
   description: string;
+  descriptionTranslated?: string;
   imgurls: string[];
   content: string;
   status: string;
@@ -305,7 +305,7 @@ export function MercariDetailClassic() {
             onClick={copyName}
             title={t('clickToCopy')}
           >
-            {detail.goods_name}
+            {detail.titleTranslated || detail.goods_name}
           </h1>
 
           {/* Price */}
@@ -431,17 +431,6 @@ export function MercariDetailClassic() {
             </div>
           </Card>
 
-          {/* TCG 信息栏（解析卡况/套系/稀有度 + PriceCharting 外链），浅色风。
-              复用与 en Design-A 同一个 TcgInfoBar 组件，传 variant="light"；
-              卡牌类才有内容、非卡牌自然返回 null。 */}
-          <TcgInfoBar
-            name={detail.goods_name}
-            description={detail.content || detail.description || ""}
-            extras={detail.extras}
-            searchName={detail.goods_name}
-            variant="light"
-          />
-
           {/* 次要操作：复制链接 / 收藏 / 咨询客服（带商品卡，去重底栏大客服按钮） */}
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <Button
@@ -529,9 +518,9 @@ export function MercariDetailClassic() {
                 {t('details')}
               </h3>
               <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                {detail.content || detail.description || ""}
+                {detail.descriptionTranslated || detail.content || detail.description || ""}
               </div>
-              {!detail.content && !detail.description && (
+              {!detail.descriptionTranslated && !detail.content && !detail.description && (
                 <p className="text-muted-foreground">
                   {t('noDescription')}
                 </p>

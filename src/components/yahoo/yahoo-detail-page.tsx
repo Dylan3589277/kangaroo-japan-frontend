@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatLauncher } from "@/components/tcg/ChatProvider";
 import { ImageLightbox } from "@/components/tcg/ImageLightbox";
-import { TcgInfoBarClassic } from "@/components/tcg/TcgInfoBarClassic";
 import { normalizeYahooDetail, type YahooDetail } from "./yahoo-data";
 import { YahooBidModal } from "./YahooBidModal";
 import { YahooRelated } from "./yahoo-related";
@@ -296,15 +295,6 @@ export function YahooDetailPage({
                   </div>
                 )}
               </div>
-
-              {/* TCG 信息栏（卡况/套系/稀有度 + PriceCharting 外链）。复用与设计 A 同一份
-                  解析逻辑，浅色皮；雅虎多为杂货解析不出即整块不渲染。 */}
-              <TcgInfoBarClassic
-                name={detail.titleJa || detail.title}
-                description={detail.description}
-                extras={detail.extras}
-                searchName={detail.titleJa || detail.title}
-              />
 
               <div
                 className={`mt-5 flex items-center gap-3 rounded-xl px-4 py-4 ${URGENCY_COUNTDOWN_CLASS[urgency]}`}
