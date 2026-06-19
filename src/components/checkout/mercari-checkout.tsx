@@ -47,6 +47,11 @@ const VALUE_ADDED_DESC_KEYS: Record<number, string> = {
   6: "vaInboundPhotoDesc",
 };
 
+// Stripe 门控（仅 en TCG 站用）：配了 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY 才走
+// Stripe Checkout；未配则保持现有 NewAge 流程（绝不把 en 结算搞挂）。NEXT_PUBLIC_*
+// 必须静态引用才能被 Next 内联到客户端包。
+const STRIPE_ENABLED = !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+
 // 金额一律 JPY 整数显示，不除以 100
 function formatJpy(amount: number): string {
   return `¥${Math.round(amount).toLocaleString()}`;
@@ -206,6 +211,39 @@ export default function MercariCheckout() {
         const orderId = pickOrderId(result);
         const payUrl = pickPayUrl(result);
         const qrcodeUrl = pickQrcodeUrl(result);
+
+        // en TCG 站 Stripe Checkout（按美元收）：仅当 en + 配置了
+        // NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY + 拿到 orderId 时，改走 Stripe 托管页。
+        // 金额由后端从订单权威重算（前端不传金额）。任何失败回退到现有 NewAge 流程，
+        // 绝不把 en 结算搞挂。zh 经典结算（下方）一字不动。
+        if (isEn && STRIPE_ENABLED && orderId) {
+          try {
+            const stripeRes = await api.createStripeCheckoutSession({
+              orderId,
+              goodsNo,
+              values: serializeValues(),
+              lang,
+            });
+            if (
+              stripeRes.success &&
+              stripeRes.data?.url &&
+              isHttpUrl(stripeRes.data.url)
+            ) {
+              window.location.href = stripeRes.data.url;
+              return;
+            }
+            // 未拿到可跳转 url：不假成功，落回 NewAge 兜底（下方逻辑）。
+            console.warn(
+              "Stripe checkout session unavailable, falling back to NewAge:",
+              stripeRes.error?.message,
+            );
+          } catch (stripeErr) {
+            console.error(
+              "Stripe checkout session failed, falling back to NewAge:",
+              stripeErr,
+            );
+          }
+        }
 
         // 支付凭证两种形态：
         //  1) qrcodeUrl 是 NewAge 二维码【内容】（非网址）——渲染成二维码让用户扫码付。

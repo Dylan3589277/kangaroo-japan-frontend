@@ -92,6 +92,42 @@ interface SupportTicketResponse {
   };
 }
 
+export type PublicSellerMessageRequestType = "bargain" | "question";
+export type PublicSellerMessagePlatform =
+  | "mercari"
+  | "yahoo_auction"
+  | "yahoo_shopping";
+
+export interface PublicSellerMessageRequest {
+  platform: PublicSellerMessagePlatform;
+  itemUrl?: string;
+  goodsNo?: string;
+  type: PublicSellerMessageRequestType;
+  buyerId: string;
+  conversationId?: string;
+  lang?: string;
+  targetPriceJpy?: number;
+  questionText?: string;
+  customerRequestZh?: string;
+  sourceTexts?: string[];
+}
+
+export interface PublicSellerMessageResponse {
+  id: string;
+  platform: PublicSellerMessagePlatform;
+  goodsNo: string;
+  itemUrl: string;
+  customerId: string;
+  conversationId: string;
+  messageType: PublicSellerMessageRequestType | string;
+  customerRequestZh: string;
+  listingPriceJpy?: number | null;
+  targetPriceJpy?: number | null;
+  state?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 type LegacyProductPlatform = "yahoo" | "mercari" | "rakuten" | "amazon";
 
 const LEGACY_PRODUCT_DETAIL_PATHS: Record<LegacyProductPlatform, string> = {
@@ -1845,6 +1881,30 @@ class ApiClient {
     });
   }
 
+  // 创建 Stripe Checkout Session（仅 en TCG 结算，按美元收）。
+  // 经 /api/backend 代理 → 后端 /api/v1/mercari/stripe/create-checkout-session。
+  // 金额由后端从旧系统重算（服务端权威，前端不传金额）；返回 Stripe 托管页 { url }。
+  // 身份由登录态 JWT 带过去（防 IDOR），与 proxy-submit 同源。
+  async createStripeCheckoutSession(data: {
+    orderId: string;
+    goodsNo: string;
+    values?: string;
+    lang?: string;
+  }) {
+    return this.request<{ url: string }>(
+      "/mercari/stripe/create-checkout-session",
+      {
+        method: "POST",
+        body: {
+          orderId: data.orderId,
+          goodsNo: data.goodsNo,
+          values: data.values || "",
+          lang: data.lang || "en",
+        },
+      },
+    );
+  }
+
   async trackOrder(id: string) {
     return this.request(`/orders/${id}/track`);
   }
@@ -1896,6 +1956,16 @@ class ApiClient {
       subject: data.subject,
       description: data.description,
     });
+  }
+
+  async createPublicSellerMessage(data: PublicSellerMessageRequest) {
+    return this.request<PublicSellerMessageResponse>(
+      "/seller-messages/visitor/leave-message",
+      {
+        method: "POST",
+        body: data,
+      },
+    );
   }
 
   async lookupSupportOrders(params: {
