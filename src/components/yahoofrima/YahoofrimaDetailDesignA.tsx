@@ -393,7 +393,7 @@ export function YahoofrimaDetailDesignA() {
             )}
 
             {/* 规格/附加服务徽章 */}
-            {detail.additional_services && detail.additional_services.length > 0 && (
+            {Array.isArray(detail.additional_services) && detail.additional_services.length > 0 && (
               <div className="mt-5 flex flex-wrap gap-2">
                 {detail.additional_services.map((svc, idx) => (
                   <span

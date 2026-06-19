@@ -392,7 +392,7 @@ export function RakumaDetailClassic() {
           <Card className="p-6">
             <div className="prose prose-sm max-w-none">
               <h3 className="text-lg font-semibold mb-2">{t("details")}</h3>
-              {detail.additional_services && detail.additional_services.length > 0 && (
+              {Array.isArray(detail.additional_services) && detail.additional_services.length > 0 && (
                 <div className="mb-4 flex flex-wrap gap-2">
                   {detail.additional_services.map((svc, i) => (
                     <span key={i} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-xs text-muted-foreground">
