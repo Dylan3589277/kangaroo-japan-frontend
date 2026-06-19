@@ -31,6 +31,8 @@ const namespaces = [
   "buyer-protection",
   "faq",
   "about",
+  "yahoofrima",
+  "rakuma",
 ] as const;
 
 const MESSAGE_LOCALES = ["zh", "en", "ko", "th", "id", "vi", "ja"] as const;
