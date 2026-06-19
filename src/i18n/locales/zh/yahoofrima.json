@@ -35,6 +35,14 @@
   "shoppingInfoTitle": "购物说明",
   "shoppingNote1": "该商品下单后无法取消和退换货，介意勿拍。",
   "shoppingNote2": "如商品存在未标明的瑕疵，请在收到商品后24小时内联系客服处理。",
+  "paste": {
+    "title": "PayPayフリマ 商品代购",
+    "description": "PayPayフリマ 暂不支持站内搜索。请把想买的商品页链接粘贴到下方，我们带你直达该商品详情。",
+    "placeholder": "粘贴 PayPayフリマ 商品链接，如 https://paypayfleamarket.yahoo.co.jp/item/xxxxxxxx",
+    "submit": "查看商品",
+    "error": "链接无法识别，请粘贴 ラクマ/PayPayフリマ 的商品页链接",
+    "example": "示例：https://paypayfleamarket.yahoo.co.jp/item/abc123（也可直接粘贴商品 ID）"
+  },
   "designA": {
     "noRating": "暂无评价",
     "ratingTotal": "{count} 条评价",

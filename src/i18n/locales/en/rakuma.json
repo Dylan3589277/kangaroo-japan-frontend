@@ -35,6 +35,14 @@
   "shoppingInfoTitle": "Shopping Information",
   "shoppingNote1": "This item cannot be cancelled or returned after ordering. Please consider carefully before purchasing.",
   "shoppingNote2": "If there are undisclosed defects, please contact customer service within 24 hours of receipt.",
+  "paste": {
+    "title": "Buy from Rakuma",
+    "description": "Rakuma does not support on-site search. Paste the item page link below and we'll take you straight to that item.",
+    "placeholder": "Paste a Rakuma item link, e.g. https://item.fril.jp/xxxxxxxx",
+    "submit": "View item",
+    "error": "Link not recognized. Please paste a Rakuma / PayPay Frima item page link.",
+    "example": "Example: https://item.fril.jp/abc123def456 (you can also paste just the item ID)"
+  },
   "designA": {
     "itemPrice": "Item price",
     "estimated": "estimated",
