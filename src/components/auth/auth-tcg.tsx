@@ -87,6 +87,7 @@ export function LoginTcgView({
   onEmailChange,
   onPasswordChange,
   onSubmit,
+  turnstileSlot,
 }: {
   texts: TcgLoginTexts;
   lang: string;
@@ -97,6 +98,7 @@ export function LoginTcgView({
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  turnstileSlot?: React.ReactNode;
 }) {
   return (
     <AuthShell>
@@ -144,6 +146,8 @@ export function LoginTcgView({
               className={inputClass}
             />
           </div>
+
+          {turnstileSlot}
 
           <button type="submit" disabled={isLoading} className={primaryBtnClass}>
             {isLoading ? (
@@ -193,6 +197,7 @@ export function RegisterTcgView({
   isLoading,
   onChange,
   onSubmit,
+  turnstileSlot,
 }: {
   texts: TcgRegisterTexts;
   lang: string;
@@ -207,6 +212,7 @@ export function RegisterTcgView({
   isLoading: boolean;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
+  turnstileSlot?: React.ReactNode;
 }) {
   return (
     <AuthShell>
@@ -296,6 +302,8 @@ export function RegisterTcgView({
               className={inputClass}
             />
           </div>
+
+          {turnstileSlot}
 
           <button
             type="submit"

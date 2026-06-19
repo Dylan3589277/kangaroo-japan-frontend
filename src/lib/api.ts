@@ -1448,10 +1448,16 @@ class ApiClient {
   }
 
   // Auth endpoints
-  async login(email: string, password: string) {
+  // turnstileToken 仅在 Turnstile 已配置且校验通过时存在；未配置时为 undefined/null，
+  // 不会进入请求体（优雅降级，后端行为不变）。
+  async login(email: string, password: string, turnstileToken?: string | null) {
     return this.request("/auth/login", {
       method: "POST",
-      body: { email, password },
+      body: {
+        email,
+        password,
+        ...(turnstileToken ? { turnstileToken } : {}),
+      },
     });
   }
 
@@ -1462,10 +1468,15 @@ class ApiClient {
     phone?: string;
     preferredLanguage?: string;
     preferredCurrency?: string;
+    turnstileToken?: string | null;
   }) {
+    const { turnstileToken, ...rest } = data;
     return this.request("/auth/register", {
       method: "POST",
-      body: data,
+      body: {
+        ...rest,
+        ...(turnstileToken ? { turnstileToken } : {}),
+      },
     });
   }
 
@@ -1482,10 +1493,13 @@ class ApiClient {
     });
   }
 
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, turnstileToken?: string | null) {
     return this.request("/auth/forgot-password", {
       method: "POST",
-      body: { email },
+      body: {
+        email,
+        ...(turnstileToken ? { turnstileToken } : {}),
+      },
     });
   }
 

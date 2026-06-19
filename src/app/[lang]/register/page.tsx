@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuthStore } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { RegisterTcgView } from "@/components/auth/auth-tcg";
+import { Turnstile } from "@/components/auth/turnstile";
 
 function getRegisterSubtitle(lang: string): string {
   if (lang === "en") {
@@ -37,6 +38,8 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  // Turnstile token：未配置 site key 时恒为 null，不阻断注册（优雅降级）。
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -68,6 +71,7 @@ export default function RegisterPage() {
         password: formData.password,
         name: formData.name,
         phone: formData.phone || undefined,
+        turnstileToken,
       }) as {
         success: boolean;
         data?: { user: Parameters<typeof login>[0]; tokens: { access_token: string } };
@@ -110,6 +114,7 @@ export default function RegisterPage() {
         isLoading={isLoading}
         onChange={handleChange}
         onSubmit={handleSubmit}
+        turnstileSlot={<Turnstile onToken={setTurnstileToken} theme="dark" language={lang} className="flex justify-center" />}
       />
     );
   }
@@ -196,6 +201,8 @@ export default function RegisterPage() {
                 required
               />
             </div>
+
+            <Turnstile onToken={setTurnstileToken} language={lang} className="flex justify-center" />
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "..." : t("register")}

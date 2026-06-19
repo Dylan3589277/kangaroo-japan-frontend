@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { Turnstile } from "@/components/auth/turnstile";
 
 function getCopy(lang: string) {
   if (lang === "en") {
@@ -49,12 +50,14 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  // Turnstile token：未配置 site key 时恒为 null，不阻断找回流程（优雅降级）。
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
     try {
-      await api.forgotPassword(email);
+      await api.forgotPassword(email, turnstileToken);
     } finally {
       setSent(true);
       setIsLoading(false);
@@ -82,6 +85,7 @@ export default function ForgotPasswordPage() {
                 <Label htmlFor="email">{copy.email}</Label>
                 <Input id="email" type="email" placeholder="example@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
               </div>
+              <Turnstile onToken={setTurnstileToken} language={lang} className="flex justify-center" />
               <Button type="submit" className="w-full bg-rose-600 hover:bg-rose-700" disabled={isLoading}>
                 {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{copy.submit}</> : copy.submit}
               </Button>

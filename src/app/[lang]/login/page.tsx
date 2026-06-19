@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuthStore } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { LoginTcgView } from "@/components/auth/auth-tcg";
+import { Turnstile } from "@/components/auth/turnstile";
 
 const SOCIAL_ERROR_LABELS: Record<string, string> = {
   wechat_not_configured: "WeChat login is not configured yet.",
@@ -55,6 +56,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(searchParams.get("error") ? SOCIAL_ERROR_LABELS[searchParams.get("error") || ""] || t("loginFailed") : "");
   const [isLoading, setIsLoading] = useState(false);
+  // Turnstile token：未配置 site key 时恒为 null，不阻断登录（优雅降级）。
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +65,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await api.login(email, password) as {
+      const response = await api.login(email, password, turnstileToken) as {
         success: boolean;
         data?: { user: Parameters<typeof login>[0]; tokens: { access_token: string } };
         error?: { message: string };
@@ -104,6 +107,7 @@ export default function LoginPage() {
         onEmailChange={setEmail}
         onPasswordChange={setPassword}
         onSubmit={handleSubmit}
+        turnstileSlot={<Turnstile onToken={setTurnstileToken} theme="dark" language={lang} className="flex justify-center" />}
       />
     );
   }
@@ -138,6 +142,8 @@ export default function LoginPage() {
               </div>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
+
+            <Turnstile onToken={setTurnstileToken} language={lang} className="flex justify-center" />
 
             <Button type="submit" className="w-full bg-rose-600 hover:bg-rose-700" disabled={isLoading}>
               {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("loggingIn")}</> : t("login")}
