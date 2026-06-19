@@ -13,8 +13,7 @@
 
 import { api } from "@/lib/api";
 
-/** 后端 integrations 统一商品结构（detail 端点返回）。
- *  description 字段后端目前未返回——前端侧先用 additional_services 兜底展示附加服务信息。 */
+/** 后端 integrations 统一商品结构（detail 端点返回）。 */
 export interface MarketplaceItem {
   id: string;
   title: string;
@@ -23,17 +22,29 @@ export interface MarketplaceItem {
   price_usd?: number;
   status: string;
   images: string[];
+  /** 后端返回的日文商品描述（后端补上后自动显示） */
+  description?: string;
+  /** Azure 翻译后的中文描述（additive，可选） */
+  descriptionTranslated?: string;
   seller?: {
     id?: string;
     name: string;
     avatar_url?: string;
+    /** 旧字段兼容（部分平台返回单数字评分） */
     rating?: number;
+    /** 总评价数；为 null 表示该商品卖家暂无评价数据 */
+    rating_total?: number | null;
+    /** 好评率（0-100）；为 null 表示暂无 */
+    rating_good_ratio?: number | null;
+    kyc?: boolean | null;
   };
   shipping?: {
     domestic_fee?: number;
+    fee_jpy?: number | null;
     method?: string;
+    ship_days_text?: string;
   };
-  additional_services?: string[];
+  additional_services?: string[] | { authenticity?: unknown | null };
   source_url?: string;
 }
 

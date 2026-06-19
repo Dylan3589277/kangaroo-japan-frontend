@@ -30,7 +30,7 @@
   "favorited": "Favorited",
   "cart": "Cart",
   "removeFromCart": "Remove from Cart",
-  "noDescription": "No description available (backend description field pending)",
+  "noDescription": "No description available",
   "details": "Details",
   "shoppingInfoTitle": "Shopping Information",
   "shoppingNote1": "This item cannot be cancelled or returned after ordering. Please consider carefully before purchasing.",
@@ -41,6 +41,9 @@
     "estimatedTotal": "Estimated amount due",
     "approxUsd": "≈ ${amount} USD",
     "requestInspection": "Request photo inspection",
+    "noRating": "No ratings yet",
+    "ratingTotal": "{count} ratings",
+    "ratingGoodRatio": "{ratio}% positive",
     "trust": {
       "inspection": "Photo inspection",
       "protection": "Buyer protection",

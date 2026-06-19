@@ -364,11 +364,30 @@ export function YahoofrimaDetailDesignA() {
                   <p className="truncate text-sm font-semibold text-slate-100">
                     {detail.seller.name}
                   </p>
-                  {detail.seller.rating !== undefined && (
-                    <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
-                      <span>{t("score")}: {detail.seller.rating}</span>
-                    </div>
-                  )}
+                  {(() => {
+                    const hasRatingData =
+                      detail.seller.rating_total != null ||
+                      detail.seller.rating_good_ratio != null ||
+                      detail.seller.rating != null;
+                    const ratingTotal = detail.seller.rating_total ?? 0;
+                    const goodRatio = detail.seller.rating_good_ratio ?? 0;
+                    return (
+                      <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
+                        {hasRatingData ? (
+                          detail.seller.rating_total !== undefined ? (
+                            <>
+                              <span>{t("designA.ratingTotal", { count: ratingTotal })}</span>
+                              <span>{t("designA.ratingGoodRatio", { ratio: goodRatio })}</span>
+                            </>
+                          ) : (
+                            <span>{t("score")}: {detail.seller.rating}</span>
+                          )
+                        ) : (
+                          <span className="text-slate-600">{t("designA.noRating")}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -495,7 +514,17 @@ export function YahoofrimaDetailDesignA() {
             {t("details")}
           </h2>
           <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
-            <p className="text-sm text-slate-500">{t("noDescription")}</p>
+            {detail.descriptionTranslated ? (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
+                {detail.descriptionTranslated}
+              </p>
+            ) : detail.description ? (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
+                {detail.description}
+              </p>
+            ) : (
+              <p className="text-sm text-slate-500">{t("noDescription")}</p>
+            )}
           </div>
 
           {/* 购物须知 */}
