@@ -1,3 +1,16 @@
+/**
+ * next/image `placeholder` 用的极小内联占位图（1x1 纯色 PNG，base64）。
+ * 远程动态图无法用 placeholder="blur"（需 blurDataURL），故用 data-URL 占位：
+ * 图未加载时先铺一块纯色（而非白屏/灰块突现），观感"秒开"。两套主题各给一色，
+ * 与卡片底色一致（zh 浅灰 / tcg 深色），加载完图后被真图覆盖。
+ */
+// 浅灰（zinc-100 ≈ #f4f4f5）—— zh 亮色卡。
+export const IMG_PLACEHOLDER_LIGHT =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+// 深色（≈ #0e131d）—— tcg 暗色卡。
+export const IMG_PLACEHOLDER_DARK =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg==";
+
 export interface ProductLike {
   id?: string | number | null;
   productId?: string | number | null;

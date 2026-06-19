@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import { IMG_PLACEHOLDER_DARK } from "@/lib/product-utils";
 import type { TcgCardItem } from "./tcg-data";
 
 /**
@@ -29,7 +30,14 @@ export function TcgCard({ item }: { item: TcgCardItem }) {
             src={item.imageUrl as string}
             alt={item.title}
             fill
-            unoptimized
+            // 走 next/image 优化：Vercel 边缘缓存 + 自动 WebP + 按 sizes 出小图，
+            // 修复「每次访问都重拉慢加载」。低画质 + 小尺寸控 dsjpic 优化用量。
+            quality={65}
+            // 纯色占位（与卡底同深色），加载中先铺色不白屏，观感"秒开"。
+            placeholder={IMG_PLACEHOLDER_DARK}
+            // next/image 默认懒加载（首屏外不抢带宽）；解码异步不卡主线程。
+            loading="lazy"
+            decoding="async"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             onError={() => setImgBroken(true)}

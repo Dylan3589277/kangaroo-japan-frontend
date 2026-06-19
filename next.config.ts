@@ -145,6 +145,12 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // Next 16：images.qualities 默认仅 [75]，未列出的 quality 会被强制就近取整。
+    // 首页商品缩略图走低画质（65）压体积省 Vercel 优化用量；保留 75 给其它默认场景。
+    qualities: [65, 75],
+    // 优化后的图在 Vercel 边缘最少缓存这么久，避免「每次访问都重优化/重拉」。
+    // dsjpic 是镜像桶（1.1 亿小文件），拉长 TTL 直接减少回源与优化次数。
+    minimumCacheTTL: 60 * 60 * 24 * 7, // 7 天
     remotePatterns: [
       { protocol: "https", hostname: "**.amazon.co.jp" },
       { protocol: "https", hostname: "m.media-amazon.com" },
