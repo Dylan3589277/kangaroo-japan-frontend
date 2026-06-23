@@ -1008,6 +1008,10 @@ async function callHermesBridge(body: Record<string, unknown>) {
   // 「我的订单到哪了」已支付分支：两按钮选择卡（到日本仓进度 / 国际物流出仓后）。
   // 缺省即不渲染，零回归。
   const choice = bridge.choice;
+  // 两按钮点选后下发的「该阶段订单列表卡」。前端 parseSupportResponse 读 data.list，
+  // 必须把 bridge 顶层 list 原样透传（同 order_ref / choice）；漏转会让列表卡被吞、不渲染。
+  // 缺省即 undefined，零回归。
+  const list = bridge.list;
 
   if (action === "transfer_human") {
     return transferHumanResponse(reason || "hermes_transfer_human", reply);
@@ -1026,6 +1030,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
       order_ref: orderRef,
       quote_ref: quoteRef,
       choice,
+      list,
       sourceIds,
       answeredBy: answeredBy || "m4-hermes-customer-support",
       requiresTicket: false,
@@ -1186,6 +1191,10 @@ async function callTcgFaqBridge(body: Record<string, unknown>) {
 
   // v1 fail-closed: anything that isn't a clean answer becomes an email/WhatsApp
   // handoff. We never expose an order lookup result even if the bridge returns one.
+  // NOTE: this TCG FAQ path intentionally does NOT forward order_ref / choice /
+  // list — it is FAQ-only with no order lookup. The mini-program 两按钮查单
+  // (到日本仓进度 / 国际物流出仓后) flows through callHermesBridge, never here, so
+  // the list-card forwarding fix lives there, not in this path.
   if (action === "transfer_human") {
     return tcgFaqHandoffResponse(reason || "tcg_transfer_human");
   }

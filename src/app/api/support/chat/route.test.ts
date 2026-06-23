@@ -773,6 +773,131 @@ test("Hermes bridge answered responses pass through order_ref unchanged", async 
   }
 });
 
+// Regression guard for the relay layer: the bridge returns a top-level `list`
+// (order-list card), and callHermesBridge MUST forward it to data.list. The
+// browser-side Playwright mock in support-order-list.spec.ts intercepts
+// /api/support/chat *before* route.ts runs, so it cannot catch a relay that
+// silently drops `list`. This test exercises the real route.ts → callHermesBridge
+// path: response truly flows through the relay, proving list is passed through.
+test("Hermes bridge answered responses forward the order-list card (data.list) unchanged", async () => {
+  const originalFetch = globalThis.fetch;
+  const list = {
+    stage: "warehouse",
+    title: "已购买·尚未到日本仓",
+    items: [
+      {
+        order_id: "DSJ001",
+        title: "测试商品A",
+        status_txt: "待入库",
+        amount_rmb: 128,
+        cover: "https://example.test/a.jpg",
+        detail_target: "order",
+      },
+      {
+        order_id: "DSJ002",
+        title: "测试商品B",
+        status_txt: "已发货",
+        amount_rmb: 256,
+        cover: "",
+        detail_target: "order",
+      },
+    ],
+    page: 1,
+    total_pages: 2,
+    has_prev: false,
+    has_next: true,
+  };
+
+  globalThis.fetch = async () => {
+    return Response.json({
+      action: "answered",
+      reply: "以下是您已购买、尚未到日本仓的订单（点订单看已发货/未发货）：",
+      source_ids: ["backend-selfservice:order_list"],
+      answered_by: "backend-order-status-selfservice",
+      list,
+    });
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    const { POST } = await import("./route");
+
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "查到日本仓进度",
+        language: "zh",
+        userId: "4",
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.action, "answered");
+    // The whole list card must survive the relay untouched (this is the bug fix).
+    assert.deepEqual(payload.data.list, list);
+    assert.equal(payload.data.list.items.length, 2);
+    assert.equal(payload.data.list.items[0].order_id, "DSJ001");
+    assert.equal(payload.data.list.has_next, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+// Negative guard: when the bridge omits `list`, the relay must not invent one
+// (data.list stays undefined) so non-list answers render with zero regression.
+test("Hermes bridge answered responses without a list leave data.list undefined", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    return Response.json({
+      action: "answered",
+      reply: "好的，已经帮您记录。",
+      source_ids: ["kb-order-flow-001"],
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    const { POST } = await import("./route");
+
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "帮我看一下这个商品",
+        language: "zh",
+      }),
+    });
+
+    const payload = await (await POST(request)).json();
+
+    assert.equal(payload.data.action, "answered");
+    assert.equal(payload.data.list, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
 test("Hermes bridge timeout degrades to human transfer without exposing internals", async () => {
   const { POST } = await import("./route");
   const originalFetch = globalThis.fetch;
