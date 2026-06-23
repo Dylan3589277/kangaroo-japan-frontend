@@ -1017,6 +1017,9 @@ async function callHermesBridge(body: Record<string, unknown>) {
   const answeredBy = getString(bridge.answered_by);
   const orderRef = bridge.order_ref;
   const quoteRef = bridge.quote_ref;
+  // 「我的订单到哪了」已支付分支：两按钮选择卡（到日本仓进度 / 国际物流出仓后）。
+  // 缺省即不渲染，零回归。
+  const choice = bridge.choice;
 
   if (action === "transfer_human") {
     return transferHumanResponse(reason || "hermes_transfer_human", reply);
@@ -1034,6 +1037,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
       reason,
       order_ref: orderRef,
       quote_ref: quoteRef,
+      choice,
       sourceIds,
       answeredBy: answeredBy || "m4-hermes-customer-support",
       requiresTicket: false,
