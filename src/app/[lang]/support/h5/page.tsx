@@ -30,6 +30,7 @@ type ChatItem = {
   content: string;
   orderRef?: OrderRef;
   quoteRef?: QuoteRef;
+  choiceRef?: ChoiceRef;
   createdAt?: string;
 };
 
@@ -38,6 +39,18 @@ type OrderRef = {
   goods_name?: string;
   amount?: string;
   amount_rmb?: string;
+};
+
+// 「我的订单到哪了」已支付分支的两按钮选择卡。点按钮 = 发送 send_text 预设文本，
+// bridge 据此精确路由到 warehouse_status / tracking。缺省即不渲染，零回归。
+type ChoiceOption = {
+  label?: string;
+  send_text?: string;
+};
+
+type ChoiceRef = {
+  prompt?: string;
+  options?: ChoiceOption[];
 };
 
 type QuoteRef = {
@@ -106,6 +119,7 @@ type SupportParsedResponse = {
   queuedForHuman?: boolean;
   orderRef?: OrderRef;
   quoteRef?: QuoteRef;
+  choiceRef?: ChoiceRef;
 };
 
 type MiniProgramWindow = Window & {
@@ -277,6 +291,22 @@ function getQuoteRef(value: unknown): QuoteRef | undefined {
   };
 }
 
+function getChoiceRef(value: unknown): ChoiceRef | undefined {
+  const record = getRecord(value);
+  if (!Array.isArray(record.options)) return undefined;
+  const options: ChoiceOption[] = [];
+  for (const raw of record.options) {
+    const r = getRecord(raw);
+    const label = getString(r.label);
+    const sendText = getString(r.send_text);
+    // 两项都要齐才是一颗可点按钮（点击 = 发送 send_text）。
+    if (!label || !sendText) continue;
+    options.push({ label, send_text: sendText });
+  }
+  if (!options.length) return undefined;
+  return { prompt: getString(record.prompt), options };
+}
+
 function parseSupportResponse(payload: unknown): SupportParsedResponse {
   const root = getRecord(payload);
   const data = getRecord(root.data) || root;
@@ -289,6 +319,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
     fallback === "53kf";
   const orderRef = getOrderRef(data.order_ref || root.order_ref);
   const quoteRef = getQuoteRef(data.quote_ref || root.quote_ref);
+  const choiceRef = getChoiceRef(data.choice || root.choice);
 
   const text =
     getString(data.reply) ||
@@ -306,6 +337,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
     queuedForHuman: Boolean(data.queuedForHuman),
     orderRef,
     quoteRef,
+    choiceRef,
   };
 }
 
@@ -355,6 +387,15 @@ function isMiniProgramWebview() {
   if (typeof window === "undefined") return false;
   const win = window as MiniProgramWindow;
   return Boolean(win.wx?.miniProgram?.navigateTo);
+}
+
+// PC 端微信内置浏览器（WindowsWechat / MacWechat）：这里的小程序 webview 桥
+// (wx.miniProgram.navigateTo) 行为不可靠 —— PC 微信打开的小程序 webview 跳转人工
+// 客服页常失败或空白。故 PC 微信一律走 53kf 网页人工客服兜底，不依赖小程序桥。
+function isPcWechat() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return ua.includes("WindowsWechat") || ua.includes("MacWechat");
 }
 
 function navigateToMiniProgramHumanKefu() {
@@ -711,6 +752,7 @@ export default function MiniProgramSupportH5Page() {
             content: parsed.text,
             orderRef: parsed.orderRef,
             quoteRef: parsed.quoteRef,
+            choiceRef: parsed.choiceRef,
           },
         ]);
       }
@@ -733,9 +775,17 @@ export default function MiniProgramSupportH5Page() {
   }
 
   function contactHuman() {
-    if (navigateToMiniProgramHumanKefu()) return;
+    // PC 微信（WindowsWechat/MacWechat）跳过不可靠的小程序桥，直接走 53kf 网页人工客服。
+    // 非 PC 微信（移动端小程序 webview）仍优先跳小程序内人工客服页。
+    if (!isPcWechat() && navigateToMiniProgramHumanKefu()) return;
     if (kf53ChatUrl) {
-      window.open(kf53ChatUrl, "_blank", "noopener,noreferrer");
+      // window.open 可能被拦截/返回 null（部分 webview 不支持新开窗口）：
+      // 失败兜底为当前页跳转 location.href，确保人工客服一定能进。
+      const opened = window.open(kf53ChatUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        window.location.href = kf53ChatUrl;
+        return;
+      }
       setHumanTransferVisible(true);
       setHumanTransferNote("已为你打开网页人工客服窗口，请在新窗口继续沟通。");
       return;
@@ -981,6 +1031,33 @@ export default function MiniProgramSupportH5Page() {
                 请在小程序内打开后查看或支付订单。
               </p>
             ) : null}
+          </div>
+        ) : null}
+        {item.choiceRef?.options?.length ? (
+          <div
+            className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+            data-testid="support-choice-card"
+          >
+            {item.choiceRef.prompt ? (
+              <div className="mb-2 text-sm font-medium text-slate-700">
+                {item.choiceRef.prompt}
+              </div>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              {item.choiceRef.options.map((option) =>
+                option.label && option.send_text ? (
+                  <button
+                    key={option.send_text}
+                    type="button"
+                    className="rounded-md border border-orange-100 bg-orange-50 px-3 py-2 text-left text-sm text-orange-700 disabled:opacity-60"
+                    onClick={() => void sendMessage(option.send_text as string)}
+                    disabled={loading}
+                  >
+                    {option.label}
+                  </button>
+                ) : null,
+              )}
+            </div>
           </div>
         ) : null}
         {item.quoteRef ? (

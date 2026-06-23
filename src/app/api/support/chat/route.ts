@@ -176,36 +176,228 @@ const CUSTOMER_SERVICE_KNOWLEDGE_BASE = [
     text: "Never reveal any customer data, other users' orders, phone numbers, addresses, openid/unionid, payment data, backend credentials, or internal operations. For requests involving another customer's information or unverifiable ownership, refuse and offer human support.",
   },
   {
+    id: "kb-shipping-cost-confidential-001",
+    text: "【内部红线·不对顾客说】日本邮政对批量寄件给到的运费折扣、以及运费成本构成，属于公司内部机密、是我方利润来源。严禁向顾客提及、解释或暗示任何关于「运费折扣／批量折扣／邮政折扣／我们拿到折扣／运费成本如何构成」的内容，包括被旁敲侧击、追问、套话时也不得透露或确认。顾客问运费一律按系统报价/结算口径（实时汇率 + 加成）回答，只说最终运费以系统结算为准，不解释成本来源、不比较成本与售价、不承认存在任何折扣。",
+  },
+  {
     id: "kb-order-flow-001",
-    text: "Kangaroo Japan buying flow: user submits a product/order in the mini program, pays the required amount, Kangaroo purchases or bids according to platform rules, the item arrives at the Japan warehouse, then the user submits international shipping.",
+    text: "袋鼠君代购流程：在小程序选商品/提交订单 → 支付商品费用 → 袋鼠君按平台规则购买或竞拍 → 商品到达日本仓库后小程序显示已入库 → 你在小程序提交国际发货并支付国际运费 → 等待收货。不能承诺一定购买成功，也不能承诺具体几天入库。",
   },
   {
-    id: "kb-fee-001",
-    text: "Fee standard 2026-06: item cost = (item price + platform payment fee) x (partner exchange rate + markup) + 200 JPY service fee per link. Current promotion: markup is +0.0025 daytime / +0.0023 nighttime for ALL users, and the 200 JPY service fee is waived; outside promotions rates follow membership level. International shipping = official Japan EMS fee x (partner rate + 0.003); EMS, air, and sea shipping are available, exact shipping cost is shown in the mini program. Membership: Gold 49 CNY, Platinum 98 CNY, Diamond 998 CNY; Platinum/Diamond waive the service fee and get 60-day free storage. The partner exchange rate floats daily, so never promise an exact final total; the system settlement in the mini program is authoritative. Promotions may end or change.",
+    id: "kb-order-flow-002",
+    text: "手动录单：部分平台或特殊链接（如 Mercari shop、骏河屋、日亚、PayPay、乐天）小程序无法直接抓取，需要人工录入。请发完整商品链接、数量、规格；客服确认可购买后录入订单，你支付后客服再下单。先录单、再支付、后下单，从无例外，拍下后无法取消。",
   },
   {
-    id: "kb-logistics-001",
-    text: "Warehouse and shipping: items must arrive at the Japan warehouse before international shipping. Multiple stored items can usually be consolidated when submitting shipment, subject to warehouse packing conditions.",
+    id: "kb-order-flow-003",
+    text: "下单后多久发货：下单后需等待日本卖家发货、日本国内物流送达仓库、仓库入库处理。不同平台和卖家速度不同，到库后可在小程序提交国际发货。不能承诺具体日期或节假日前一定到。",
+  },
+  {
+    id: "kb-order-flow-004",
+    text: "订单是否购买成功：系统显示待确认或待入库，表示订单已提交但仍需等待平台购买结果、卖家发货或仓库入库。需查具体订单状态请提供订单号，由客服在完成订单归属校验后核实。未登录/无法确认身份时转人工。",
+  },
+  {
+    id: "kb-order-flow-005",
+    text: "购物车付款后仍显示可买：如已在订单页完成支付，请不要在购物车重复付款。购物车展示可能有缓存或平台同步延迟（小程序约 10-20 分钟同步一次），最终以订单状态和客服核实为准。怀疑重复付款或订单缺件请转人工。",
+  },
+  {
+    id: "kb-order-flow-006",
+    text: "代蹲：不提供代蹲守服务。找到想要的商品可立即发链接给客服帮忙下单。",
   },
   {
     id: "kb-platform-001",
-    text: "Supported platforms include Mercari, Yahoo Auction, Yahoo Shopping, Amazon, and Rakuten. Product availability, seller response, auction result, and platform restrictions are not guaranteed.",
+    text: "支持平台：Mercari（煤炉）、Yahoo Auction（雅虎竞拍/日拍）、Yahoo Shopping、Amazon、Rakuten、Rakuma、骏河屋等。商品可购性、卖家是否回复、竞拍结果、平台限制均不保证。",
+  },
+  {
+    id: "kb-platform-002",
+    text: "商品详情打不开/抓取失败：可能是平台页面变动、商品已下架、特殊店铺链接或系统抓取异常。请在商品页点'复制链接'发完整链接给客服核实，只发小程序卡片、商品编号或截图客服可能无法准确打开。Mercari shop（jp.mercari.com/shops/...）小程序抓不到，必须人工录单。",
+  },
+  {
+    id: "kb-platform-003",
+    text: "商品已售出导致退款：二手平台库存变化很快，下单时可能已被买走。购买失败时系统或客服会按规则退款或原路退回，具体退款进度和金额必须转人工。",
   },
   {
     id: "kb-auction-001",
-    text: "Yahoo Auction bid failure troubleshooting, common causes: (1) Japan-China time difference — the auction may already have ended by the time the user bids; (2) the seller may have blocked the buyer account; blocking cannot be detected harmlessly in advance, it only shows up when a bid is attempted; (3) if the seller cancelled and relisted the same item, the system requires the new bid to be higher than the user's own previous highest bid. For a specific order or bid status, ask for the product link and screenshot and transfer to human support to verify. Never promise a bid will succeed and never place test bids.",
+    text: "Yahoo Auction 出价失败常见原因：(1)日中时差——出价时竞拍可能已结束；(2)被卖家拉黑——无法提前无损检测，只有出价时才显现；(3)卖家取消后重新上架同款，系统要求新出价高于你自己上一次最高价。具体竞拍/出价状态请发商品链接和截图转人工核实。绝不承诺一定能出价成功，绝不做测试性出价。",
   },
   {
     id: "kb-auction-002",
-    text: "Yahoo Auction has two ways to buy: the buy-it-now price (即決価格) buys the item directly at that price; the current price (現在価格) is the live auction price and the highest bidder wins. Maximum-bid mechanism (心理价位): bidding 20000 JPY does not immediately change the item price to 20000 JPY; with no competing bidders the price stays unchanged, and only when others bid does the price auto-increase until it exceeds the user's maximum bid. If the user's bid is greater than or equal to the seller's buy-it-now price, the purchase completes immediately.",
+    text: "Yahoo Auction 两种买法：即決価格=直接按该价买下；現在価格=实时竞拍价，出价最高者中标。心理价位（最高出价）机制：出价 20000 日元不会立刻把商品价格变成 20000，无人竞争时价格不变，有人加价时才自动加价直到超过你的最高出价。若你的出价≥卖家即決価格，立即成交。中标后不能取消。",
   },
   {
     id: "kb-auction-003",
-    text: "Auction deposit rules: users must top up a deposit before bidding; the ratio is 1 CNY = 200 JPY (1 元 = 200 日元) of bidding quota. The deposit is only a bidding guarantee and cannot be used to offset the item cost. If the auction is lost, the user can directly request a deposit refund, returned via the original payment channel; after winning and paying the item cost, the user can also request the deposit refund. Top-up entry: mini program - 我的 - 我的押金 (My Deposit). Refund execution, amount disputes, and arrival issues go to human support.",
+    text: "竞拍押金规则：竞拍前需充押金，额度比例 1 元 = 200 日元（系统常量 YAHOO_DEPOSIT_RATE=200）。押金只是竞拍保证金，不能抵扣商品费用。流拍可直接申请押金原路退回；中标并支付商品费用后也可申请退押金。充值入口：小程序-我的-我的押金。押金退款执行、金额争议、到账异常转人工。",
+  },
+  {
+    id: "kb-auction-004",
+    text: "中标后费用：雅虎竞拍中标需支付商品费用及日本国内运费。雅虎店铺/商家出品的商品可能另需支付 10% 日本消费税，一般由买家承担，具体以平台页面和订单结算为准。",
+  },
+  {
+    id: "kb-platform-004",
+    text: "卖家评价/能不能买：可参考卖家评价数量、好评率、差评内容和商品描述。评价多不代表完全无风险，二手商品状态以图片和描述为准。不替客户做最终购买决策，不承诺卖家一定可靠。要看具体卖家页面/差评截图转人工。",
+  },
+  {
+    id: "kb-platform-005",
+    text: "商品瑕疵和成色：二手商品状态以卖家图片和描述为准。在意细节建议购买前留言让卖家补图或说明，到库后可按服务规则申请拍照确认。不承诺商品无瑕疵、正品或成色符合预期，真伪/瑕疵/索赔争议转人工。",
+  },
+  {
+    id: "kb-fee-001",
+    text: "费用构成：代购费用一般含商品本身价格、平台支付手续费、日本国内运费、袋鼠君服务费（代拍手续费）、日本仓相关费用（如打包增值服务）、国际运费、以及目的地可能产生的关税或税费。每单具体金额以系统结算为准，明细在下单和发货环节展示，不口头报总价。",
+  },
+  {
+    id: "kb-fee-002",
+    text: "商品费用计算方式（2026-06 收费标准）：商品费用 =（商品费用 + 平台支付手续费）×（袋鼠君合作汇率 + 加成）+ 代拍手续费。加成：日间 +0.0025、夜间 +0.0023。当前活动期所有用户（含非会员）统一按此加成执行；非活动期标准档为 +0.003（钻石 +0.0025）。合作汇率每日浮动，不报固定数字。",
+  },
+  {
+    id: "kb-fee-003",
+    text: "代拍手续费与平台支付手续费是两项，不是同一项。代拍手续费 200 日元/链接，当前活动期免收；平台支付手续费、日本消费税、日本国内运费等仍按平台规则收取。活动或会员可能减免代拍手续费，但不承诺所有手续费都能免。具体订单手续费争议转人工。",
+  },
+  {
+    id: "kb-fee-004",
+    text: "国际运费：支持 EMS、空运（AIR）、船运（SHIP）。计算方式 = 日本 EMS 官方运费（日元）×（袋鼠君合作汇率 + 0.003）。最终运费需商品到库实际称重后计算，仓库打包会加入外箱和填充物，最终重量可能高于商品本身。不口头估算或报运费金额，请在小程序'国际物流订单'页查看并支付。称重有异议可申请仓库复称/拍照，转人工。",
+  },
+  {
+    id: "kb-fee-005",
+    text: "会员价格与权益（2026-06，老后台 st_user_levels 核实）：黄金 49 元、白金 98 元、钻石 998 元（普通用户 0 元）。免费仓储：普通/黄金 30 天、白金/钻石 60 天。仓储超时费：各档统一 100 日元/包裹/天。代拍手续费：普通/黄金 200 日元/件，白金/钻石 免收。汇率加成（老后台 rate 字段当前线上实际值）：普通/黄金/白金 +0.0023、钻石 +0.0025（注：会员卡 privilege 文案仍写「黄金/白金 +0.003、普通 +0.006」属旧描述，实际计价以 rate 字段为准，目前各档已统一到活动加成档位）。会员仅限购买获得，到期自动退回普通会员。不替客户判断'开哪档最划算'，可客观罗列让客户自选。开会员后权益未生效或要核算差价转人工。",
+  },
+  {
+    id: "kb-fee-006",
+    text: "优惠券：通常有使用期限和适用范围，一般只能用于指定商品结算，不能用于所有费用（如运费）。过期是否能恢复按活动规则处理，不承诺恢复过期优惠券。活动规则/会员权益/优惠券有效期争议转人工。",
+  },
+  {
+    id: "kb-pay-001",
+    text: "支付方式：微信支付、支付宝。支付/押金到账需要人工核对支付记录，请不要重复付款。所有支付异常（付款未显示、支付失败、押金不到账、余额差额）必须转人工，AI 不让客户用重复付款解决问题。",
+  },
+  {
+    id: "kb-deposit-refund-001",
+    text: "押金退款资格条件：需同时满足——已支付全部待支付订单、无竞拍中订单、账户无欠款、账户余额不为负、账户无挂账。符合者引导在小程序-个人中心-我的押金内提交退押金申请。身份识别以小程序登录态为准，不向买家额外收集姓名、银行卡、支付宝等信息。",
+  },
+  {
+    id: "kb-deposit-refund-002",
+    text: "押金退款话术红线：禁止使用'符合条件''可以退''会退给您'等结论性表述，统一用'初步符合申请条件，最终以人工审核为准'。即使资格条件全部通过也不下结论。押金退款的最终审核、金额确认和实际打款由人工和财务处理。提交并通过审核后一般约 1–2 个工作日到账（仅一般时效说明，不构成个案承诺，以实际到账为准）。不索要或展示支付宝、银行卡等敏感信息。",
+  },
+  {
+    id: "kb-deposit-refund-003",
+    text: "押金退款转人工边界：资格初核任一条件不满足且买家有异议、核验工具不可用/超时/异常、退款进度查询、金额争议、到账异常，全部转人工。较早充值的押金可能因支付渠道、优惠抵扣或原路退款期限限制无法原路退回，具体金额和方式由人工财务核实。",
+  },
+  {
+    id: "kb-logistics-001",
+    text: "到库与入库：日本卖家发货后还需等日本国内物流送达仓库，仓库按顺序入库，完成后小程序更新状态。商品到日本仓一般一周内（取决于卖家发货与距离天气）。不承诺具体入库时间。长时间未入库或显示已签收但小程序未更新转人工。",
+  },
+  {
+    id: "kb-logistics-002",
+    text: "提交国际发货：商品入库后在小程序'已入库/国际物流订单'页面选商品提交发货，仓库称重后生成待支付的国际运费订单，支付后安排发出。不承诺支付后当天一定发出。已支付国际运费但发货状态异常转人工。",
+  },
+  {
+    id: "kb-logistics-003",
+    text: "合箱发货：已入库的多个商品通常可在提交发货时一起选择合箱，具体以仓库实际打包条件为准。未入库商品能否赶上同一批，取决于卖家发货和仓库入库时间，不承诺一定合进当前包裹。已提交发货后想追加商品转人工。",
   },
   {
     id: "kb-storage-001",
-    text: "Japan warehouse storage (fee standard 2026-06): free storage is 30 days for non-members and Gold members, 60 days for Platinum and Diamond members; after the free period each item/package is charged 100 JPY per day. Items are not unboxed by default; optional photo service costs 100 JPY per item or 200 JPY per box for 3 photos. Free filler paper or free boxes are provided; when no free box fits, paid boxes are 300 JPY (100size), 400 JPY (120size), 400 JPY (140size), and 1000 JPY (170size). Other paid services: waterproof wrap 200 JPY/box, strapping 200 JPY/box, fragile reinforcement 200 JPY/item, mis-shipment check 100 JPY/item, seller-approved return/exchange 500 JPY/box, repacking 500 JPY/box. Do not promise fee waivers or free-period extensions; disputes about incurred storage fees go to human support.",
+    text: "仓储免费期与超时费（2026-06 收费标准）：免费仓储期非会员和黄金会员 30 天、白金/钻石会员 60 天；超过免费期每个包裹每天收取仓储超时费 100 日元。建议在免费期内提交发货。不承诺延长免费期或减免已产生的超时费，超时费争议或会员身份与免费期不符转人工。",
+  },
+  {
+    id: "kb-storage-002",
+    text: "增值服务价目（2026-06）：防水膜 200 日元/箱、打包带加固 200 日元/箱、拍照服务 100 日元/单件或 200 日元/箱（3 张照片）、到库错发漏发检查 100 日元/单件、易碎商品加固 200 日元/单件、退换货 500 日元/箱（须日本卖家同意，产生的日本国内运费由买家承担）、重新打包 500 日元/箱、收费纸箱 100size 300 日元/120size 400 日元/140size 400 日元/170size 1000 日元。到库默认不拆封；退换货不保证卖家同意，拍照不保证完全反映瑕疵。",
+  },
+  {
+    id: "kb-warehouse-pack-001",
+    text: "打包与拆包：仓库做基础打包和填充避免晃动，提供免费填充纸或免费纸箱；无合适免费纸箱时按尺寸用收费纸箱。默认不拆商品本身原包装以免影响商品状态和责任划分。所有拆包、去原包装、特殊整合要求、需拍照确认的转人工，不承诺加固后一定不损坏。",
+  },
+  {
+    id: "kb-customs-001",
+    text: "海关申报内容品与价格：内容品一般填商品英文名称或种类名称，价值填日元金额。海关按申报内容品和价值征税，必要时拆箱核对。申报金额越低，赔偿时也可能只按申报金额处理。绝不指导客户 PS、伪造、篡改价格截图或虚假申报，不替客户决定申报金额。需针对具体商品填写转人工。",
+  },
+  {
+    id: "kb-customs-002",
+    text: "被税与清关：直邮包裹都有被税可能。是否征税、税率和金额由各地海关判定（与商品内容/价值/重量/海关政策/收件人年度包裹数有关），无法提前保证。被税一般会收到海关或邮政短信，金额以海关通知为准。不承诺包税、免税或固定税额。已收到海关通知、需协助查单号或材料转人工。",
+  },
+  {
+    id: "kb-customs-003",
+    text: "海关补充申报：通常表示海关需进一步确认包裹内容和价值，请按海关页面要求如实提交信息和凭证。申报结果由海关审核决定，无法保证一定通过，不承诺少缴税或免税。需商品凭证、售后截图、税费争议、退运处理转人工。",
+  },
+  {
+    id: "kb-customs-004",
+    text: "物流停在互换局：互换局状态可能停留一段时间，清关、周末、节假日和交接流程都影响更新。可拨打 EMS 官方电话 11183 咨询更准确的物流信息。不承诺多久放行。物流长时间异常或已收到海关/退运通知转人工。",
+  },
+  {
+    id: "kb-logistics-004",
+    text: "快递方式与风险：EMS 速度快价格高；日本国内普通邮便（平邮/定形外）无追踪无保险，丢失无法赔偿。退运：EMS 不产生退运运费，航空/海运退运费用到仓后才知道、耗时数周至数月。需带保险快递请下单前联系客服。",
+  },
+  {
+    id: "kb-logistics-005",
+    text: "EMS/国际小包尺寸重量限制（按目的国不同，以日本邮政官网为准）：A 标准——长度（最长边）≤1.5m、长+横周长合计≤3m、重量≤30kg；B 标准——长度（最长边）≤1.05m、长+横周长合计≤2m、重量≤30kg。超规商品需拆分或改其他方式，具体以系统和仓库实际可发为准。",
+  },
+  {
+    id: "kb-logistics-006",
+    text: "保险服务：国际小包可加保，附加费 400 日元（保险额 ≤2 万日元）；保险额超过 2 万日元的，每增加 2 万日元加收 50 日元。是否加保由买家选择，贵重件建议加保。",
+  },
+  {
+    id: "kb-logistics-007",
+    text: "损失赔偿制度：邮件送达时若货物损坏或缺失，按实际损失赔偿、不超过上限。带保险的国际小包赔偿上限（单位日元）——5kg≤11,160、10kg≤15,170、15kg≤19,190、20kg≤23,200、25kg≤27,220、30kg≤31,230。未带保险的普通国际小包不在此赔偿范围内，建议贵重件加保。具体理赔由邮政与人工核实处理。",
+  },
+  {
+    id: "kb-leave-msg-001",
+    text: "代留言：可按买家要求给卖家留言问瑕疵、库存、尺寸、要实拍图、问打包方式等常规咨询。留言为日语，常规类型走审定模板，自由表达的留言会先生成日语草稿经人工确认后才发。平台限制：留言无法传图；煤炉已售出商品无法留言；部分店铺只回交易流程不回商品状态。我们不盯回复，请客户自己留意，看不了可隔段时间联系客服帮看。",
+  },
+  {
+    id: "kb-bargain-001",
+    text: "砍价硬规则：①8 折底线——砍价目标价必须≥商品标价×80%，低于 8 折不自动留言、转人工（例：原价 10000 日元最低只能砍到 8000）；②卖家明确写不可砍价（値下げ不可/値下げ交渉はご遠慮ください/専用等）一律不发砍价留言并告知客户该卖家谢绝砍价；③砍到 8 折底线即止不再往下；④同一商品砍价留言最多 2 次，不来回询价。目的：防过度砍价导致卖家拉黑代购账号。",
+  },
+  {
+    id: "kb-bargain-002",
+    text: "卖家同意降价后：提醒买家'先别支付，等改价完成再付款'。自动下单前需两项核验全部通过——卖家侧（商品页价格已实际改为约定价）和买家侧（买家实付金额等于讲价后价格），任一不符暂停转人工。",
+  },
+  {
+    id: "kb-leave-msg-002",
+    text: "留言必购标识：卖家简介或商品页明确'必须留言才能购买'（購入前コメント必須/即購入禁止/プロフ必読等）的，必须先留言征得卖家同意才能购买，不得直接拍下，并同时请求卖家做专用页（専用ページ/○○様専用）防被抢购。",
+  },
+  {
+    id: "kb-leave-msg-003",
+    text: "非官方/无追踪快递风险：卖家发货用非煤炉官方合作快递（非らくらくメルカリ便/ゆうゆうメルカリ便）且无单号追踪时，辅助下单前必须先向买家说明风险（无单号、无保险、丢件不赔），买家确认接受后才录单，支付后再下单。顺序不可颠倒：先风险告知→买家确认→录单→支付→下单。",
+  },
+  {
+    id: "kb-availability-001",
+    text: "可购性判断：含电池商品不能买（船运也不行）；食品类（饼干薯片等）店内规则不支持；禁运品引导看小程序-使用说明-禁运物品说明。已售出商品告知并建议蹲卖家重新上架或找同款。链接格式错误/小程序卡片/纯编号需客户复制完整链接。",
+  },
+  {
+    id: "kb-prohibited-001",
+    text: "禁运清单（源自老后台「禁运物品说明」文章，2026-06-22 核实）：①含酒精/喷雾类——染发剂喷雾、含酒精化妆品、香水；②火药类——焰火、西洋爆竹、弹药；③高压气体——高压喷雾罐、打火机补充瓦斯、潜水氧气瓶、露营瓦斯炉、罐装瓦斯、灭火器、高压除尘空气罐、携带式氧气罐、氦气瓶、氯氟烃、瓦斯暖炉、汽车悬吊系统；④易燃液体——打火机油、油漆、指甲油、美甲凝胶、酒精、稀释剂、涂料、光漆、香水；⑤易燃固体——火柴、打火机、炭；⑥氧化性物——漂白剂、过氧化氢、个人用小型氧气制造机、染发剂；⑦毒性物质——农药、氯仿、水蒸式杀虫剂；⑧放射性物质——铀、钸、铯、钍、核废料；⑨腐蚀性物质——水银、液体电池；⑩含液体商品——如水晶球、流麻；⑪带磁力商品——如冰箱贴、音响喇叭；⑫其他——磁铁、引擎、干冰、石绵、毒品/麻药/精神药品、猥亵物品、彩券、空气枪、模造刀（美术刀）、家畜饲料、植物、生鲜食品、活体动物、含血液制剂、宝石/钻石（含加工品）、伪造货币、邮票/印花、个人文件、有价证券、国宝/重要文化遗产/重要美术品、盗版/拷贝光碟、产地不明物品、信用卡、商品券、票券（演唱会门票/机票等）。另：含电池商品一律不能买（船运也不行）。完整清单及中国海关限制进境物品以小程序-使用说明-禁运物品说明为准。",
+  },
+  {
+    id: "kb-aftersale-001",
+    text: "拍前须知（合规红线）：下单成功后不接受任何理由退换货，有问题务必买前留言确认；二手商品到货不开封，发货时要求去除包装不保证质量成色；国际快递损坏/浸泡/丢失需买家向邮局维权，拒签弃货视为毁约全款不退；日本国内平邮丢失概不负责；仅国际直邮，不寄日本国内地址、不可自取。无验货和甄别真伪能力。",
+  },
+  {
+    id: "kb-aftersale-002",
+    text: "付款后退货退款/取消：代购订单付款后能否取消或退款需根据平台状态、商品是否已购买、卖家是否发货等由人工核实。AI 不直接处理退款。所有退款、退货、取消订单都转人工，不承诺可退、全退或免手续费。",
+  },
+  {
+    id: "kb-aftersale-003",
+    text: "改地址/改发货信息：修改收货地址、申报信息、发货方式需人工确认当前订单状态，已提交发货或已出库可能无法修改。所有改地址、改申报、改发货方式都转人工，不承诺一定能改成功。",
+  },
+  {
+    id: "kb-aftersale-004",
+    text: "催具体发货/到达时间：发货和到达时间受卖家发货、日本国内物流、仓库处理、国际物流、海关和节假日影响，可说明流程但无法承诺具体日期。订单长时间异常或客户强烈催单/投诉转人工。",
+  },
+  {
+    id: "kb-aftersale-005",
+    text: "投诉/情绪激烈/真伪瑕疵争议：很抱歉给您带来不好的体验，这类问题需人工核实订单和平台记录，转人工处理。不承诺赔偿、退款或责任归属，不直接判定卖家欺诈。",
+  },
+  {
+    id: "kb-service-info-001",
+    text: "服务信息：在线时间 9:00-18:00（中国时间），夜间留言次日早 9 点左右批量回复。快递单号查询：已支付国际运费后，小程序-我的-国际物流订单-已出库页面查看。支付运费：小程序-我的-国际物流订单页面查看并支付。",
+  },
+  {
+    id: "kb-promo-001",
+    text: "【六月福利｜活动时间 2026-06-01 至 06-30，活动结束后恢复常规收费】活动期内：①代拍手续费全免（常规为 200 日元/件）；②代拍商品按「实时汇率 + 0.0025」结算；③国际运费按「实时汇率 + 0.003」结算（直邮回国，较常规约省 30%）。本活动面向全体用户。活动结束后代拍手续费、汇率加成恢复常规档位（见会员收费标准）。具体到单金额以小程序结算为准，不口头报总价。",
+  },
+  {
+    id: "kb-promo-002",
+    text: "【happy night 夜间福利｜活动时间 2026-06-05 至 06-30，活动结束后恢复常规】每日 18:00 至次日 09:00 时段内：①汇率仅加 0.0023（夜间优惠加成）；②不限购买数量；③仅限煤炉（Mercari）自助支付/自动下单的订单享受。温馨提示：活动期间下单人多、系统易卡顿，请理性下单、避免重复提交；严禁购买违禁/禁运商品（详见小程序-我的-使用说明-禁运物品说明）。活动结束后夜间优惠取消，恢复常规汇率口径。",
+  },
+  {
+    id: "kb-promo-003",
+    text: "【晒单赢福利｜小红书晒单活动】参与方式：在小红书发布晒单（至少 1 张配图 + 带话题 #袋鼠君日拍 并 @A袋鼠君），每次可领 5 元无门槛券；同一用户间隔 7 天可再次参与。月度甄选：每月精选 5 个优质分享贴公示投票 7 天，人气冠军得 40 元无门槛券、其余四位各得 20 元无门槛券。优惠券有使用期限和适用范围，以券面规则为准。",
   },
   {
     id: "kb-service-hours-001",
@@ -813,6 +1005,9 @@ async function callHermesBridge(body: Record<string, unknown>) {
   const answeredBy = getString(bridge.answered_by);
   const orderRef = bridge.order_ref;
   const quoteRef = bridge.quote_ref;
+  // 「我的订单到哪了」已支付分支：两按钮选择卡（到日本仓进度 / 国际物流出仓后）。
+  // 缺省即不渲染，零回归。
+  const choice = bridge.choice;
 
   if (action === "transfer_human") {
     return transferHumanResponse(reason || "hermes_transfer_human", reply);
@@ -830,6 +1025,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
       reason,
       order_ref: orderRef,
       quote_ref: quoteRef,
+      choice,
       sourceIds,
       answeredBy: answeredBy || "m4-hermes-customer-support",
       requiresTicket: false,

@@ -60,6 +60,9 @@ const SCRIPT_HOSTS = [
   "https://challenges.cloudflare.com",
   "https://js.stripe.com",
   "https://cdn.jsdelivr.net",
+  // 微信 JS-SDK（jweixin）：小程序 webview 内嵌的 H5 在线客服页注入，用于检测
+  // wx.miniProgram.navigateTo 并跳转人工客服/订单详情。脚本来自微信官方 CDN。
+  "https://res.wx.qq.com",
 ];
 
 const CONNECT_HOSTS = [
