@@ -7,6 +7,7 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import MercariCheckout from "@/components/checkout/mercari-checkout";
+import ProxyBuyCheckout from "@/components/checkout/proxy-buy-checkout";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -96,11 +97,19 @@ function formatCurrency(amount: number, currency: string = "CNY"): string {
   return `¥${amount.toFixed(2)}`;
 }
 
+// 通用「网页代拍」结算支持的平台（平台无关；新平台在此加一个 code 即可复用）。
+const PROXY_BUY_PLATFORMS = new Set(["rakuma", "yahoofrima", "paypay"]);
+
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
+  const type = searchParams.get("type");
   // Mercari 网页结算（type=mercari&id=...）走专用流程：委托下单 → NewAge 在线全额支付。
-  if (searchParams.get("type") === "mercari") {
+  if (type === "mercari") {
     return <MercariCheckout />;
+  }
+  // 通用网页代拍（type=rakuma|yahoofrima|...&id=...）：建单 → Stripe(en)/NewAge(zh)，人工履约。
+  if (type && PROXY_BUY_PLATFORMS.has(type)) {
+    return <ProxyBuyCheckout platform={type} />;
   }
   return <CartCheckoutPage />;
 }

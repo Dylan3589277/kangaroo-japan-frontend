@@ -42,7 +42,6 @@ export function RakumaDetailDesignA() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isCollected, setIsCollected] = useState(false);
-  const [isInCart, setIsInCart] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -117,17 +116,11 @@ export function RakumaDetailDesignA() {
     }
   };
 
-  const toggleCart = async () => {
-    try {
-      const { api } = await import("@/lib/api");
-      const res = await api.request(`/integrations/rakuma/cart`, {
-        method: "POST",
-        body: { id, action: isInCart ? "remove" : "add" },
-      });
-      if (res.success) setIsInCart(!isInCart);
-    } catch {
-      // ignore
-    }
+  // 网页代拍下单：加购与立即购买都进通用代拍结算（type=rakuma）。
+  // rakuma 商品为实时抓取、非 products 行，没有 products-FK 购物车可承载；
+  // 故加购直接进结算（建单→付款→人工履约），不调不存在的 /integrations/rakuma/cart。
+  const goToCheckout = () => {
+    router.push(`/${lang}/checkout?type=rakuma&id=${id}`);
   };
 
   if (loading) {
@@ -485,19 +478,15 @@ export function RakumaDetailDesignA() {
             <div className="mt-5 hidden gap-3 md:flex">
               <button
                 type="button"
-                onClick={toggleCart}
+                onClick={goToCheckout}
                 disabled={soldOut}
-                className={`inline-flex h-12 flex-1 items-center justify-center rounded-xl border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                  isInCart
-                    ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-200"
-                    : "border-white/15 bg-white/[0.04] text-slate-100 hover:border-cyan-400/40"
-                }`}
+                className="inline-flex h-12 flex-1 items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] text-sm font-medium text-slate-100 transition-colors hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {isInCart ? t("removeFromCart") : t("addToCart")}
+                {t("addToCart")}
               </button>
               <button
                 type="button"
-                onClick={() => router.push(`/${lang}/checkout?type=rakuma&id=${id}`)}
+                onClick={goToCheckout}
                 disabled={soldOut}
                 className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-cyan-400 text-base font-semibold text-[#06121b] transition-colors hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
               >
@@ -572,19 +561,15 @@ export function RakumaDetailDesignA() {
           </button>
           <button
             type="button"
-            onClick={toggleCart}
+            onClick={goToCheckout}
             disabled={soldOut}
-            className={`inline-flex h-12 flex-1 items-center justify-center rounded-xl border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-              isInCart
-                ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-200"
-                : "border-white/15 bg-white/[0.04] text-slate-100 hover:border-cyan-400/40"
-            }`}
+            className="inline-flex h-12 flex-1 items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] text-sm font-medium text-slate-100 transition-colors hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isInCart ? t("removeFromCart") : t("addToCart")}
+            {t("addToCart")}
           </button>
           <button
             type="button"
-            onClick={() => router.push(`/${lang}/checkout?type=rakuma&id=${id}`)}
+            onClick={goToCheckout}
             disabled={soldOut}
             className="inline-flex h-12 flex-1 items-center justify-center rounded-xl bg-cyan-400 text-base font-semibold text-[#06121b] transition-colors hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
           >

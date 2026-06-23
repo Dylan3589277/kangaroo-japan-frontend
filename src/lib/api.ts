@@ -74,6 +74,29 @@ export interface MercariQuote {
   valueAdded: MercariQuoteValueAdded[];
 }
 
+// 通用「网页代拍」建单结果（平台无关）。金额 JPY 整数；payAmount 按 payCurrency。
+export interface ProxyBuyCreateResult {
+  orderId: string;
+  orderNo: string;
+  platform: string;
+  goodsNo: string;
+  status: string;
+  amountJpy: number;
+  /** 实收币种：USD（en）/ CNY（zh）。 */
+  payCurrency: string;
+  /** 实收金额（按 payCurrency）；汇率不可用时缺省（前端只显 JPY）。 */
+  payAmount?: number;
+  title?: string;
+  /** 履约方式：恒为 manual（人工代拍，无自动买货）。 */
+  fulfillmentMode: string;
+}
+
+// NewAge（zh）收款发起结果：payUrl（跳转）或 qrcodeUrl（扫码）之一。
+export interface ProxyBuyNewagePayResult {
+  payUrl?: string;
+  qrcodeUrl?: string;
+}
+
 interface SupportChatResponse {
   conversationId?: string;
   reply?: string;
@@ -1901,6 +1924,50 @@ class ApiClient {
           values: data.values || "",
           lang: data.lang || "en",
         },
+      },
+    );
+  }
+
+  // ---- 通用「网页代拍」下单（平台无关：rakuma / yahoofrima / paypay …）----
+  // 经 /api/backend 代理 → 后端 /api/v1/proxy-buy/*。身份由 JWT 带过去，
+  // 请求体不含身份字段（后端从 JWT 取，防 IDOR）；金额一律服务端权威（绝不发金额）。
+
+  // 建单：服务端从权威来源算价 → 落库 pending_payment 的人工履约订单。
+  async proxyBuyCreateOrder(data: {
+    platform: string;
+    goodsNo: string;
+    tcg?: boolean;
+    buyerMessage?: string;
+  }) {
+    return this.request<ProxyBuyCreateResult>("/proxy-buy/orders", {
+      method: "POST",
+      body: {
+        platform: data.platform,
+        goodsNo: data.goodsNo,
+        tcg: data.tcg === true,
+        ...(data.buyerMessage ? { buyerMessage: data.buyerMessage } : {}),
+      },
+    });
+  }
+
+  // en（USD）：创建 Stripe Checkout Session，返回 { url } 跳托管收银台。
+  async proxyBuyCreateStripeSession(orderId: string, lang?: string) {
+    return this.request<{ url: string }>(
+      "/proxy-buy/stripe/create-checkout-session",
+      {
+        method: "POST",
+        body: { orderId, ...(lang ? { lang } : {}) },
+      },
+    );
+  }
+
+  // zh（CNY）：发起 NewAge 收款，返回 payUrl 或 qrcodeUrl 之一。
+  async proxyBuyCreateNewagePayment(orderId: string) {
+    return this.request<ProxyBuyNewagePayResult>(
+      "/proxy-buy/newage/create-payment",
+      {
+        method: "POST",
+        body: { orderId },
       },
     );
   }

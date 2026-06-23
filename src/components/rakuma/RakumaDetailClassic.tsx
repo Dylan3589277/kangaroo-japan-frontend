@@ -38,8 +38,6 @@ export function RakumaDetailClassic() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isCollected, setIsCollected] = useState(false);
-  const [isInCart, setIsInCart] = useState(false);
-  const [cartNum, setCartNum] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -107,19 +105,11 @@ export function RakumaDetailClassic() {
     }
   };
 
-  const toggleCart = async () => {
-    try {
-      const res = await api.request(`/integrations/rakuma/cart`, {
-        method: "POST",
-        body: { id, action: isInCart ? "remove" : "add" },
-      });
-      if (res.success) {
-        setIsInCart(!isInCart);
-        setCartNum((prev) => (isInCart ? Math.max(0, prev - 1) : prev + 1));
-      }
-    } catch {
-      // ignore
-    }
+  // 网页代拍下单：加购与立即购买都进通用代拍结算（type=rakuma）。
+  // rakuma 商品为实时抓取、非 products 行，没有 products-FK 购物车可承载；
+  // 故加购直接进结算（建单→付款→人工履约），不调不存在的 /integrations/rakuma/cart。
+  const goToCheckout = () => {
+    router.push(`/${lang}/checkout?type=rakuma&id=${id}`);
   };
 
   const openKefu = () => {
@@ -362,18 +352,18 @@ export function RakumaDetailClassic() {
           {/* 主操作（桌面端内联） */}
           <div className="hidden gap-3 md:flex">
             <Button
-              variant={isInCart ? "secondary" : "outline"}
+              variant="outline"
               className="flex-1"
-              onClick={toggleCart}
+              onClick={goToCheckout}
               disabled={soldOut}
             >
-              {isInCart ? t("removeFromCart") : t("addToCart")}
+              {t("addToCart")}
             </Button>
             <Button
               variant="default"
               className="flex-1 bg-orange-500 hover:bg-orange-600"
               disabled={soldOut}
-              onClick={() => router.push(`/${lang}/checkout?type=rakuma&id=${id}`)}
+              onClick={goToCheckout}
             >
               {soldOut ? t("sold") : t("buyNow")}
             </Button>
@@ -452,27 +442,22 @@ export function RakumaDetailClassic() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
                 </svg>
-                {cartNum > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
-                    {cartNum}
-                  </span>
-                )}
               </div>
               <span className="text-xs">{t("cart")}</span>
             </Button>
             <Button
-              variant={isInCart ? "secondary" : "outline"}
+              variant="outline"
               className="flex-1"
-              onClick={toggleCart}
+              onClick={goToCheckout}
               disabled={soldOut}
             >
-              {isInCart ? t("removeFromCart") : t("addToCart")}
+              {t("addToCart")}
             </Button>
             <Button
               variant="default"
               className="flex-1 bg-orange-500 hover:bg-orange-600"
               disabled={soldOut}
-              onClick={() => router.push(`/${lang}/checkout?type=rakuma&id=${id}`)}
+              onClick={goToCheckout}
             >
               {soldOut ? t("sold") : t("buyNow")}
             </Button>
