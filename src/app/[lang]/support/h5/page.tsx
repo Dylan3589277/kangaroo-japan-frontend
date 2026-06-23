@@ -31,6 +31,7 @@ type ChatItem = {
   orderRef?: OrderRef;
   quoteRef?: QuoteRef;
   choiceRef?: ChoiceRef;
+  listRef?: ListRef;
   createdAt?: string;
 };
 
@@ -51,6 +52,28 @@ type ChoiceOption = {
 type ChoiceRef = {
   prompt?: string;
   options?: ChoiceOption[];
+};
+
+// 客服两按钮 →「该阶段订单列表卡」。bridge 在 chat 响应 data.list 里下发（与 choice / order_ref 同级）。
+// 字段契约见 .team/artifacts/slice34-order-list-card-contract-20260623.md。
+// 缺省即不渲染，零回归。
+type ListItem = {
+  order_id?: string; // string，点击用
+  title?: string; // = 后端 goods_name
+  status_txt?: string; // 状态文案（如「待入库」）
+  amount_rmb?: number; // 人民币（number | null）；JPY 不在此卡
+  cover?: string; // 缩略图，可能为空串
+  detail_target?: string; // 'order'(小程序订单详情) | 'express'(物流轨迹)
+};
+
+type ListRef = {
+  stage?: string; // 'warehouse' | 'shipped'
+  title?: string; // 标题文案（同 reply）
+  items?: ListItem[];
+  page?: number;
+  total_pages?: number;
+  has_prev?: boolean; // page>1
+  has_next?: boolean; // page<total_pages
 };
 
 type QuoteRef = {
@@ -120,6 +143,7 @@ type SupportParsedResponse = {
   orderRef?: OrderRef;
   quoteRef?: QuoteRef;
   choiceRef?: ChoiceRef;
+  listRef?: ListRef;
 };
 
 type MiniProgramWindow = Window & {
@@ -307,6 +331,42 @@ function getChoiceRef(value: unknown): ChoiceRef | undefined {
   return { prompt: getString(record.prompt), options };
 }
 
+function getListItem(value: unknown): ListItem | undefined {
+  const r = getRecord(value);
+  const orderId = getString(r.order_id);
+  // 没有 order_id 的条目无法点击/翻页定位，丢弃。
+  if (!orderId) return undefined;
+  return {
+    order_id: orderId,
+    title: getString(r.title),
+    status_txt: getString(r.status_txt),
+    amount_rmb: getNumber(r.amount_rmb),
+    cover: getString(r.cover),
+    detail_target: getString(r.detail_target),
+  };
+}
+
+function getListRef(value: unknown): ListRef | undefined {
+  const record = getRecord(value);
+  if (!Array.isArray(record.items)) return undefined;
+  const items: ListItem[] = [];
+  for (const raw of record.items) {
+    const item = getListItem(raw);
+    if (item) items.push(item);
+  }
+  // 没有可渲染条目就不当列表卡（空列表分支由 bridge 走普通文字气泡，无 list 字段）。
+  if (!items.length) return undefined;
+  return {
+    stage: getString(record.stage),
+    title: getString(record.title),
+    items,
+    page: getNumber(record.page),
+    total_pages: getNumber(record.total_pages),
+    has_prev: getBoolean(record.has_prev),
+    has_next: getBoolean(record.has_next),
+  };
+}
+
 function parseSupportResponse(payload: unknown): SupportParsedResponse {
   const root = getRecord(payload);
   const data = getRecord(root.data) || root;
@@ -320,6 +380,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
   const orderRef = getOrderRef(data.order_ref || root.order_ref);
   const quoteRef = getQuoteRef(data.quote_ref || root.quote_ref);
   const choiceRef = getChoiceRef(data.choice || root.choice);
+  const listRef = getListRef(data.list || root.list);
 
   const text =
     getString(data.reply) ||
@@ -338,6 +399,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
     orderRef,
     quoteRef,
     choiceRef,
+    listRef,
   };
 }
 
@@ -389,6 +451,15 @@ function isMiniProgramWebview() {
   return Boolean(win.wx?.miniProgram?.navigateTo);
 }
 
+// PC 端微信内置浏览器（WindowsWechat / MacWechat）：这里的小程序 webview 桥
+// (wx.miniProgram.navigateTo) 行为不可靠 —— PC 微信打开的小程序 webview 跳转人工
+// 客服页常失败或空白。故 PC 微信一律走 53kf 网页人工客服兜底，不依赖小程序桥。
+function isPcWechat() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return ua.includes("WindowsWechat") || ua.includes("MacWechat");
+}
+
 function navigateToMiniProgramHumanKefu() {
   if (typeof window === "undefined") return false;
   const win = window as MiniProgramWindow;
@@ -403,6 +474,19 @@ function navigateToMiniProgramOrderDetail(orderId: string) {
   if (!win.wx?.miniProgram?.navigateTo) return false;
   win.wx.miniProgram.navigateTo({
     url: "/pages/daishujun/mine/orderDetail?id=" + orderId,
+  });
+  return true;
+}
+
+// 列表卡「已出仓」条目 → 跳袋鼠君小程序物流轨迹页。
+// 路径依据 daishujunApp/pages/daishujun/mine/express.vue：onLoad(e) 读 e.id，param 名是 `id`，
+// 该页用 id 调 api/orders/express 自行拉取物流公司/单号（name/code 可省略）。
+function navigateToMiniProgramExpress(orderId: string) {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  win.wx.miniProgram.navigateTo({
+    url: "/pages/daishujun/mine/express?id=" + encodeURIComponent(orderId),
   });
   return true;
 }
@@ -744,6 +828,7 @@ export default function MiniProgramSupportH5Page() {
             orderRef: parsed.orderRef,
             quoteRef: parsed.quoteRef,
             choiceRef: parsed.choiceRef,
+            listRef: parsed.listRef,
           },
         ]);
       }
@@ -766,9 +851,17 @@ export default function MiniProgramSupportH5Page() {
   }
 
   function contactHuman() {
-    if (navigateToMiniProgramHumanKefu()) return;
+    // PC 微信（WindowsWechat/MacWechat）跳过不可靠的小程序桥，直接走 53kf 网页人工客服。
+    // 非 PC 微信（移动端小程序 webview）仍优先跳小程序内人工客服页。
+    if (!isPcWechat() && navigateToMiniProgramHumanKefu()) return;
     if (kf53ChatUrl) {
-      window.open(kf53ChatUrl, "_blank", "noopener,noreferrer");
+      // window.open 可能被拦截/返回 null（部分 webview 不支持新开窗口）：
+      // 失败兜底为当前页跳转 location.href，确保人工客服一定能进。
+      const opened = window.open(kf53ChatUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        window.location.href = kf53ChatUrl;
+        return;
+      }
       setHumanTransferVisible(true);
       setHumanTransferNote("已为你打开网页人工客服窗口，请在新窗口继续沟通。");
       return;
@@ -788,6 +881,37 @@ export default function MiniProgramSupportH5Page() {
     setHumanTransferNote(
       "请在袋鼠君小程序内打开本页面，再点击订单卡片查看或支付订单。",
     );
+  }
+
+  // 列表卡点某条 item：detail_target 决定跳订单详情还是物流轨迹。
+  //   - 'express' → 小程序物流轨迹页（已出仓）
+  //   - 'order'（或缺省）→ 小程序订单详情页（默认，与已购未到仓一致）
+  // PC / 非 webview 跳不动 → 复用现有兜底提示「请在小程序内查看」。
+  function openListItem(item: ListItem) {
+    if (!item.order_id) return;
+    const navigated =
+      item.detail_target === "express"
+        ? navigateToMiniProgramExpress(item.order_id)
+        : navigateToMiniProgramOrderDetail(item.order_id);
+    if (navigated) return;
+
+    setHumanTransferVisible(true);
+    setHumanTransferNote(
+      "请在袋鼠君小程序内打开本页面，再点击订单查看详情或物流。",
+    );
+  }
+
+  // 列表卡翻页：拼出与 bridge 翻页解析对齐的基础按钮文本 + 「第N页」。
+  // bridge 正则 `第\s*(\d+)\s*页?` 取页码、剥后缀后匹配基础文本定 stage：
+  //   - warehouse → 「查到日本仓进度 第N页」
+  //   - shipped   → 「查国际物流(出仓后) 第N页」
+  function goListPage(listRef: ListRef, direction: -1 | 1) {
+    const current = listRef.page ?? 1;
+    const target = current + direction;
+    if (target < 1) return;
+    const base =
+      listRef.stage === "shipped" ? "查国际物流(出仓后)" : "查到日本仓进度";
+    void sendMessage(`${base} 第${target}页`);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -1041,6 +1165,105 @@ export default function MiniProgramSupportH5Page() {
                 ) : null,
               )}
             </div>
+          </div>
+        ) : null}
+        {item.listRef?.items?.length ? (
+          <div
+            className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+            data-testid="support-list-card"
+          >
+            {item.listRef.title ? (
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <ShoppingBag className="h-4 w-4 text-orange-500" />
+                <span className="line-clamp-2">{item.listRef.title}</span>
+              </div>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              {item.listRef.items.map((listItem) => (
+                <button
+                  key={listItem.order_id}
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md border border-orange-100 bg-orange-50 px-2.5 py-2 text-left disabled:opacity-60"
+                  onClick={() => openListItem(listItem)}
+                  disabled={loading}
+                  data-testid={`support-list-item-${listItem.order_id}`}
+                >
+                  {listItem.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={listItem.cover}
+                      alt={listItem.title || "商品图片"}
+                      className="h-12 w-12 shrink-0 rounded-md object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-orange-100 text-orange-400">
+                      <ShoppingBag className="h-5 w-5" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    {listItem.title ? (
+                      <div className="line-clamp-2 text-sm leading-5 text-slate-800">
+                        {listItem.title}
+                      </div>
+                    ) : null}
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      {listItem.status_txt ? (
+                        <span className="text-xs text-orange-600">
+                          {listItem.status_txt}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      {listItem.amount_rmb !== undefined ? (
+                        <span className="text-xs font-medium text-slate-900">
+                          ¥{listItem.amount_rmb.toLocaleString("zh-CN")}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            {item.listRef.has_prev || item.listRef.has_next ? (
+              <div
+                className="mt-2 flex items-center justify-between gap-2"
+                data-testid="support-list-paging"
+              >
+                {item.listRef.has_prev ? (
+                  <button
+                    type="button"
+                    className="flex-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 disabled:opacity-60"
+                    onClick={() => goListPage(item.listRef as ListRef, -1)}
+                    disabled={loading}
+                    data-testid="support-list-prev"
+                  >
+                    上一页
+                  </button>
+                ) : (
+                  <span className="flex-1" />
+                )}
+                {item.listRef.page !== undefined &&
+                item.listRef.total_pages !== undefined ? (
+                  <span className="shrink-0 text-xs text-slate-400">
+                    {item.listRef.page}/{item.listRef.total_pages}
+                  </span>
+                ) : null}
+                {item.listRef.has_next ? (
+                  <button
+                    type="button"
+                    className="flex-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 disabled:opacity-60"
+                    onClick={() => goListPage(item.listRef as ListRef, 1)}
+                    disabled={loading}
+                    data-testid="support-list-next"
+                  >
+                    下一页
+                  </button>
+                ) : (
+                  <span className="flex-1" />
+                )}
+              </div>
+            ) : null}
           </div>
         ) : null}
         {item.quoteRef ? (
