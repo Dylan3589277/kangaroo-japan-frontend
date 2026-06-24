@@ -103,6 +103,7 @@ const PROXY_BUY_PLATFORMS = new Set([
   "yahoofrima",
   "paypay",
   "cardrush",
+  "torecacamp",
 ]);
 
 export default function CheckoutPage() {

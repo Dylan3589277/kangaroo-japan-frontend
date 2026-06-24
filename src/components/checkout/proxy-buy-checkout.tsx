@@ -32,6 +32,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   yahoofrima: "Yahoo!フリマ",
   paypay: "PayPayフリマ",
   cardrush: "CardRush",
+  torecacamp: "トレカキャンプ",
 };
 
 function formatJpy(amount: number): string {

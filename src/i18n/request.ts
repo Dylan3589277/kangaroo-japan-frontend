@@ -33,6 +33,7 @@ const namespaces = [
   "about",
   "yahoofrima",
   "rakuma",
+  "torecacamp",
 ] as const;
 
 const MESSAGE_LOCALES = ["zh", "en", "ko", "th", "id", "vi", "ja"] as const;
