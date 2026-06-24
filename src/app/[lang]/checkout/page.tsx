@@ -105,6 +105,7 @@ const PROXY_BUY_PLATFORMS = new Set([
   "cardrush",
   "torecacamp",
   "cardmuseum",
+  "toretoku",
 ]);
 
 export default function CheckoutPage() {
