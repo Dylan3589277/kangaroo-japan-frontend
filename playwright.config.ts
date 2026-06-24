@@ -26,6 +26,8 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_API_URL: `${baseURL}/__e2e-api`,
       NEXT_PUBLIC_KF53_CHAT_URL: "https://kf53.example.test/chat",
+      // 智能客服辅助购买待支付卡「去支付」跳转的小程序代拍支付页 path（e2e 占位，验证导航接线）。
+      NEXT_PUBLIC_PROXY_BUY_PAY_PAGE_PATH: "/pages/daishujun/mine/orderDetail",
       SUPPORT_API_BASE_URL: `${baseURL}/__e2e-api`,
       // Point the server-side support relay (callHermesBridge) at a local stub
       // bridge started by support-list-relay.spec.ts. Other chat specs mock

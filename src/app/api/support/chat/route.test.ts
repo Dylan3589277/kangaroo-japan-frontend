@@ -898,6 +898,114 @@ test("Hermes bridge answered responses without a list leave data.list undefined"
   }
 });
 
+// 智能客服辅助购买（CS-Assisted Purchase）：bridge 在建单成功时顶层 emit proxy_buy_pay 待支付卡。
+// route.ts 必须像 order_ref / list 一样原样透传到 data.proxy_buy_pay；漏转=待支付卡被中继吞掉、前端永远收不到。
+test("Hermes bridge answered responses forward the assisted-purchase payable card (data.proxy_buy_pay) unchanged", async () => {
+  const originalFetch = globalThis.fetch;
+  const proxyBuyPay = {
+    type: "proxy_buy_pay",
+    orderRef: "11111111-2222-3333-4444-555555555555",
+    orderNo: "PRX20260624001",
+    title: "ラクマ テスト商品 限定",
+    platform: "rakuma",
+    goodsNo: "rk123456",
+    amount_jpy: 88000,
+    pay_currency: "CNY",
+    pay_amount: 4321,
+    status: "pending_payment",
+    risk_flag: true,
+  };
+
+  globalThis.fetch = async () => {
+    return Response.json({
+      action: "answered",
+      reply: "已为您建好待支付订单，请核对后支付。",
+      reason: "assisted_purchase_created",
+      source_ids: ["backend-proxy-buy:assisted_purchase"],
+      answered_by: "m4-hermes-customer-support",
+      proxy_buy_pay: proxyBuyPay,
+    });
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    const { POST } = await import("./route");
+
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "确认",
+        language: "zh",
+        userId: "4",
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.action, "answered");
+    // The whole payable card must survive the relay untouched (anti-swallow, the fix).
+    assert.deepEqual(payload.data.proxy_buy_pay, proxyBuyPay);
+    assert.equal(payload.data.proxy_buy_pay.amount_jpy, 88000);
+    assert.equal(payload.data.proxy_buy_pay.risk_flag, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+// Negative guard: switch CS_ASSISTED_PURCHASE_ENABLED OFF → bridge omits proxy_buy_pay →
+// the relay must not invent one (data.proxy_buy_pay stays undefined) = zero impact when dormant.
+test("Hermes bridge answered responses without proxy_buy_pay leave data.proxy_buy_pay undefined", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    return Response.json({
+      action: "answered",
+      reply: "好的，我帮您看看～",
+      source_ids: ["kb-order-flow-001"],
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+    process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+    process.env.KANGAROO_AGENT_TOKEN = "test-token";
+
+    const { POST } = await import("./route");
+
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "帮我看一下这个商品",
+        language: "zh",
+      }),
+    });
+
+    const payload = await (await POST(request)).json();
+
+    assert.equal(payload.data.action, "answered");
+    assert.equal(payload.data.proxy_buy_pay, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
 test("Hermes bridge timeout degrades to human transfer without exposing internals", async () => {
   const { POST } = await import("./route");
   const originalFetch = globalThis.fetch;

@@ -1024,6 +1024,11 @@ async function callHermesBridge(body: Record<string, unknown>) {
   // 必须把 bridge 顶层 list 原样透传（同 order_ref / choice）；漏转会让列表卡被吞、不渲染。
   // 缺省即 undefined，零回归。
   const list = bridge.list;
+  // 智能客服辅助购买（CS-Assisted Purchase）：bridge 在建单成功时于返回体顶层 emit
+  // proxy_buy_pay 待支付卡（开关 CS_ASSISTED_PURCHASE_ENABLED 默认 OFF 时不会 emit）。
+  // 必须像 order_ref / quote_ref / choice / list 一样原样透传；漏转会让待支付卡被中继吞掉、前端永远收不到。
+  // 缺省即 undefined，零回归（开关 OFF 时这段 dormant）。
+  const proxyBuyPay = bridge.proxy_buy_pay;
 
   if (action === "transfer_human") {
     return transferHumanResponse(reason || "hermes_transfer_human", reply);
@@ -1043,6 +1048,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
       quote_ref: quoteRef,
       choice,
       list,
+      proxy_buy_pay: proxyBuyPay,
       sourceIds,
       answeredBy: answeredBy || "m4-hermes-customer-support",
       requiresTicket: false,

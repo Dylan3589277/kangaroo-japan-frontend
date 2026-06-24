@@ -32,6 +32,7 @@ type ChatItem = {
   quoteRef?: QuoteRef;
   choiceRef?: ChoiceRef;
   listRef?: ListRef;
+  proxyBuyPayRef?: ProxyBuyPay;
   createdAt?: string;
 };
 
@@ -74,6 +75,24 @@ type ListRef = {
   total_pages?: number;
   has_prev?: boolean; // page>1
   has_next?: boolean; // page<total_pages
+};
+
+// 智能客服辅助购买（CS-Assisted Purchase）待支付卡。bridge 在 chat 响应顶层 emit
+// data.proxy_buy_pay（开关 CS_ASSISTED_PURCHASE_ENABLED 默认 OFF 时不会 emit；route.ts 已原样透传）。
+// 字段名严格对齐第 2 步 bridge 契约：orderRef/orderNo/goodsNo 为 camelCase，
+// amount_jpy/pay_currency/pay_amount/risk_flag 为 snake_case。缺省即不渲染，零回归。
+type ProxyBuyPay = {
+  type?: string; // 恒 'proxy_buy_pay'
+  orderRef?: string; // proxy-buy UUID（支付用）；导航定位订单
+  orderNo?: string; // PRX 单号（展示用，可能为 null）
+  title?: string; // 商品标题（可能为 null）
+  platform?: string; // rakuma / yahoofrima …（可能为 null）
+  goodsNo?: string; // 平台商品号（可能为 null）
+  amount_jpy?: number; // 应付 JPY 整数（权威，不除以 100）
+  pay_currency?: string; // 恒 'CNY'
+  pay_amount?: number; // CNY 估算（null 时只显 JPY）
+  status?: string; // 恒 'pending_payment'
+  risk_flag?: boolean; // true=大额(>5万)，显眼提示核对后支付
 };
 
 type QuoteRef = {
@@ -144,6 +163,7 @@ type SupportParsedResponse = {
   quoteRef?: QuoteRef;
   choiceRef?: ChoiceRef;
   listRef?: ListRef;
+  proxyBuyPayRef?: ProxyBuyPay;
 };
 
 type MiniProgramWindow = Window & {
@@ -175,6 +195,13 @@ const KF53_CHAT_URL = process.env.NEXT_PUBLIC_KF53_CHAT_URL || "";
 // 未配置时按钮禁用并显示「充值入口待配置」，绝不写死错误 path。
 const YAHOO_DEPOSIT_RECHARGE_PAGE_PATH =
   process.env.NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH || "";
+// 智能客服辅助购买待支付卡「去支付」跳转的小程序代拍待支付页 path。
+// proxy-buy 订单是新库 UUID 体系（≠ 旧库 numeric orderDetail），故不复用 orderDetail?id= 这条旧库路径，
+// 改用专门的环境变量占位（同 YAHOO_DEPOSIT_RECHARGE_PAGE_PATH 的处理法）：
+// 真实 path（小程序代拍订单/支付页）待花哥/小程序侧给，未配置时按钮禁用并显示「支付入口待配置」，
+// 绝不写死可能错的 path、绝不在客服 H5 直接调 JWT-required 的 newage/create-payment（那需现代登录态，客服 H5 只有 uid 无 JWT）。
+const PROXY_BUY_PAY_PAGE_PATH =
+  process.env.NEXT_PUBLIC_PROXY_BUY_PAY_PAGE_PATH || "";
 
 const WELCOME_ITEM: ChatItem = {
   role: "assistant",
@@ -367,6 +394,28 @@ function getListRef(value: unknown): ListRef | undefined {
   };
 }
 
+// 智能客服辅助购买待支付卡解析。仅当后端真的下发 proxy_buy_pay 且带可支付定位（orderRef）才返回，
+// 否则不渲染（开关 OFF 时 bridge 根本不 emit，这里天然得 undefined，零回归）。
+function getProxyBuyPay(value: unknown): ProxyBuyPay | undefined {
+  const r = getRecord(value);
+  const orderRef = getString(r.orderRef);
+  // 没有 orderRef（支付用 UUID）无法定位订单/去支付——不渲染待支付卡，避免出一张点了没用的卡。
+  if (!orderRef) return undefined;
+  return {
+    type: getString(r.type),
+    orderRef,
+    orderNo: getString(r.orderNo),
+    title: getString(r.title),
+    platform: getString(r.platform),
+    goodsNo: getString(r.goodsNo),
+    amount_jpy: getNumber(r.amount_jpy),
+    pay_currency: getString(r.pay_currency),
+    pay_amount: getNumber(r.pay_amount),
+    status: getString(r.status),
+    risk_flag: getBoolean(r.risk_flag),
+  };
+}
+
 function parseSupportResponse(payload: unknown): SupportParsedResponse {
   const root = getRecord(payload);
   const data = getRecord(root.data) || root;
@@ -381,6 +430,9 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
   const quoteRef = getQuoteRef(data.quote_ref || root.quote_ref);
   const choiceRef = getChoiceRef(data.choice || root.choice);
   const listRef = getListRef(data.list || root.list);
+  const proxyBuyPayRef = getProxyBuyPay(
+    data.proxy_buy_pay || root.proxy_buy_pay,
+  );
 
   const text =
     getString(data.reply) ||
@@ -400,6 +452,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
     quoteRef,
     choiceRef,
     listRef,
+    proxyBuyPayRef,
   };
 }
 
@@ -474,6 +527,23 @@ function navigateToMiniProgramOrderDetail(orderId: string) {
   if (!win.wx?.miniProgram?.navigateTo) return false;
   win.wx.miniProgram.navigateTo({
     url: "/pages/daishujun/mine/orderDetail?id=" + orderId,
+  });
+  return true;
+}
+
+// 智能客服辅助购买待支付卡「去支付」：mirror navigateToMiniProgramOrderDetail 的同款机制
+// （wx.miniProgram.navigateTo 跳袋鼠君小程序内顾客已登录的页，由小程序侧用本人登录态完成付款），
+// 但 proxy-buy 订单是新库 UUID，目标页用 PROXY_BUY_PAY_PAGE_PATH（占位 env）而非旧库 orderDetail。
+// 付款是顾客自己的动作（代客只到建单为止），客服 H5 不直接调 JWT-required 收款端点。
+// path 未配置时返回 false → 调用方按钮禁用 / 兜底提示，绝不跳错页。
+function navigateToMiniProgramProxyBuyPay(orderId: string) {
+  if (!PROXY_BUY_PAY_PAGE_PATH) return false;
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  const joiner = PROXY_BUY_PAY_PAGE_PATH.includes("?") ? "&" : "?";
+  win.wx.miniProgram.navigateTo({
+    url: `${PROXY_BUY_PAY_PAGE_PATH}${joiner}id=${encodeURIComponent(orderId)}`,
   });
   return true;
 }
@@ -829,6 +899,7 @@ export default function MiniProgramSupportH5Page() {
             quoteRef: parsed.quoteRef,
             choiceRef: parsed.choiceRef,
             listRef: parsed.listRef,
+            proxyBuyPayRef: parsed.proxyBuyPayRef,
           },
         ]);
       }
@@ -880,6 +951,18 @@ export default function MiniProgramSupportH5Page() {
     setHumanTransferVisible(true);
     setHumanTransferNote(
       "请在袋鼠君小程序内打开本页面，再点击订单卡片查看或支付订单。",
+    );
+  }
+
+  // 辅助购买待支付卡「去支付」：跳小程序内顾客已登录的代拍待支付页完成付款（mirror openOrderDetail）。
+  // 跳不动（path 未配置 / 非小程序 webview）→ 兜底提示回小程序，绝不在客服 H5 直接发起 JWT 收款。
+  function openProxyBuyPay(ref: ProxyBuyPay) {
+    if (!ref.orderRef) return;
+    if (navigateToMiniProgramProxyBuyPay(ref.orderRef)) return;
+
+    setHumanTransferVisible(true);
+    setHumanTransferNote(
+      "请在袋鼠君小程序内打开本页面，再点击待支付订单完成支付。",
     );
   }
 
@@ -1140,6 +1223,73 @@ export default function MiniProgramSupportH5Page() {
             ) : null}
           </div>
         ) : null}
+        {item.proxyBuyPayRef?.orderRef
+          ? (() => {
+              const ppay = item.proxyBuyPayRef;
+              // 去支付可点：必须在小程序 webview（有顾客登录态）且已配置代拍支付页 path。
+              // 任一不满足 → 按钮禁用 + 提示回小程序，绝不跳错页 / 绝不在客服 H5 直接调 JWT 收款。
+              const canPayProxyBuy = Boolean(
+                wxReady && isMiniProgramWebview() && PROXY_BUY_PAY_PAGE_PATH,
+              );
+              return (
+                <div
+                  className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+                  data-testid="support-proxy-buy-pay-card"
+                >
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <ShoppingBag className="h-4 w-4 text-orange-500" />
+                    待支付订单
+                  </div>
+                  {ppay.title ? (
+                    <div className="line-clamp-2 text-sm leading-5 text-slate-700">
+                      {ppay.title}
+                    </div>
+                  ) : null}
+                  {ppay.amount_jpy !== undefined ? (
+                    <div className="mt-2 text-sm font-medium text-slate-900">
+                      应付 ¥{ppay.amount_jpy.toLocaleString("ja-JP")} 日元
+                      {ppay.pay_amount !== undefined ? (
+                        <span className="font-normal text-slate-500">
+                          {" "}
+                          （约 ¥{ppay.pay_amount.toLocaleString("zh-CN")}）
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {ppay.orderNo ? (
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                      订单号：{ppay.orderNo}
+                    </div>
+                  ) : null}
+                  {ppay.risk_flag ? (
+                    <div
+                      className="mt-2 flex items-start gap-1.5 rounded-md border border-red-300 bg-red-50 px-2.5 py-2 text-xs font-medium leading-4 text-red-700"
+                      data-testid="support-proxy-buy-pay-risk"
+                    >
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      金额较大，请核对后支付。
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                    onClick={() => openProxyBuyPay(ppay)}
+                    disabled={!canPayProxyBuy}
+                    data-testid="support-proxy-buy-pay-btn"
+                  >
+                    去支付
+                  </button>
+                  {!canPayProxyBuy ? (
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      {PROXY_BUY_PAY_PAGE_PATH
+                        ? "请在袋鼠君小程序内打开后完成支付。"
+                        : "支付入口待配置。"}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })()
+          : null}
         {item.choiceRef?.options?.length ? (
           <div
             className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
