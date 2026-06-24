@@ -33,6 +33,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   paypay: "PayPayフリマ",
   cardrush: "CardRush",
   torecacamp: "トレカキャンプ",
+  cardmuseum: "Card Museum",
 };
 
 function formatJpy(amount: number): string {

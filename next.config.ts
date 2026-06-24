@@ -166,6 +166,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.r10s.jp" },
       { protocol: "https", hostname: "**.fril.jp" },
       { protocol: "https", hostname: "**.cardrush-pokemon.jp" },
+      { protocol: "https", hostname: "**.shop-pro.jp" },
       { protocol: "https", hostname: "**.shopping.yahoo.co.jp" },
       { protocol: "https", hostname: "**.auctions.yahoo.co.jp" },
       { protocol: "https", hostname: "**.yimg.jp" },
