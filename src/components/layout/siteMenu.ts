@@ -17,6 +17,6 @@ export const SITE_MENU: SiteMenuEntry[] = [
   { key: "rakuma", href: "/rakuma" },
   { key: "yahooFrima", href: "/yahoofrima" },
   { key: "amazon", href: "/amazon" },
-  { key: "surugaya", href: null },
+  { key: "surugaya", href: "/surugaya" },
   { key: "zozotown", href: null },
 ];

@@ -98,7 +98,7 @@ function formatCurrency(amount: number, currency: string = "CNY"): string {
 }
 
 // 通用「网页代拍」结算支持的平台（平台无关；新平台在此加一个 code 即可复用）。
-const PROXY_BUY_PLATFORMS = new Set(["rakuma", "yahoofrima", "paypay"]);
+const PROXY_BUY_PLATFORMS = new Set(["rakuma", "yahoofrima", "paypay", "surugaya"]);
 
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
