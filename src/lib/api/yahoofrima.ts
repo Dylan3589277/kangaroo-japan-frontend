@@ -83,3 +83,111 @@ export async function getYahoofrimaQuote(
     `/yahoofrima/quote?goodsNo=${encodeURIComponent(goodsNo)}${tcgQuery}`,
   );
 }
+
+/** Yahoofrima 搜索列表卡片（与 Mercari/Rakuma 列表项同形，便于复用列表组件）。 */
+export interface YahoofrimaCardItem {
+  /** 商品 itemId（z 开头）；用于跳转 /[lang]/yahoofrima/[id]。 */
+  goodsNo: string;
+  title: string;
+  imageUrl?: string;
+  /** JPY 整数（数据库值即日元，不除以 100）。 */
+  priceJpy?: number;
+  /** 单品美元估算（后端 price_usd，汇率不可用时缺省）。 */
+  priceUsd?: number;
+  sellerName?: string;
+  soldOut: boolean;
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as UnknownRecord;
+}
+
+function firstString(record: UnknownRecord, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return undefined;
+}
+
+function firstNumber(record: UnknownRecord, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value.replaceAll(",", ""));
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+}
+
+function normalizeYahoofrimaItem(value: unknown): YahoofrimaCardItem | null {
+  const record = asRecord(value);
+  const goodsNo = firstString(record, ["goods_no", "goodsNo", "id"]);
+  const title = firstString(record, ["goods_name", "goodsName", "title", "name"]);
+  if (!goodsNo || !title) return null;
+  const status = firstString(record, ["status"]);
+  return {
+    goodsNo,
+    title,
+    imageUrl: firstString(record, [
+      "cover",
+      "cover_image",
+      "coverImage",
+      "image",
+      "imageUrl",
+      "thumbnail",
+    ]),
+    priceJpy: firstNumber(record, ["price", "priceJpy", "price_jpy"]),
+    priceUsd: firstNumber(record, ["price_usd", "priceUsd"]),
+    sellerName: firstString(record, ["seller_name", "sellerName", "seller"]),
+    soldOut: status === "sold_out",
+  };
+}
+
+function extractGoodsList(payload: unknown): unknown[] {
+  const root = asRecord(payload);
+  const candidates = [root, asRecord(root.data)];
+  for (const record of candidates) {
+    if (Array.isArray(record.goodsList)) return record.goodsList as unknown[];
+  }
+  return [];
+}
+
+export interface SearchYahoofrimaResult {
+  items: YahoofrimaCardItem[];
+  totalPages: number;
+}
+
+/**
+ * 拉 Yahoofrima 在售搜索列表并归一成 YahoofrimaCardItem[]。
+ * 经 /api/backend 代理 → 后端 GET /api/v1/integrations/yahoofrima/list?keyword=&page=
+ * （后端实时抓 PayPayフリマ 公开搜索页 __NEXT_DATA__，短缓存、限频、熔断；不落库）。
+ * 失败/无数据 → { items: [], totalPages: 0 }（调用方友好兜底，不抛错）。
+ */
+export async function searchYahoofrima(
+  keyword: string,
+  page = 1,
+): Promise<SearchYahoofrimaResult> {
+  const trimmed = (keyword || "").trim();
+  if (!trimmed) return { items: [], totalPages: 0 };
+  try {
+    const res = await api.request(
+      `/integrations/yahoofrima/list?keyword=${encodeURIComponent(trimmed)}&page=${page}`,
+    );
+    if (!res.success || !res.data) return { items: [], totalPages: 0 };
+    const data = asRecord(res.data);
+    const items = extractGoodsList(res.data)
+      .map(normalizeYahoofrimaItem)
+      .filter((item): item is YahoofrimaCardItem => item !== null);
+    const totalPages = firstNumber(data, ["totalPages"]) ?? 0;
+    return { items, totalPages };
+  } catch {
+    return { items: [], totalPages: 0 };
+  }
+}
