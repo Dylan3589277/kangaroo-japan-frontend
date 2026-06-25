@@ -15,7 +15,7 @@ import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-d
  * 金额一律 JPY 整数；≈元 = JPY × 后台 jpyToCny 汇率（前端算，复用 zh 首页口径）。zh 只显人民币。
  */
 
-const DEFAULT_KEYWORD = "リザードン";
+const DEFAULT_KEYWORD = "ポケモンカード";
 
 type SortKey = "newest" | "priceAsc" | "priceDesc";
 

@@ -16,7 +16,7 @@ import { searchToretoku, type ToretokuCardItem } from "@/lib/api/toretoku";
  * en 站显 USD（后端 price_usd，汇率不可用时只显 JPY，绝不显错币）。金额一律 JPY 整数。
  */
 
-const DEFAULT_KEYWORD = "リザードン";
+const DEFAULT_KEYWORD = "ポケモンカード";
 
 type SortKey = "newest" | "priceAsc" | "priceDesc";
 
