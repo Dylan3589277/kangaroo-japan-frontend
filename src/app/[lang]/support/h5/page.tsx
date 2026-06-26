@@ -1162,12 +1162,19 @@ export default function MiniProgramSupportH5Page() {
   }
 
   const renderChatItem = (item: ChatItem, key: string) => {
-    const amountText = item.orderRef?.amount_rmb
-      ? `¥${item.orderRef.amount_rmb}`
-      : undefined;
-    const jpyText = item.orderRef?.amount
-      ? `（约 ${item.orderRef.amount} 日元）`
-      : "";
+    // 待支付/订单卡金额：优先人民币；缺 amount_rmb 时回退显示日元 amount，
+    // 别让买家看不到金额（曾因 amount_rmb 缺失整行消失）。
+    const hasRmb = Boolean(item.orderRef?.amount_rmb);
+    const amountText = hasRmb
+      ? `¥${item.orderRef?.amount_rmb}`
+      : item.orderRef?.amount
+        ? `${item.orderRef.amount} 日元`
+        : undefined;
+    // 日元换算后缀只在主显示为人民币时附加，避免回退后重复「日元（约…日元）」。
+    const jpyText =
+      hasRmb && item.orderRef?.amount
+        ? `（约 ${item.orderRef.amount} 日元）`
+        : "";
     const canNavigateOrder = Boolean(
       item.orderRef?.order_id && wxReady && isMiniProgramWebview(),
     );
@@ -1639,9 +1646,11 @@ export default function MiniProgramSupportH5Page() {
                     我已了解风险，继续录入订单
                   </button>
                 )}
-                <p className="mt-1.5 text-[11px] leading-4 text-red-400">
-                  确认前不会录入订单、不会付款、不会自动下单。
-                </p>
+                {!quoteRiskConfirmed[key] ? (
+                  <p className="mt-1.5 text-[11px] leading-4 text-red-400">
+                    确认前不会录入订单、不会付款、不会自动下单。
+                  </p>
+                ) : null}
               </div>
             ) : null}
 

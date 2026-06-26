@@ -777,9 +777,19 @@ test.describe("support H5 quote_ref card · 高额风险确认 (>5万)", () => {
       "请先在上方完成『高额订单风险确认』",
     );
 
+    // 未确认态：风险卡内显示「确认前不会录入订单…」提示
+    await expect(
+      riskCard.getByText("确认前不会录入订单、不会付款、不会自动下单。"),
+    ).toBeVisible();
+
     // 点确认风险
     await page.getByTestId("support-quote-risk-confirm-btn").click();
     await expect(page.getByTestId("support-quote-risk-confirmed")).toBeVisible();
+
+    // 已确认态：去掉冗余的「确认前不会…」句（与绿色已确认条矛盾），整页不再出现
+    await expect(
+      page.getByText("确认前不会录入订单、不会付款、不会自动下单。"),
+    ).toHaveCount(0);
 
     // 确认后：「我要购买」可点；普通网页 H5 路由到结算页，并把 risk_ack=1 透传过去。
     await expect(buyBtn).toBeEnabled();
