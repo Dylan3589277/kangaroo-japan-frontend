@@ -1230,7 +1230,27 @@ export default function MiniProgramSupportH5Page() {
     // 已售/不可购报价卡：卡片内底部已有一条「不可购买原因」提示（含「已售」），
     // 文字气泡里的同义开场白会与之重复。此时隐藏上方文字气泡，只留卡片内那一条。
     const isUnpurchasableQuote = Boolean(quote && quote.purchasable === false);
-    const showTextBubble = Boolean(item.content) && !isUnpurchasableQuote;
+    // 选择卡（核价确认 [确认下单] / 链接选择 [直接下单]/[咨询商品]）的 prompt 就是卡片
+    // 内顶部那行字；bridge 同时把它放进 reply（→ item.content）。两者一字不差时，文字
+    // 气泡与卡片内文字重复（花哥反馈：核价提示冒两遍）。此时隐藏气泡，只留带按钮的卡。
+    // 报价卡不受影响：它的 reply 是简短开场白（≠卡内结构化字段），choiceRef 为空。
+    const choicePromptEqualsContent = Boolean(
+      item.choiceRef?.options?.length &&
+        item.choiceRef.prompt &&
+        item.choiceRef.prompt === item.content,
+    );
+    // 转人工卡（human-transfer-card）已在卡片内展示 humanTransferNote；bridge 把同一句话
+    // 也放进 reply（→ item.content）。两者相同时隐藏重复的文字气泡，只留带按钮的转人工卡。
+    const transferNoteEqualsContent = Boolean(
+      humanTransferVisible &&
+        humanTransferNote &&
+        humanTransferNote === item.content,
+    );
+    const showTextBubble =
+      Boolean(item.content) &&
+      !isUnpurchasableQuote &&
+      !choicePromptEqualsContent &&
+      !transferNoteEqualsContent;
 
     return (
       <div
