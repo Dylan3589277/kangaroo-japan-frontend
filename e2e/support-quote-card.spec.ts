@@ -927,3 +927,112 @@ test.describe("support H5 quote_ref card · 预估合计 + 删冗余灰字", () 
     await expect(page.getByTestId("support-quote-total")).toHaveCount(0);
   });
 });
+
+// 辅助购买平台（rakuma / yahoofrima）报价卡：[我要购买] / [咨询] 都回发 bridge 预设文本，
+// 绝不跳 type=mercari 网页结算页（那条会按 mercari 拉商品 → 「商品不存在」白屏）。
+test.describe("support H5 quote_ref card · 辅助购买平台(rakuma/yahoofrima)", () => {
+  // 复用一个能记录所有发给 /api/support/chat 的 message + 跟踪 URL 是否离开 H5 的夹具。
+  async function mountAssistedQuote(
+    page: Page,
+    platform: "rakuma" | "yahoofrima",
+    itemId: string,
+    sentMessages: string[],
+  ) {
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/conversations/**/messages", (route) =>
+      json(route, { code: 0, data: { messages: [] } }),
+    );
+    await page.route("**/api/support/chat", async (route) => {
+      const body = route.request().postDataJSON() as { message?: string };
+      if (body.message) sentMessages.push(body.message);
+      const msg = body.message || "";
+      // 第一条（商品链接）→ 回报价卡；后续控制文本 → 回普通确认/答疑话术（带不带 quote_ref 都行）。
+      const isLink = msg.includes("fril.jp") || msg.includes("paypayfleamarket");
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: isLink ? "这是您发的商品报价，请核对～" : "好的~",
+          quote_ref: isLink
+            ? {
+                platform,
+                item_id: itemId,
+                goods_name: "辅助购买テスト商品",
+                price_jpy: 5000,
+                purchasable: true,
+                fee_service_jpy: 200,
+              }
+            : undefined,
+        },
+      });
+    });
+  }
+
+  test("rakuma 点[我要购买] → 发『我要购买此商品』走辅助建单, 绝不跳 type=mercari 结算页", async ({
+    page,
+  }) => {
+    const sent: string[] = [];
+    await mountAssistedQuote(page, "rakuma", "8030a33bad2ffd37093c57134f99233e", sent);
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page
+      .getByPlaceholder("请输入问题")
+      .fill("https://item.fril.jp/8030a33bad2ffd37093c57134f99233e");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+
+    await page.getByTestId("support-quote-btn-buy").click();
+
+    // 关键①：发出了「我要购买此商品」购买意图文本（走 bridge 辅助建单流）。
+    await expect
+      .poll(() => sent.filter((m) => m.startsWith("我要购买此商品")).length)
+      .toBe(1);
+    // 关键②：没有离开 H5 跳到结算页（尤其不能跳 type=mercari）。
+    await expect(page).toHaveURL(/\/zh\/support\/h5/);
+    await expect(page).not.toHaveURL(/\/checkout/);
+  });
+
+  test("yahoofrima 点[我要购买] → 发『我要购买此商品』, 不再白屏跳 mercari 结算页", async ({
+    page,
+  }) => {
+    const sent: string[] = [];
+    await mountAssistedQuote(page, "yahoofrima", "z585140846", sent);
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page
+      .getByPlaceholder("请输入问题")
+      .fill("https://paypayfleamarket.yahoo.co.jp/item/z585140846");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+
+    await page.getByTestId("support-quote-btn-buy").click();
+
+    await expect
+      .poll(() => sent.filter((m) => m.startsWith("我要购买此商品")).length)
+      .toBe(1);
+    await expect(page).toHaveURL(/\/zh\/support\/h5/);
+    await expect(page).not.toHaveURL(/\/checkout/);
+  });
+
+  test("rakuma 点[咨询] → 发『咨询商品』让 AI 直接回问, 不预填输入框", async ({
+    page,
+  }) => {
+    const sent: string[] = [];
+    await mountAssistedQuote(page, "rakuma", "8030a33bad2ffd37093c57134f99233e", sent);
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page
+      .getByPlaceholder("请输入问题")
+      .fill("https://item.fril.jp/8030a33bad2ffd37093c57134f99233e");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+
+    await page.getByTestId("support-quote-btn-consult").click();
+
+    // 关键①：点[咨询]直接发出「咨询商品」（bridge 咨询 ask 分支据此主动回问）。
+    await expect.poll(() => sent.filter((m) => m === "咨询商品").length).toBe(1);
+    // 关键②：输入框没有被预填「我想咨询这个商品」（旧行为已改为直接发送）。
+    await expect(page.getByPlaceholder("请输入问题")).toHaveValue("");
+  });
+});

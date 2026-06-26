@@ -184,6 +184,20 @@ const QUICK_QUESTIONS = [
 ];
 
 const SUPPORTED_PLATFORMS = new Set(["mercari", "amazon", "yahoo", "rakuten"]);
+
+// 辅助购买（zh 灰度）平台：rakuma / yahoofrima。这两个平台的报价卡来自 bridge
+// _emit_assisted_quote_card（链接→internal/quote），报价时已 _stash_consult_pending
+// 暂存商品态。故卡上[我要购买]/[咨询]按钮**回发 bridge 预设文本**走辅助建单/咨询流，
+// 而不是像 mercari 那样跳现成网页结算页（那条 type=mercari 结算页认不出 rakuma/
+// yahoofrima 商品 → 白屏「商品不存在」）。文本须与 bridge 常量逐字一致：
+//   - [我要购买] → QUOTE_CARD_BUY_TEXT_PREFIX「我要购买此商品」(bridge is_quote_card_buy
+//     前缀匹配 → _handle_purchase_intent → 报价确认 → 待支付卡)
+//   - [咨询]     → LINK_CHOICE_CONSULT_TEXT「咨询商品」(bridge is_control_text → 咨询
+//     ask 分支直接回「请问您想了解这个商品的什么?」)
+const ASSISTED_PURCHASE_PLATFORMS = new Set(["rakuma", "yahoofrima"]);
+// 与 bridge.py 常量逐字一致（改这里务必同步改 bridge）：
+const ASSISTED_BUY_INTENT_TEXT = "我要购买此商品";
+const ASSISTED_CONSULT_TEXT = "咨询商品";
 const HUMAN_TRANSFER_MESSAGE =
   "袋鼠酱这边暂时有点忙，我先带你转人工客服继续处理～";
 const RESPONSE_TIME_NOTE =
@@ -1004,9 +1018,18 @@ export default function MiniProgramSupportH5Page() {
     void sendMessage(typeof formMessage === "string" ? formMessage : draft);
   }
 
-  // 报价卡"咨询"：不替买家发任何内容，只把输入框预填一句并聚焦，
-  // 让买家自己改/补充后再发。避免自动发送敏感或不准确的咨询文本。
-  function consultQuote() {
+  // 报价卡"咨询"。
+  //   - 辅助购买平台（rakuma/yahoofrima）：bridge 报价时已暂存商品态，点[咨询]直接
+  //     sendMessage("咨询商品") → bridge 咨询 ask 分支**主动回**「请问您想了解这个商品
+  //     的什么?(成色/价格/包邮/物流时效/代购规则/费用都可以问)」，不再塞输入框等买家发。
+  //   - mercari / 雅虎：保持原行为（仅预填输入框并聚焦，买家自己补充后再发），零回归
+  //     ——这两类报价卡来自 _mercari_quote/_yahoo_quote，bridge 无咨询暂存态，发"咨询商品"
+  //     只会被回「重发链接」，故不改。
+  function consultQuote(quote?: QuoteRef) {
+    if (quote?.platform && ASSISTED_PURCHASE_PLATFORMS.has(quote.platform)) {
+      void sendMessage(ASSISTED_CONSULT_TEXT);
+      return;
+    }
     setDraft((current) => current || "我想咨询这个商品");
     // 等 setDraft 触发的重渲染落地后再聚焦，确保光标停在输入框尾部。
     window.setTimeout(() => {
@@ -1103,6 +1126,22 @@ export default function MiniProgramSupportH5Page() {
     // 雅虎不走本次新路由，保持原有「发购买意图文本 → 后端话术」行为，零回归。
     if (quote.platform === "yahoo") {
       let intent = "我要购买此商品";
+      intent += summarizeSelectedServices(cardKey, quote);
+      if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
+        intent += "；我已了解高额订单风险（不退不换），请继续为我录入";
+      }
+      void sendMessage(intent);
+      return;
+    }
+
+    // 辅助购买平台（rakuma / yahoofrima）：走 bridge 辅助建单流，**不**跳现成网页结算页。
+    // 报价时 bridge 已 _stash_consult_pending 暂存 platform+goodsNo；点[我要购买]回发
+    // 前缀「我要购买此商品」→ bridge is_quote_card_buy → _handle_purchase_intent →
+    // 报价确认 → 「确认」后 internal/orders 建 st_orders → 返 order_ref 待支付卡。
+    // 之前误落到下方 mercari 分支跳 /checkout?type=mercari&id=<rakuma/yahoofrima_id>，
+    // 网页结算页按 mercari 拉商品 → 「商品不存在」→ 白屏（花哥实测 yahoofrima 点购买白屏）。
+    if (quote.platform && ASSISTED_PURCHASE_PLATFORMS.has(quote.platform)) {
+      let intent = ASSISTED_BUY_INTENT_TEXT;
       intent += summarizeSelectedServices(cardKey, quote);
       if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
         intent += "；我已了解高额订单风险（不退不换），请继续为我录入";
@@ -1734,12 +1773,12 @@ export default function MiniProgramSupportH5Page() {
                     登录后可查看你的押金额度。
                   </div>
                 )}
-                {/* 竞拍卡动作：咨询(预填输入框) + 去出价(跳小程序竞拍详情页,出价/押金小程序专属) */}
+                {/* 竞拍卡动作：咨询(雅虎竞拍仍预填输入框) + 去出价(跳小程序竞拍详情页,出价/押金小程序专属) */}
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
-                    onClick={consultQuote}
+                    onClick={() => consultQuote(item.quoteRef)}
                     disabled={loading}
                     data-testid="support-quote-auction-btn-consult"
                   >
@@ -1794,7 +1833,7 @@ export default function MiniProgramSupportH5Page() {
                       <button
                         type="button"
                         className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
-                        onClick={consultQuote}
+                        onClick={() => consultQuote(item.quoteRef)}
                         disabled={loading}
                         data-testid="support-quote-btn-consult"
                       >
