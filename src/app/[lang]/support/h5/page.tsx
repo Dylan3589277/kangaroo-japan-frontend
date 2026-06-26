@@ -1067,6 +1067,31 @@ export default function MiniProgramSupportH5Page() {
     return codes;
   }
 
+  // 报价卡「预估合计」（日元整数）：现价 + 支付手续费 + 代拍手续费 + Σ(已勾选可选服务费)。
+  // 仅前端展示用，随买家勾选实时重算（依赖 quoteServiceSelections 触发 re-render），
+  // 让买家看见勾选增值服务后的价格变化、避免价格歧义。国内运费按现状不计入（仅 note 说明）。
+  // 权威金额仍以建单时服务端按勾选项重算为准，本函数不改建单逻辑。JPY 整数，不除以 100。
+  // price_jpy 缺省时返回 undefined（不渲染合计行，避免显示无意义的纯手续费总额）。
+  function computeQuoteTotalJpy(
+    cardKey: string,
+    quote: QuoteRef,
+  ): number | undefined {
+    if (quote.price_jpy === undefined) return undefined;
+    let total = quote.price_jpy + (quote.fee_service_jpy ?? 0) + (quote.fee_agent_jpy ?? 0);
+    const services = quote.optional_services;
+    if (services && services.length > 0) {
+      const checkedMap = quoteServiceSelections[cardKey] || {};
+      for (let i = 0; i < services.length; i += 1) {
+        const svc = services[i];
+        const code = svc.code || svc.label || `svc-${i}`;
+        if (checkedMap[code] && svc.fee_jpy !== undefined) {
+          total += svc.fee_jpy;
+        }
+      }
+    }
+    return total;
+  }
+
   // 报价卡「我要购买」：mercari 直接进**现成的**购买/待支付流程（不再发转人工套话）。
   //   - 小程序 webview 内 → 跳袋鼠君小程序 mercari 商品页（含「立即购买」，自带登录守卫/购买提示）；
   //   - 普通网页 H5 → router.push 现成网页结算页 /{lang}/checkout?type=mercari&id=...
@@ -1526,6 +1551,31 @@ export default function MiniProgramSupportH5Page() {
               </div>
             ) : null}
 
+            {/* ── 预估合计（日元整数）：现价+支付手续费+代拍手续费+已勾选可选服务费。
+                 随买家勾选实时重算（computeQuoteTotalJpy 依赖 quoteServiceSelections re-render），
+                 让买家看见勾选增值服务后的价格变化、避免价格歧义。竞拍卡不出（走出价/押金）。
+                 仅前端展示，权威金额仍以建单时服务端按勾选项重算为准。 */}
+            {!isYahooAuction && item.quoteRef.price_jpy !== undefined ? (
+              <div
+                className="mt-3 border-t border-slate-100 pt-2"
+                data-testid="support-quote-total"
+              >
+                <div className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-900">
+                  <span>预估合计</span>
+                  <span data-testid="support-quote-total-jpy">
+                    ¥
+                    {(
+                      computeQuoteTotalJpy(key, item.quoteRef) ?? 0
+                    ).toLocaleString("ja-JP")}{" "}
+                    日元
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                  合计为估算（不含国内运费），最终以客服核对或小程序下单当日为准。
+                </p>
+              </div>
+            ) : null}
+
             {/* ── >5万风险确认卡（卖家核验不达标时显著展示）。
                  仅录单流出卡；买家点确认只前端记录，不录入/不付款/不下单。 */}
             {!isYahooAuction && item.quoteRef.seller_risk?.needs_confirm ? (
@@ -1753,11 +1803,11 @@ export default function MiniProgramSupportH5Page() {
                         我要购买
                       </button>
                     </div>
-                    <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
-                      {riskBlocksBuy
-                        ? "请先在上方完成『高额订单风险确认』，再点『我要购买』。"
-                        : "点『我要购买』将转人工为您录入订单，不会自动下单或扣款。"}
-                    </p>
+                    {riskBlocksBuy ? (
+                      <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
+                        请先在上方完成『高额订单风险确认』，再点『我要购买』。
+                      </p>
+                    ) : null}
                   </div>
                 );
               })()

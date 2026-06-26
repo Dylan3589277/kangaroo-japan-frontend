@@ -790,3 +790,130 @@ test.describe("support H5 quote_ref card · 高额风险确认 (>5万)", () => {
     expect(url.searchParams.get("risk_ack")).toBe("1");
   });
 });
+
+test.describe("support H5 quote_ref card · 预估合计 + 删冗余灰字", () => {
+  test("预估合计 = 现价+手续费+Σ已勾选服务，勾选/取消实时更新", async ({
+    page,
+  }) => {
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/conversations/**/messages", (route) =>
+      json(route, { code: 0, data: { messages: [] } }),
+    );
+    await page.route("**/api/support/chat", async (route) => {
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: "这是报价",
+          quote_ref: {
+            platform: "mercari",
+            item_id: "m12345678901",
+            goods_name: "テスト商品",
+            price_jpy: 12800,
+            purchasable: true,
+            fee_service_jpy: 200,
+            fee_agent_jpy: 0,
+            optional_services: [
+              { code: "misdelivery_check", label: "错发漏发检查", fee_jpy: 100 },
+              { code: "pre_inbound_photo", label: "入库前拍照", fee_jpy: 100 },
+            ],
+          },
+        },
+      });
+    });
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page.getByPlaceholder("请输入问题").fill("https://jp.mercari.com/item/m12345678901");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    const total = page.getByTestId("support-quote-total-jpy");
+    // 未勾选：12800 + 200 + 0 = 13000
+    await expect(page.getByTestId("support-quote-total")).toContainText("预估合计");
+    await expect(total).toHaveText(/¥13,?000 日元/);
+
+    // 勾选错发漏发检查(+100) → 13100
+    await page.getByTestId("support-quote-service-misdelivery_check").check();
+    await expect(total).toHaveText(/¥13,?100 日元/);
+
+    // 再勾选入库前拍照(+100) → 13200（即相对基线 +¥200）
+    await page.getByTestId("support-quote-service-pre_inbound_photo").check();
+    await expect(total).toHaveText(/¥13,?200 日元/);
+
+    // 取消错发漏发检查(-100) → 13100
+    await page.getByTestId("support-quote-service-misdelivery_check").uncheck();
+    await expect(total).toHaveText(/¥13,?100 日元/);
+  });
+
+  test("CTA：删掉『不会自动下单或扣款』灰字，保留橙字提示", async ({ page }) => {
+    await mockChatWithQuoteRef(page, {
+      platform: "mercari",
+      item_id: "m12345678901",
+      goods_name: "テスト商品",
+      price_jpy: 12800,
+      purchasable: true,
+      fee_service_jpy: 200,
+      fee_agent_jpy: 0,
+    });
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page.getByPlaceholder("请输入问题").fill("https://jp.mercari.com/item/m12345678901");
+    await page.getByRole("button", { name: "发送" }).click();
+
+    const cta = page.getByTestId("support-quote-cta");
+    await expect(cta).toBeVisible();
+    // 保留：橙字「回复『确认』」提示还在
+    await expect(cta).toContainText("回复『确认』");
+    // 删除：灰字「不会自动下单或扣款」整行不再出现（卡内与整页都没有）
+    await expect(cta).not.toContainText("不会自动下单或扣款");
+    await expect(page.getByText(/不会自动下单或扣款/)).toHaveCount(0);
+  });
+
+  test("雅虎即決(sokketsu)也显示预估合计；竞拍(auction)不显示", async ({
+    page,
+  }) => {
+    // 即決：有固定现价+手续费 → 显示预估合计
+    await mockChatWithQuoteRef(page, {
+      platform: "yahoo",
+      sale_type: "sokketsu",
+      item_id: "y12345",
+      goods_name: "ヤフオク即決テスト商品",
+      price_jpy: 8800,
+      purchasable: true,
+      fee_service_jpy: 0,
+      fee_agent_jpy: 220,
+      action_hint: "contact_kefu",
+    });
+    await page.goto("/zh/support/h5?shop=yahoo");
+    await page.getByPlaceholder("请输入问题").fill("https://page.auctions.yahoo.co.jp/jp/auction/y12345");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+    // 8800 + 0 + 220 = 9020
+    await expect(page.getByTestId("support-quote-total-jpy")).toHaveText(
+      /¥9,?020 日元/,
+    );
+  });
+
+  test("竞拍(auction)卡不显示预估合计", async ({ page }) => {
+    await mockChatWithQuoteRef(page, {
+      platform: "yahoo",
+      sale_type: "auction",
+      item_id: "y67890",
+      goods_name: "ヤフオク竞拍テスト商品",
+      price_jpy: 3000,
+      current_bid: 3000,
+      buyout_jpy: 12000,
+      left_time: "6月17日 21:30",
+      bid_num: 5,
+      deposit_state: "ok",
+      deposit_balance_rmb: 500,
+      max_bid_allowed_jpy: 60000,
+    });
+    await page.goto("/zh/support/h5?shop=yahoo");
+    await page.getByPlaceholder("请输入问题").fill("https://page.auctions.yahoo.co.jp/jp/auction/y67890");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+    // 竞拍卡走出价/押金，不出预估合计
+    await expect(page.getByTestId("support-quote-total")).toHaveCount(0);
+  });
+});
