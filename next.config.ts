@@ -40,6 +40,7 @@ const IMG_HOSTS = [
   "https://assets.mercari-shops-static.com",
   "https://*.rakuten.co.jp",
   "https://*.r10s.jp",
+  "https://*.fril.jp",
   "https://*.shopping.yahoo.co.jp",
   "https://*.auctions.yahoo.co.jp",
   "https://*.yimg.jp",
