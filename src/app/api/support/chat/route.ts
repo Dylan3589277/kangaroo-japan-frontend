@@ -674,6 +674,30 @@ const FORBIDDEN_SCOPE_KEYWORDS = [
   "unionid",
 ];
 
+// 任何 http(s) 链接都视为业务消息放行到 bridge：客户发来的商品链接本身就是
+// 代拍业务（rakuma item.fril.jp、yahoofrima、mercari、雅虎竞拍等）。bridge
+// 下游自己做平台 classify / 拒绝不支持的链接，所以这里只判"有没有链接"，
+// 既简单又不漏（裸 rakuma 链接不含任何业务词，原来被兜底误拦）。
+const URL_IN_MESSAGE_PATTERN = /https?:\/\/\S+/i;
+
+// 确认类消息放行到 bridge：报价卡 UI 提示「回复『确认』」、[确认下单] 按钮、
+// 以及客户自然手打的确认下单意图。这些不含业务词，原来被兜底误拦，导致
+// bridge 的建单端点不被调用（既不出待支付卡也不转人工）。
+const CONFIRMATION_KEYWORDS = [
+  "确认",
+  "確認",
+  "确定",
+  "確定",
+  "我确认",
+  "确认下单",
+  "确定下单",
+  "确认购买",
+  "确认支付",
+  "确认付款",
+  "录入订单",
+  "确认录单",
+];
+
 function getRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
@@ -884,6 +908,17 @@ function guardCustomerServiceScope(body: Record<string, unknown>) {
   }
 
   if (includesAnyKeyword(message, GREETING_KEYWORDS)) {
+    return null;
+  }
+
+  // 含商品链接（任意 http(s) URL）→ 放行交 bridge。裸 rakuma 链接不含业务词，
+  // 原来被下面的兜底误拦；放行后 bridge 自己 classify / 出报价卡。
+  if (URL_IN_MESSAGE_PATTERN.test(message)) {
+    return null;
+  }
+
+  // 确认类消息（回复『确认』/确认下单 等）→ 放行交 bridge 走建单/确认流。
+  if (includesAnyKeyword(message, CONFIRMATION_KEYWORDS)) {
     return null;
   }
 
