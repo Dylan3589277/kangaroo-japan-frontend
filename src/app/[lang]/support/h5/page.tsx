@@ -135,6 +135,7 @@ type QuoteRef = {
 // 可选增值服务一项。所有服务（含安心鉴定）统一为扁平结构：勾选框 + 精确日元费用。
 // 安心鉴定由后端按卖家实际开通的品类直接下发精确 fee_jpy，前端不再做品类选择。
 type OptionalService = {
+  id?: number; // 老后台 st_value_added 主键（数字 id）；建单透传给后端按勾选权威收费
   code?: string; // 'misdelivery_check' | 'pre_inbound_photo' | 'mercari_anshin_kantei'
   label?: string; // 展示名（如「错发漏发检查」「mercari安心鉴定」）
   fee_jpy?: number; // 精确费用（日元整数）
@@ -272,6 +273,7 @@ function getOptionalServices(value: unknown): OptionalService[] | undefined {
     // 至少要有 label 或 code 才算一条可渲染服务。
     if (!label && !code) continue;
     out.push({
+      id: getNumber(r.id),
       code,
       label,
       fee_jpy: getNumber(r.fee_jpy),
@@ -848,7 +850,12 @@ export default function MiniProgramSupportH5Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function sendMessage(message: string) {
+  // extra：随购买意图等场景附带的结构化字段（如 selected_value_added_ids），
+  // 仅在首条 /api/support/chat 请求体里透传（会话内 /messages 端点只收 content，不带）。
+  async function sendMessage(
+    message: string,
+    extra?: Record<string, unknown>,
+  ) {
     const content = message.trim();
     if (!content || loading) return;
 
@@ -881,6 +888,7 @@ export default function MiniProgramSupportH5Page() {
             sourcePlatform,
             sourcePage:
               typeof window === "undefined" ? undefined : window.location.href,
+            ...(extra ?? {}),
           };
       const response = await fetch(endpoint, {
         method: "POST",
@@ -1090,6 +1098,26 @@ export default function MiniProgramSupportH5Page() {
     return codes;
   }
 
+  // 汇总某张报价卡上买家已勾选**且有数字 id** 的可选服务 id，逗号拼成机读串（如 "5,6"）。
+  // 契约字段 selected_value_added_ids：随[我要购买]购买意图发给 bridge，bridge 暂存→确认时
+  // 透传给现代后端 createOrderForAgent 的 value_added（老后台 st_value_added 主键，权威收费）。
+  // 与 collectSelectedServiceCodes（给网页结算页 URL 的 code 串）区分：这里是给 bridge 的 id 串。
+  // 勾选状态/key 沿用 quoteServiceSelections（同渲染/合计的 svc.code||label||svc-i 口径）。
+  // 无勾选或勾选项均无 id 时返回 ""（空串则上层不传该字段）。
+  function collectSelectedServiceIds(cardKey: string, quote: QuoteRef): string {
+    const services = quote.optional_services;
+    if (!services || services.length === 0) return "";
+    const checkedMap = quoteServiceSelections[cardKey] || {};
+    const ids: string[] = [];
+    for (let i = 0; i < services.length; i += 1) {
+      const svc = services[i];
+      const code = svc.code || svc.label || `svc-${i}`;
+      if (!checkedMap[code] || svc.id === undefined) continue;
+      ids.push(String(svc.id));
+    }
+    return ids.join(",");
+  }
+
   // 报价卡「预估合计」（日元整数）：现价 + 支付手续费 + 代拍手续费 + Σ(已勾选可选服务费)。
   // 仅前端展示用，随买家勾选实时重算（依赖 quoteServiceSelections 触发 re-render），
   // 让买家看见勾选增值服务后的价格变化、避免价格歧义。国内运费按现状不计入（仅 note 说明）。
@@ -1146,7 +1174,14 @@ export default function MiniProgramSupportH5Page() {
       if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
         intent += "；我已了解高额订单风险（不退不换），请继续为我录入";
       }
-      void sendMessage(intent);
+      // 把买家勾选的增值服务**数字 id 串**随购买意图发给 bridge（契约字段
+      // selected_value_added_ids，逗号数字串如 "5,6"）。bridge 暂存→确认时透传给
+      // 现代后端 value_added 建单收费。空串则不带该字段（向后兼容，不勾选零影响）。
+      const valueAddedIds = collectSelectedServiceIds(cardKey, quote);
+      void sendMessage(
+        intent,
+        valueAddedIds ? { selected_value_added_ids: valueAddedIds } : undefined,
+      );
       return;
     }
 

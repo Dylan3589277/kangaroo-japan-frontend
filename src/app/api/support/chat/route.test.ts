@@ -1713,3 +1713,121 @@ test("TCG FAQ fails closed to English email/WhatsApp handoff on bridge timeout",
     delete process.env.HERMES_BRIDGE_TIMEOUT_MS;
   }
 });
+
+// ---------------------------------------------------------------------------
+// 增值服务数字 id 中继（selected_value_added_ids）：报价卡[我要购买]带来的勾选 id 串
+// 必须原样透传给 bridge（漏转=确认建单时收不到加购 → 不收费）。逗号数字串才透，非法/空丢弃。
+// ---------------------------------------------------------------------------
+
+test("rakuma/yahoofrima 购买意图：selected_value_added_ids 逗号数字串透传给 bridge", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let capturedBridgeBody: Record<string, unknown> | null = null;
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBody = JSON.parse(String(init?.body));
+    return Response.json({
+      action: "answered",
+      reply: "好的，已为您记录加购，请回复『确认』继续。",
+      source_ids: [],
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        // 与前端 buyQuote 辅助购买分支一致：购买意图文本 + 勾选的增值服务 id 串。
+        message: "我要购买此商品；我想加购：错发漏发检查（100日元）",
+        language: "zh",
+        selected_value_added_ids: "5,6",
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.action, "answered");
+
+    const bridgeBody = capturedBridgeBody as {
+      selected_value_added_ids?: string;
+    } | null;
+    assert.ok(bridgeBody);
+    // 关键：中继把勾选 id 串原样转发给 bridge，未被吞掉。
+    assert.equal(bridgeBody.selected_value_added_ids, "5,6");
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("selected_value_added_ids 缺省/非法（防注入）→ 中继不带该字段（向后兼容）", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  const capturedBridgeBodies: Record<string, unknown>[] = [];
+  globalThis.fetch = async (_input, init) => {
+    capturedBridgeBodies.push(JSON.parse(String(init?.body)));
+    return Response.json({
+      action: "answered",
+      reply: "好的~",
+      source_ids: [],
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    // ① 完全不带该字段 → bridge payload 里也不出现（undefined，不进 JSON）。
+    const reqOmitted = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "我要购买此商品", language: "zh" }),
+    });
+    await POST(reqOmitted);
+
+    // ② 非法值（注入尝试，非逗号数字）→ 校验丢弃，绝不透传。
+    const reqInjection = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "我要购买此商品",
+        language: "zh",
+        selected_value_added_ids: "5,6); DROP TABLE",
+      }),
+    });
+    await POST(reqInjection);
+
+    assert.equal(capturedBridgeBodies.length, 2);
+    for (const bridgeBody of capturedBridgeBodies) {
+      // undefined 字段经 JSON.stringify 后整个 key 消失：两种情况都不应出现该 key。
+      assert.equal(
+        Object.prototype.hasOwnProperty.call(
+          bridgeBody,
+          "selected_value_added_ids",
+        ),
+        false,
+      );
+    }
+    // 注入串绝不出现在转发给 bridge 的任何地方。
+    assert.equal(
+      JSON.stringify(capturedBridgeBodies).includes("DROP TABLE"),
+      false,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});

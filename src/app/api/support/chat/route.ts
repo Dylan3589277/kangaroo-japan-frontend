@@ -680,6 +680,10 @@ const FORBIDDEN_SCOPE_KEYWORDS = [
 // 既简单又不漏（裸 rakuma 链接不含任何业务词，原来被兜底误拦）。
 const URL_IN_MESSAGE_PATTERN = /https?:\/\/\S+/i;
 
+// 增值服务数字 id 串契约：逗号分隔的数字（如 "5,6"）。与现代后端建单 DTO 的
+// @Matches(/^\d+(,\d+)*$/) 同口径，中继时先校验再透传（防注入，非法即丢弃不转）。
+const VALUE_ADDED_IDS_PATTERN = /^\d+(,\d+)*$/;
+
 // 确认类消息放行到 bridge：报价卡 UI 提示「回复『确认』」、[确认下单] 按钮、
 // 以及客户自然手打的确认下单意图。这些不含业务词，原来被兜底误拦，导致
 // bridge 的建单端点不被调用（既不出待支付卡也不转人工）。
@@ -706,6 +710,12 @@ function getRecord(value: unknown): Record<string, unknown> {
 
 function getString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+// 取合法的增值服务数字 id 串（逗号数字），非法/空返回 undefined（中继不带该字段）。
+function getValueAddedIds(value: unknown): string | undefined {
+  const text = getString(value);
+  return text && VALUE_ADDED_IDS_PATTERN.test(text) ? text : undefined;
 }
 
 function getH5UserIdCandidate(body: Record<string, unknown>) {
@@ -946,11 +956,16 @@ function buildBridgePayload(body: Record<string, unknown>) {
   const uidSignTs = getString(body.ts);
   const uidSignSig = getString(body.sig);
 
+  // 买家在报价卡勾选的增值服务数字 id 串（逗号数字，如 "5,6"）。原样透传给 bridge，
+  // 漏转=买家加购的服务被中继吞掉、确认建单时拿不到 → 不收费。空/非法即不带（向后兼容）。
+  const selectedValueAddedIds = getValueAddedIds(body.selected_value_added_ids);
+
   return {
     session_id: sessionId,
     message: getString(body.message) || "",
     language: getString(body.language) || "zh",
     site: getString(body.site) || "kangaroo-japan",
+    selected_value_added_ids: selectedValueAddedIds,
     context: {
       user_id: userId,
       ts: uidSignTs,

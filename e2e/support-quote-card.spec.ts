@@ -1035,4 +1035,158 @@ test.describe("support H5 quote_ref card · 辅助购买平台(rakuma/yahoofrima
     // 关键②：输入框没有被预填「我想咨询这个商品」（旧行为已改为直接发送）。
     await expect(page.getByPlaceholder("请输入问题")).toHaveValue("");
   });
+
+  // 报价卡带 optional_services（含数字 id）：勾选后点[我要购买]，购买请求体须带
+  // selected_value_added_ids（逗号数字串），且只含「已勾选且有 id」的项；合计随勾选实时变。
+  test("rakuma 勾选增值服务(有id) → [我要购买]请求体带 selected_value_added_ids='5,6'", async ({
+    page,
+  }) => {
+    // 记录每次发给 /api/support/chat 的完整请求体（用于断言 selected_value_added_ids）。
+    const bodies: Array<Record<string, unknown>> = [];
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/conversations/**/messages", (route) =>
+      json(route, { code: 0, data: { messages: [] } }),
+    );
+    await page.route("**/api/support/chat", async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      bodies.push(body);
+      const msg = String(body.message || "");
+      const isLink = msg.includes("fril.jp");
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: isLink ? "这是您发的商品报价，请核对～" : "好的~",
+          quote_ref: isLink
+            ? {
+                platform: "rakuma",
+                item_id: "8030a33bad2ffd37093c57134f99233e",
+                goods_name: "辅助购买テスト商品",
+                price_jpy: 5000,
+                purchasable: true,
+                fee_service_jpy: 200,
+                fee_agent_jpy: 0,
+                // 数据驱动：后端按勾选权威收费，前端只透传勾选的数字 id。
+                optional_services: [
+                  { id: 5, code: "misdelivery_check", label: "错发漏发检查", fee_jpy: 100 },
+                  { id: 6, code: "pre_inbound_photo", label: "入库前拍照", fee_jpy: 100 },
+                  // 无 id 的项（不该进 selected_value_added_ids，即便被勾选）。
+                  { code: "extra_no_id", label: "无id服务", fee_jpy: 300 },
+                ],
+              }
+            : undefined,
+        },
+      });
+    });
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page
+      .getByPlaceholder("请输入问题")
+      .fill("https://item.fril.jp/8030a33bad2ffd37093c57134f99233e");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+
+    // 可选服务区渲染、三项都在（含带 id 与不带 id 的）。
+    const svcArea = page.getByTestId("support-quote-optional-services");
+    await expect(svcArea).toBeVisible();
+    await expect(svcArea.getByText("错发漏发检查")).toBeVisible();
+    await expect(svcArea.getByText("无id服务")).toBeVisible();
+
+    // 合计基线：5000 + 200 + 0 = 5200（回归：勾选实时更新仍生效）。
+    const total = page.getByTestId("support-quote-total-jpy");
+    await expect(total).toHaveText(/¥5,?200 日元/);
+
+    // 勾选两个带 id 的服务 + 那个无 id 服务。
+    await page.getByTestId("support-quote-service-misdelivery_check").check();
+    await page.getByTestId("support-quote-service-pre_inbound_photo").check();
+    await page.getByTestId("support-quote-service-extra_no_id").check();
+    // 合计 = 5200 + 100 + 100 + 300 = 5700（含无 id 项的费用，合计按 fee 累加不挑 id）。
+    await expect(total).toHaveText(/¥5,?700 日元/);
+
+    // 点[我要购买]：发购买意图（不跳结算页），请求体带 selected_value_added_ids。
+    await page.getByTestId("support-quote-btn-buy").click();
+    await expect
+      .poll(() => bodies.filter((b) => String(b.message || "").startsWith("我要购买此商品")).length)
+      .toBe(1);
+    await expect(page).toHaveURL(/\/zh\/support\/h5/);
+    await expect(page).not.toHaveURL(/\/checkout/);
+
+    const buyBody = bodies.find((b) =>
+      String(b.message || "").startsWith("我要购买此商品"),
+    );
+    expect(buyBody).toBeTruthy();
+    // 关键①：只含「已勾选且有 id」的两项 id，逗号数字串（无 id 服务不进）。
+    const ids = String(buyBody?.selected_value_added_ids || "").split(",");
+    expect(ids).toContain("5");
+    expect(ids).toContain("6");
+    expect(ids).toHaveLength(2);
+    // 关键②：无 id 服务的 code 绝不混进 id 串。
+    expect(String(buyBody?.selected_value_added_ids || "")).not.toContain(
+      "extra_no_id",
+    );
+  });
+
+  // 一个都不勾（或勾的都无 id）→ 购买请求体不带 selected_value_added_ids（向后兼容）。
+  test("rakuma 不勾增值服务 → [我要购买]请求体不带 selected_value_added_ids", async ({
+    page,
+  }) => {
+    const bodies: Array<Record<string, unknown>> = [];
+    await page.route("https://embed.tawk.to/**", (route) => route.abort());
+    await page.route("https://res.wx.qq.com/**", (route) => route.abort());
+    await page.route("**/api/support/conversations/**/messages", (route) =>
+      json(route, { code: 0, data: { messages: [] } }),
+    );
+    await page.route("**/api/support/chat", async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      bodies.push(body);
+      const msg = String(body.message || "");
+      const isLink = msg.includes("fril.jp");
+      return json(route, {
+        code: 0,
+        data: {
+          action: "answered",
+          reply: isLink ? "这是您发的商品报价，请核对～" : "好的~",
+          quote_ref: isLink
+            ? {
+                platform: "rakuma",
+                item_id: "8030a33bad2ffd37093c57134f99233e",
+                goods_name: "辅助购买テスト商品",
+                price_jpy: 5000,
+                purchasable: true,
+                fee_service_jpy: 200,
+                optional_services: [
+                  { id: 5, code: "misdelivery_check", label: "错发漏发检查", fee_jpy: 100 },
+                ],
+              }
+            : undefined,
+        },
+      });
+    });
+
+    await page.goto("/zh/support/h5?shop=mercari");
+    await page
+      .getByPlaceholder("请输入问题")
+      .fill("https://item.fril.jp/8030a33bad2ffd37093c57134f99233e");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByTestId("support-quote-card")).toBeVisible();
+
+    // 不勾任何服务，直接点[我要购买]。
+    await page.getByTestId("support-quote-btn-buy").click();
+    await expect
+      .poll(() => bodies.filter((b) => String(b.message || "").startsWith("我要购买此商品")).length)
+      .toBe(1);
+
+    const buyBody = bodies.find((b) =>
+      String(b.message || "").startsWith("我要购买此商品"),
+    );
+    expect(buyBody).toBeTruthy();
+    // 不勾 → 不带该字段（undefined，序列化后 key 不存在）。
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        buyBody as object,
+        "selected_value_added_ids",
+      ),
+    ).toBe(false);
+  });
 });
