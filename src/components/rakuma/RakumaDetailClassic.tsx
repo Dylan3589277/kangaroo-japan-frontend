@@ -391,7 +391,17 @@ export function RakumaDetailClassic() {
                   ))}
                 </div>
               )}
-              <p className="text-muted-foreground text-sm">{t("noDescription")}</p>
+              {detail.descriptionTranslated ? (
+                <p className="whitespace-pre-wrap text-muted-foreground text-sm">
+                  {detail.descriptionTranslated}
+                </p>
+              ) : detail.description ? (
+                <p className="whitespace-pre-wrap text-muted-foreground text-sm">
+                  {detail.description}
+                </p>
+              ) : (
+                <p className="text-muted-foreground text-sm">{t("noDescription")}</p>
+              )}
             </div>
           </Card>
         </TabsContent>

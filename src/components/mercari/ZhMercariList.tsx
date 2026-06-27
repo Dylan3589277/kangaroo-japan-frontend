@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
 import { searchMercariTcg, type TcgCardItem } from "@/components/home/tcg/tcg-data";
 import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-data";
 
@@ -146,8 +147,8 @@ export function ZhMercariList() {
 
   // 输入框关键词（受控）与「已提交的检索词」分离：默认词进页面即拉货，
   // 搜索/选 chip 才改 submittedKeyword 触发刷新。
-  const [keyword, setKeyword] = useState("");
-  const [submittedKeyword, setSubmittedKeyword] = useState(DEFAULT_KEYWORD);
+  const { keyword, setKeyword, submittedKeyword, setSubmittedKeyword } =
+    usePlatformSearchKeyword(DEFAULT_KEYWORD);
   const [sort, setSort] = useState<SortKey>("newest");
 
   // 拉一次后台 CNY 汇率（拿不到则只显 JPY、不显 ≈元、不崩）。在异步回调里 setState。

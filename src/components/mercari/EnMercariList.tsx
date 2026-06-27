@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
+import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +47,6 @@ const SORT_OPTIONS = [
  */
 export function EnMercariList() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
   const t = useTranslations('mercari');
 
@@ -57,7 +57,7 @@ export function EnMercariList() {
   const [imgErrorIds, setImgErrorIds] = useState<Set<string>>(new Set());
 
   // Filters
-  const [keyword, setKeyword] = useState(searchParams.get("keyword") || "");
+  const { keyword, setKeyword } = usePlatformSearchKeyword("");
   const [searchLng, setSearchLng] = useState<"japan" | "chinese">("japan");
   const [category, setCategory] = useState("");
   const [cname, setCname] = useState(t('allCategories'));

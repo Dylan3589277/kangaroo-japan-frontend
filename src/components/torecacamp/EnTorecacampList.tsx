@@ -2,12 +2,11 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { spaceGrotesk } from "@/app/fonts";
+import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
 import { searchTorecacamp, type TorecacampCardItem } from "@/lib/api/torecacamp";
-import { parseTorecacampHandle } from "./torecacamp-paste";
 
 /**
  * en（设计 A，深色，面向海外）トレカキャンプ（宝可梦卡） 搜索 + 列表页。
@@ -129,22 +128,15 @@ function EnTorecacampCardSkeleton() {
 }
 
 export function EnTorecacampList() {
-  const params = useParams();
-  const router = useRouter();
-  const lang = (params.lang as string) || "en";
   const t = useTranslations("torecacamp.search");
-  const tPaste = useTranslations("torecacamp.paste");
 
   const [items, setItems] = useState<TorecacampCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  const [keyword, setKeyword] = useState("");
-  const [submittedKeyword, setSubmittedKeyword] = useState(DEFAULT_KEYWORD);
+  const { keyword, setKeyword, submittedKeyword, setSubmittedKeyword } =
+    usePlatformSearchKeyword(DEFAULT_KEYWORD);
   const [sort, setSort] = useState<SortKey>("newest");
-
-  const [pasteValue, setPasteValue] = useState("");
-  const [pasteError, setPasteError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -175,20 +167,6 @@ export function EnTorecacampList() {
       setSubmittedKeyword(q || DEFAULT_KEYWORD);
     },
     [keyword],
-  );
-
-  const handlePaste = useCallback(
-    (e: FormEvent) => {
-      e.preventDefault();
-      const hash = parseTorecacampHandle(pasteValue);
-      if (!hash) {
-        setPasteError(true);
-        return;
-      }
-      setPasteError(false);
-      router.push(`/${lang}/torecacamp/${encodeURIComponent(hash)}`);
-    },
-    [pasteValue, router, lang],
   );
 
   const selectHotKeyword = useCallback((kw: string) => {
@@ -244,34 +222,6 @@ export function EnTorecacampList() {
             ))}
           </div>
 
-          {/* Paste-link entry */}
-          <form
-            onSubmit={handlePaste}
-            className="mx-auto mt-4 flex max-w-2xl items-center gap-2"
-          >
-            <input
-              type="text"
-              value={pasteValue}
-              onChange={(e) => {
-                setPasteValue(e.target.value);
-                if (pasteError) setPasteError(false);
-              }}
-              placeholder={tPaste("placeholder")}
-              aria-invalid={pasteError}
-              className="h-10 flex-1 rounded-full border border-white/12 bg-white/[0.03] px-5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
-            />
-            <button
-              type="submit"
-              className="h-10 shrink-0 rounded-full border border-emerald-400/40 bg-emerald-400/10 px-5 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-400/20"
-            >
-              {t("pasteSubmit")}
-            </button>
-          </form>
-          {pasteError && (
-            <p className="mx-auto mt-1 max-w-2xl text-center text-xs text-rose-400">
-              {tPaste("error")}
-            </p>
-          )}
         </div>
       </section>
 

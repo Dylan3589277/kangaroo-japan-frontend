@@ -2,15 +2,14 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { spaceGrotesk } from "@/app/fonts";
+import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
 import {
   searchYahoofrima,
   type YahoofrimaCardItem,
 } from "@/lib/api/yahoofrima";
-import { parseYahoofrimaId } from "./yahoofrima-paste";
 
 /**
  * en（设计 A，深色，面向海外）PayPayフリマ 搜索 + 列表页。
@@ -133,22 +132,15 @@ function EnYahoofrimaCardSkeleton() {
 }
 
 export function EnYahoofrimaList() {
-  const params = useParams();
-  const router = useRouter();
-  const lang = (params.lang as string) || "en";
   const t = useTranslations("yahoofrima.search");
-  const tPaste = useTranslations("yahoofrima.paste");
 
   const [items, setItems] = useState<YahoofrimaCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  const [keyword, setKeyword] = useState("");
-  const [submittedKeyword, setSubmittedKeyword] = useState(DEFAULT_KEYWORD);
+  const { keyword, setKeyword, submittedKeyword, setSubmittedKeyword } =
+    usePlatformSearchKeyword(DEFAULT_KEYWORD);
   const [sort, setSort] = useState<SortKey>("newest");
-
-  const [pasteValue, setPasteValue] = useState("");
-  const [pasteError, setPasteError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -179,20 +171,6 @@ export function EnYahoofrimaList() {
       setSubmittedKeyword(q || DEFAULT_KEYWORD);
     },
     [keyword],
-  );
-
-  const handlePaste = useCallback(
-    (e: FormEvent) => {
-      e.preventDefault();
-      const itemId = parseYahoofrimaId(pasteValue);
-      if (!itemId) {
-        setPasteError(true);
-        return;
-      }
-      setPasteError(false);
-      router.push(`/${lang}/yahoofrima/${encodeURIComponent(itemId)}`);
-    },
-    [pasteValue, router, lang],
   );
 
   const selectHotKeyword = useCallback((kw: string) => {
@@ -248,34 +226,6 @@ export function EnYahoofrimaList() {
             ))}
           </div>
 
-          {/* Paste-link entry */}
-          <form
-            onSubmit={handlePaste}
-            className="mx-auto mt-4 flex max-w-2xl items-center gap-2"
-          >
-            <input
-              type="text"
-              value={pasteValue}
-              onChange={(e) => {
-                setPasteValue(e.target.value);
-                if (pasteError) setPasteError(false);
-              }}
-              placeholder={tPaste("placeholder")}
-              aria-invalid={pasteError}
-              className="h-10 flex-1 rounded-full border border-white/12 bg-white/[0.03] px-5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#ff0033]/60"
-            />
-            <button
-              type="submit"
-              className="h-10 shrink-0 rounded-full border border-[#ff0033]/40 bg-[#ff0033]/10 px-5 text-sm font-medium text-[#ff5470] transition-colors hover:bg-[#ff0033]/20"
-            >
-              {t("pasteSubmit")}
-            </button>
-          </form>
-          {pasteError && (
-            <p className="mx-auto mt-1 max-w-2xl text-center text-xs text-rose-400">
-              {tPaste("error")}
-            </p>
-          )}
         </div>
       </section>
 

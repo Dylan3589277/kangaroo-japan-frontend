@@ -49,6 +49,14 @@ function formatUsd(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
+function finiteNumber(...values: unknown[]): number | null {
+  for (const value of values) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
 function isHttpUrl(value?: string | null): value is string {
   return !!value && /^https?:\/\//i.test(value);
 }
@@ -168,6 +176,7 @@ export default function ProxyBuyCheckout({ platform }: { platform: string }) {
   } | null>(null);
 
   const platformLabel = PLATFORM_LABELS[platform] ?? platform;
+  const checkoutTitle = `${platformLabel} ${t("checkout.title")}`;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -294,7 +303,7 @@ export default function ProxyBuyCheckout({ platform }: { platform: string }) {
   if (authLoading || loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-8">{t("checkout.title")}</h1>
+        <h1 className="text-2xl font-bold mb-8">{checkoutTitle}</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-4">
             {[1, 2].map((i) => (
@@ -396,15 +405,25 @@ export default function ProxyBuyCheckout({ platform }: { platform: string }) {
 
   // 展示金额：以报价为参考（最终以后端建单权威价为准）。
   // zh 勾选增值服务时把已选服务费并进展示合计，让买家看见价格变化；en 不含增值服务。
-  const displayPriceJpy = quote?.priceJpy ?? item.price_jpy;
-  const displayAmountJpy =
-    (quote?.amountJpy ?? item.price_jpy) + selectedServiceFeeJpy;
+  const quoteRecord = quote as (RakumaQuote & Record<string, unknown>) | null;
+  const displayPriceJpy =
+    finiteNumber(quote?.priceJpy, quoteRecord?.price_jpy, item.price_jpy) ??
+    item.price_jpy;
+  const quoteFeeJpy = finiteNumber(quote?.feeJpy, quoteRecord?.fee_service_jpy);
+  const baseAmountJpy =
+    finiteNumber(
+      quote?.amountJpy,
+      quoteRecord?.total_jpy,
+      quoteRecord?.amount_jpy,
+      item.price_jpy,
+    ) ?? item.price_jpy;
+  const displayAmountJpy = baseAmountJpy + selectedServiceFeeJpy;
   const displayUsd = isEn ? (quote?.amountUsd ?? null) : null;
   const canSubmit = !isSoldOut && !submitting;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-8">{t("checkout.title")}</h1>
+      <h1 className="text-2xl font-bold mb-8">{checkoutTitle}</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 左列：到仓说明 + 商品 + 备注 */}
@@ -557,12 +576,12 @@ export default function ProxyBuyCheckout({ platform }: { platform: string }) {
                   </span>
                   <span>{formatJpy(displayPriceJpy)}</span>
                 </div>
-                {quote ? (
+                {quoteFeeJpy !== null ? (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
                       {t("checkout.serviceFee")}
                     </span>
-                    <span>{formatJpy(quote.feeJpy)}</span>
+                    <span>{formatJpy(quoteFeeJpy)}</span>
                   </div>
                 ) : null}
                 {selectedServiceFeeJpy > 0 ? (

@@ -2,12 +2,11 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { useParams, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
 import { searchRakuma, type RakumaCardItem } from "@/lib/api/rakuma";
 import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-data";
-import { parseRakumaHash } from "./rakuma-paste";
 
 /**
  * zh（经典/非 en）Rakuma ラクマ 搜索 + 列表页（中国导购风，暖色调）。
@@ -128,24 +127,16 @@ function ZhRakumaCardSkeleton() {
 }
 
 export function ZhRakumaList() {
-  const params = useParams();
-  const router = useRouter();
-  const lang = (params.lang as string) || "zh";
   const t = useTranslations("rakuma.search");
-  const tPaste = useTranslations("rakuma.paste");
 
   const [jpyToCny, setJpyToCny] = useState<number | null>(null);
   const [items, setItems] = useState<RakumaCardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  const [keyword, setKeyword] = useState("");
-  const [submittedKeyword, setSubmittedKeyword] = useState(DEFAULT_KEYWORD);
+  const { keyword, setKeyword, submittedKeyword, setSubmittedKeyword } =
+    usePlatformSearchKeyword(DEFAULT_KEYWORD);
   const [sort, setSort] = useState<SortKey>("newest");
-
-  // 粘贴链接入口（折叠在搜索框下方）。
-  const [pasteValue, setPasteValue] = useState("");
-  const [pasteError, setPasteError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -189,20 +180,6 @@ export function ZhRakumaList() {
       setSubmittedKeyword(q || DEFAULT_KEYWORD);
     },
     [keyword],
-  );
-
-  const handlePaste = useCallback(
-    (e: FormEvent) => {
-      e.preventDefault();
-      const hash = parseRakumaHash(pasteValue);
-      if (!hash) {
-        setPasteError(true);
-        return;
-      }
-      setPasteError(false);
-      router.push(`/${lang}/rakuma/${encodeURIComponent(hash)}`);
-    },
-    [pasteValue, router, lang],
   );
 
   const selectHotKeyword = useCallback((kw: string) => {
@@ -257,34 +234,6 @@ export function ZhRakumaList() {
             ))}
           </div>
 
-          {/* 粘贴商品链接入口 */}
-          <form
-            onSubmit={handlePaste}
-            className="mx-auto mt-4 flex max-w-2xl items-center gap-2"
-          >
-            <input
-              type="text"
-              value={pasteValue}
-              onChange={(e) => {
-                setPasteValue(e.target.value);
-                if (pasteError) setPasteError(false);
-              }}
-              placeholder={tPaste("placeholder")}
-              aria-invalid={pasteError}
-              className="h-10 flex-1 rounded-full border border-zinc-200 bg-white px-5 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-            />
-            <button
-              type="submit"
-              className="h-10 shrink-0 rounded-full border border-orange-300 bg-orange-50 px-5 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-100"
-            >
-              {t("pasteSubmit")}
-            </button>
-          </form>
-          {pasteError && (
-            <p className="mx-auto mt-1 max-w-2xl text-center text-xs text-rose-500">
-              {tPaste("error")}
-            </p>
-          )}
         </div>
       </section>
 

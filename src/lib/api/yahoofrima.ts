@@ -56,6 +56,10 @@ export interface YahoofrimaQuote {
   amountRmb?: number;
   amountUsd?: number;
   priceUsd?: number;
+  price_jpy?: number;
+  fee_service_jpy?: number;
+  total_jpy?: number;
+  amount_jpy?: number;
 }
 
 /**

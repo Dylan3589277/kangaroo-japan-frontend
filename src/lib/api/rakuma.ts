@@ -72,6 +72,10 @@ export interface RakumaQuote {
   amountRmb?: number;
   amountUsd?: number;
   priceUsd?: number;
+  price_jpy?: number;
+  fee_service_jpy?: number;
+  total_jpy?: number;
+  amount_jpy?: number;
   /**
    * 可选增值服务（仅 zh / tcg=false 时老后台数据驱动下发；en 不含）。
    * 缺省/空数组即不渲染增值服务区（向后兼容，零回归）。

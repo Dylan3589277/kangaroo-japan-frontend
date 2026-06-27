@@ -98,6 +98,11 @@ interface LegacyMineOrder {
   order_id: string | null;
   order_no: string | null;
   goods_name: string | null;
+  cover?: string | null;
+  cover_image?: string | null;
+  item_url?: string | null;
+  source_url?: string | null;
+  shop?: string | null;
   status: number | null;
   amount: string | null;
   amount_rmb: string | null;
@@ -131,6 +136,96 @@ const PROXY_SECTION_TITLE: Record<string, string> = {
   en: "Proxy-buy Orders",
   ja: "代行注文",
 };
+
+function getLegacyProductUrl(order: LegacyMineOrder): string | null {
+  return order.item_url || order.source_url || null;
+}
+
+function getLegacyCover(order: LegacyMineOrder): string | null {
+  return order.cover || order.cover_image || null;
+}
+
+function getLegacyShopLabel(order: LegacyMineOrder): string | null {
+  return order.shop?.trim() || null;
+}
+
+function LegacyProductPreview({
+  order,
+  dark = false,
+  trackingLabel = "Tracking",
+}: {
+  order: LegacyMineOrder;
+  dark?: boolean;
+  trackingLabel?: string;
+}) {
+  const title = order.goods_name || "-";
+  const cover = getLegacyCover(order);
+  const productUrl = getLegacyProductUrl(order);
+  const shop = getLegacyShopLabel(order);
+  const titleClass = dark
+    ? "line-clamp-2 text-sm font-medium text-slate-100 hover:text-cyan-200"
+    : "line-clamp-2 text-sm font-medium hover:text-primary";
+  const metaClass = dark
+    ? "text-xs text-slate-400"
+    : "text-xs text-muted-foreground";
+
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-3">
+      {cover ? (
+        // Legacy thumbnails can come from many old-shop hosts, so avoid Next image host locking here.
+        <img
+          src={cover}
+          alt={title}
+          className="h-14 w-14 shrink-0 rounded border object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <div
+          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded border text-[10px] ${
+            dark
+              ? "border-white/10 bg-white/[0.04] text-slate-500"
+              : "bg-gray-100 text-gray-400"
+          }`}
+        >
+          No Image
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        {productUrl ? (
+          <a
+            href={productUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={titleClass}
+          >
+            {title}
+          </a>
+        ) : (
+          <div className={titleClass}>{title}</div>
+        )}
+        {shop && (
+          <div className="mt-1 flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={
+                dark
+                  ? "border-white/15 bg-white/[0.03] text-slate-300"
+                  : undefined
+              }
+            >
+              {shop}
+            </Badge>
+          </div>
+        )}
+        {order.tracking_number && (
+          <div className={`${metaClass} mt-1`}>
+            {trackingLabel}: {order.tracking_number}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function formatCurrency(amount: number, currency: string = "CNY"): string {
   if (currency === "JPY") return `¥${Math.round(amount).toLocaleString()}`;
@@ -272,16 +367,7 @@ export default function OrdersPage() {
               </div>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium line-clamp-2">
-                      {order.goods_name || "-"}
-                    </div>
-                    {order.tracking_number && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {t("tracking")}: {order.tracking_number}
-                      </div>
-                    )}
-                  </div>
+                  <LegacyProductPreview order={order} trackingLabel={t("tracking")} />
                   <div className="text-right">
                     {order.amount && (
                       <div className="text-sm font-semibold">
@@ -372,16 +458,7 @@ export default function OrdersPage() {
                     )}
                   </div>
                   <div className="flex items-center justify-between gap-4 px-5 py-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="line-clamp-2 text-sm font-medium text-slate-100">
-                        {order.goods_name || "-"}
-                      </div>
-                      {order.tracking_number && (
-                        <div className="mt-1 text-xs text-slate-400">
-                          Tracking: {order.tracking_number}
-                        </div>
-                      )}
-                    </div>
+                    <LegacyProductPreview order={order} dark />
                     {order.amount && (
                       <div className="text-sm font-semibold text-white">
                         ¥{Math.round(Number(order.amount) || 0).toLocaleString()}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
@@ -46,8 +46,31 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 const SHOW_PRODUCT_IMAGES = false;
 
+const LIVE_PLATFORM_ROUTES: Record<string, string> = {
+  mercari: "mercari",
+  yahoo: "yahoo",
+  rakuma: "rakuma",
+  yahoofrima: "yahoofrima",
+  cardrush: "cardrush",
+  cardmuseum: "cardmuseum",
+  torecacamp: "torecacamp",
+  toretoku: "toretoku",
+};
+
+const LIVE_PLATFORM_OPTIONS = [
+  { value: "mercari", label: "Mercari" },
+  { value: "yahoo", label: "Yahoo Auction" },
+  { value: "rakuma", label: "Rakuma" },
+  { value: "yahoofrima", label: "Yahoo!フリマ" },
+  { value: "cardrush", label: "CardRush" },
+  { value: "cardmuseum", label: "Card Museum" },
+  { value: "torecacamp", label: "Torecacamp" },
+  { value: "toretoku", label: "Toretoku" },
+];
+
 export default function ProductsPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
   const initialSearch = searchParams.get("search") || "";
@@ -200,6 +223,15 @@ export default function ProductsPage() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedQuery = searchQuery.trim();
+    const liveRoute = LIVE_PLATFORM_ROUTES[selectedPlatform];
+    if (liveRoute && trimmedQuery) {
+      router.push(
+        `/${lang}/${liveRoute}?keyword=${encodeURIComponent(trimmedQuery)}`,
+      );
+      return;
+    }
+
     if (!searchQuery.trim()) {
       setIsSearchMode(false);
       fetchProducts();
@@ -331,12 +363,12 @@ export default function ProductsPage() {
             <SelectItem value="all">
               {lang === "zh" ? "全部平台" : lang === "en" ? "All Platforms" : "全プラットフォーム"}
             </SelectItem>
-            <SelectItem value="amazon">Amazon</SelectItem>
-            <SelectItem value="mercari">Mercari</SelectItem>
-            <SelectItem value="rakuten">
-              {lang === "zh" ? "乐天" : lang === "en" ? "Rakuten" : "楽天"}
-            </SelectItem>
             <SelectItem value="yahoo">Yahoo</SelectItem>
+            {LIVE_PLATFORM_OPTIONS.filter((platform) => platform.value !== "yahoo").map((platform) => (
+              <SelectItem key={platform.value} value={platform.value}>
+                {platform.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

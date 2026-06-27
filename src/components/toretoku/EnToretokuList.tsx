@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { spaceGrotesk } from "@/app/fonts";
+import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
 import { searchToretoku, type ToretokuCardItem } from "@/lib/api/toretoku";
 
 /**
@@ -142,8 +143,8 @@ export function EnToretokuList() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  const [keyword, setKeyword] = useState("");
-  const [submittedKeyword, setSubmittedKeyword] = useState(DEFAULT_KEYWORD);
+  const { keyword, setKeyword, submittedKeyword, setSubmittedKeyword } =
+    usePlatformSearchKeyword(DEFAULT_KEYWORD);
   const [sort, setSort] = useState<SortKey>("newest");
 
   useEffect(() => {
