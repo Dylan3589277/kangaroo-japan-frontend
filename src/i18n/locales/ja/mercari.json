@@ -76,6 +76,7 @@
     "summary": "料金明細",
     "itemPrice": "商品価格",
     "serviceFee": "手数料",
+    "valueAddedFee": "付加サービス",
     "internationalShipping": "国際送料",
     "internationalShippingNote": "倉庫到着後に重量で請求",
     "totalDue": "お支払い金額",

@@ -76,6 +76,7 @@
     "summary": "Rincian Biaya",
     "itemPrice": "Harga item",
     "serviceFee": "Biaya layanan",
+    "valueAddedFee": "Layanan tambahan",
     "internationalShipping": "Pengiriman internasional",
     "internationalShippingNote": "Dikenakan per berat setelah tiba di gudang",
     "totalDue": "Jumlah Tagihan",

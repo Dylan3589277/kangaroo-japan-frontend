@@ -76,6 +76,7 @@
     "summary": "비용 내역",
     "itemPrice": "상품 가격",
     "serviceFee": "수수료",
+    "valueAddedFee": "부가 서비스",
     "internationalShipping": "국제 배송비",
     "internationalShippingNote": "창고 도착 후 무게로 청구",
     "totalDue": "결제 금액",

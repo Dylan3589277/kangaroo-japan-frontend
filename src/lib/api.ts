@@ -1953,6 +1953,12 @@ class ApiClient {
     goodsNo: string;
     tcg?: boolean;
     buyerMessage?: string;
+    /**
+     * 顾客自助勾选的增值服务**数字 id 串**（逗号分隔，如 "5,6"）。可空——不传时
+     * 行为不变（后端不向老端发 values，现有自助下单流不回归）。后端 DTO 已 @Matches
+     * 校验逗号数字串；后端不计费，仅透传给老后台按 id 查表权威收费。
+     */
+    valueAddedIds?: string;
   }) {
     return this.request<ProxyBuyCreateResult>("/proxy-buy/orders", {
       method: "POST",
@@ -1961,6 +1967,7 @@ class ApiClient {
         goodsNo: data.goodsNo,
         tcg: data.tcg === true,
         ...(data.buyerMessage ? { buyerMessage: data.buyerMessage } : {}),
+        ...(data.valueAddedIds ? { value_added: data.valueAddedIds } : {}),
       },
     });
   }

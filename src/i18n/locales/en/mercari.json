@@ -106,6 +106,7 @@
     "summary": "Cost Details",
     "itemPrice": "Item price",
     "serviceFee": "Service fee",
+    "valueAddedFee": "Value-added services",
     "internationalShipping": "International shipping",
     "internationalShippingNote": "Charged by weight after arrival at warehouse",
     "totalDue": "Amount Due",

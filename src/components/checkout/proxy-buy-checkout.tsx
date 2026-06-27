@@ -7,7 +7,11 @@ import { useTranslations } from "next-intl";
 import { QRCodeSVG } from "qrcode.react";
 import { api } from "@/lib/api";
 import { getRakumaDetail, getRakumaQuote } from "@/lib/api/rakuma";
-import type { MarketplaceItem, RakumaQuote } from "@/lib/api/rakuma";
+import type {
+  MarketplaceItem,
+  RakumaQuote,
+  RakumaOptionalService,
+} from "@/lib/api/rakuma";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +51,49 @@ function formatUsd(amount: number): string {
 
 function isHttpUrl(value?: string | null): value is string {
   return !!value && /^https?:\/\//i.test(value);
+}
+
+/**
+ * 增值服务勾选 key：与智能客服 h5 报价卡同口径（svc.code || svc.label || `svc-${i}`），
+ * 保证渲染、合计、收集三处用同一把 key（绝不单用数组下标，防错位）。
+ */
+function serviceKey(svc: RakumaOptionalService, index: number): string {
+  return svc.code || svc.label || `svc-${index}`;
+}
+
+/**
+ * 收集买家勾选**且有数字 id** 的增值服务 id，逗号拼成机读串（如 "5,6"）。
+ * 与后端 createOrder 的 value_added / 老端 proxysubmitv2 的 values 同契约（逗号数字串）。
+ * 无勾选或勾选项均无 id → 返回 ""（空串则上层不传该字段，向后兼容零回归）。
+ */
+function collectSelectedServiceIds(
+  services: RakumaOptionalService[] | undefined,
+  checkedMap: Record<string, boolean>,
+): string {
+  if (!services || services.length === 0) return "";
+  const ids: string[] = [];
+  services.forEach((svc, i) => {
+    const key = serviceKey(svc, i);
+    if (checkedMap[key] && svc.id !== undefined) ids.push(String(svc.id));
+  });
+  return ids.join(",");
+}
+
+/**
+ * 已勾选增值服务费合计（JPY 整数）：仅前端展示用，随勾选实时重算。
+ * 权威金额仍以后端建单时按勾选 id 重算为准（老后台 st_value_added 权威收费）。
+ */
+function sumSelectedServiceFeeJpy(
+  services: RakumaOptionalService[] | undefined,
+  checkedMap: Record<string, boolean>,
+): number {
+  if (!services || services.length === 0) return 0;
+  let total = 0;
+  services.forEach((svc, i) => {
+    const key = serviceKey(svc, i);
+    if (checkedMap[key] && typeof svc.fee_jpy === "number") total += svc.fee_jpy;
+  });
+  return total;
 }
 
 /** 平台 → 详情/报价抓取（平台无关分派；新平台在此扩展）。 */
@@ -101,6 +148,10 @@ export default function ProxyBuyCheckout({ platform }: { platform: string }) {
   const [item, setItem] = useState<MarketplaceItem | null>(null);
   const [quote, setQuote] = useState<RakumaQuote | null>(null);
   const [buyerMessage, setBuyerMessage] = useState("");
+  // 增值服务勾选状态（key = serviceKey）。仅 zh 报价携带 optional_services 时渲染/收集。
+  const [serviceSelections, setServiceSelections] = useState<
+    Record<string, boolean>
+  >({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
@@ -170,12 +221,22 @@ export default function ProxyBuyCheckout({ platform }: { platform: string }) {
     }
     setSubmitting(true);
     try {
+      // 增值服务勾选 id 串（仅 zh；en/TCG 无增值服务概念）。空串则不传该字段，
+      // 后端不向老端发 values，现有自助下单流零回归。后端按 id 查表权威收费。
+      const valueAddedIds = isEn
+        ? ""
+        : collectSelectedServiceIds(
+            quote?.optional_services,
+            serviceSelections,
+          );
+
       // 1) 建单：后端重算权威价、落库人工履约订单（绝不发金额）。
       const orderRes = await api.proxyBuyCreateOrder({
         platform,
         goodsNo,
         tcg: isEn,
         buyerMessage: buyerMessage || undefined,
+        valueAddedIds: valueAddedIds || undefined,
       });
       if (!orderRes.success || !orderRes.data) {
         toast.error(orderRes.error?.message || t("checkout.submitFailed"));
@@ -322,9 +383,22 @@ export default function ProxyBuyCheckout({ platform }: { platform: string }) {
     );
   }
 
+  // 可选增值服务（仅 zh 报价携带；en/TCG 无此概念故不渲染）。缺省/空即不渲染（零回归）。
+  const optionalServices =
+    !isEn && quote?.optional_services && quote.optional_services.length > 0
+      ? quote.optional_services
+      : undefined;
+  // 已勾选增值服务费（JPY 整数，仅前端展示；权威以后端建单按勾选 id 重算为准）。
+  const selectedServiceFeeJpy = sumSelectedServiceFeeJpy(
+    optionalServices,
+    serviceSelections,
+  );
+
   // 展示金额：以报价为参考（最终以后端建单权威价为准）。
+  // zh 勾选增值服务时把已选服务费并进展示合计，让买家看见价格变化；en 不含增值服务。
   const displayPriceJpy = quote?.priceJpy ?? item.price_jpy;
-  const displayAmountJpy = quote?.amountJpy ?? item.price_jpy;
+  const displayAmountJpy =
+    (quote?.amountJpy ?? item.price_jpy) + selectedServiceFeeJpy;
   const displayUsd = isEn ? (quote?.amountUsd ?? null) : null;
   const canSubmit = !isSoldOut && !submitting;
 
@@ -410,6 +484,57 @@ export default function ProxyBuyCheckout({ platform }: { platform: string }) {
               />
             </CardContent>
           </Card>
+
+          {/* 可选增值服务（仅 zh 报价携带 optional_services 时渲染；en/TCG 不渲染）。
+              勾选实时并入展示合计；建单时把勾选数字 id 透传后端，老后台按 id 权威收费。 */}
+          {optionalServices ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">
+                  {t("checkout.sectionValueAdded")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className="space-y-2"
+                  data-testid="proxy-buy-optional-services"
+                >
+                  {optionalServices.map((svc, i) => {
+                    const key = serviceKey(svc, i);
+                    const checked = Boolean(serviceSelections[key]);
+                    return (
+                      <label
+                        key={key}
+                        className="flex items-start gap-2 text-sm leading-5"
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500"
+                          checked={checked}
+                          onChange={() =>
+                            setServiceSelections((prev) => ({
+                              ...prev,
+                              [key]: !prev[key],
+                            }))
+                          }
+                          data-testid={`proxy-buy-service-${key}`}
+                        />
+                        <span className="flex-1">
+                          {svc.label || key}
+                          {typeof svc.fee_jpy === "number" ? (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              {formatJpy(svc.fee_jpy)}
+                            </span>
+                          ) : null}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
 
         {/* 右列：费用明细 + 支付 */}
@@ -438,6 +563,14 @@ export default function ProxyBuyCheckout({ platform }: { platform: string }) {
                       {t("checkout.serviceFee")}
                     </span>
                     <span>{formatJpy(quote.feeJpy)}</span>
+                  </div>
+                ) : null}
+                {selectedServiceFeeJpy > 0 ? (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {t("checkout.valueAddedFee")}
+                    </span>
+                    <span>{formatJpy(selectedServiceFeeJpy)}</span>
                   </div>
                 ) : null}
                 <div className="flex justify-between">

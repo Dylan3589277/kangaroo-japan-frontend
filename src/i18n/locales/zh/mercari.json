@@ -91,6 +91,7 @@
     "summary": "费用明细",
     "itemPrice": "商品价格",
     "serviceFee": "手续费",
+    "valueAddedFee": "增值服务",
     "internationalShipping": "国际运费",
     "internationalShippingNote": "到仓后称重收取",
     "totalDue": "应付金额",

@@ -48,6 +48,22 @@ export interface MarketplaceItem {
   source_url?: string;
 }
 
+/**
+ * 可选增值服务一项（zh 报价随 CnQuoteResult.optional_services 下发，老后台 st_value_added 驱动）。
+ * 与智能客服 h5 报价卡 OptionalService、后端 CnQuoteResult.optional_services 同形：
+ * 勾选后把数字 id 回传给后端建单，老后台按 id 查表权威收费。fee_jpy 一律 JPY 整数（不除以 100）。
+ */
+export interface RakumaOptionalService {
+  /** 老后台 st_value_added 主键（数字 id）；建单透传给后端按勾选权威收费。 */
+  id?: number;
+  /** 服务 code（如 'misdelivery_check'）。 */
+  code?: string;
+  /** 展示名（如「错发漏发检查」）。 */
+  label?: string;
+  /** 精确费用（日元整数）。 */
+  fee_jpy?: number;
+}
+
 /** Rakuma quote 响应（与 MercariQuote 结构对齐） */
 export interface RakumaQuote {
   priceJpy: number;
@@ -56,6 +72,11 @@ export interface RakumaQuote {
   amountRmb?: number;
   amountUsd?: number;
   priceUsd?: number;
+  /**
+   * 可选增值服务（仅 zh / tcg=false 时老后台数据驱动下发；en 不含）。
+   * 缺省/空数组即不渲染增值服务区（向后兼容，零回归）。
+   */
+  optional_services?: RakumaOptionalService[];
 }
 
 /**

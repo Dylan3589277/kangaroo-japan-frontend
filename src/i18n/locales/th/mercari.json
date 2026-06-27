@@ -76,6 +76,7 @@
     "summary": "รายละเอียดค่าใช้จ่าย",
     "itemPrice": "ราคาสินค้า",
     "serviceFee": "ค่าธรรมเนียม",
+    "valueAddedFee": "บริการเสริม",
     "internationalShipping": "ค่าจัดส่งระหว่างประเทศ",
     "internationalShippingNote": "คิดตามน้ำหนักหลังถึงคลัง",
     "totalDue": "ยอดที่ต้องชำระ",

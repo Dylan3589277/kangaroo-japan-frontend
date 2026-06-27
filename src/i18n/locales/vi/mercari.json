@@ -76,6 +76,7 @@
     "summary": "Chi tiết chi phí",
     "itemPrice": "Giá sản phẩm",
     "serviceFee": "Phí dịch vụ",
+    "valueAddedFee": "Dịch vụ giá trị gia tăng",
     "internationalShipping": "Phí vận chuyển quốc tế",
     "internationalShippingNote": "Tính theo cân nặng sau khi đến kho",
     "totalDue": "Số tiền phải trả",
