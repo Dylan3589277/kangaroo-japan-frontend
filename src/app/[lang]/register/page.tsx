@@ -82,7 +82,13 @@ export default function RegisterPage() {
         login(response.data.user, response.data.tokens.access_token);
         router.push("/");
       } else {
-        setError(response.error?.message || t("registerFailed"));
+        const msg = response.error?.message;
+        // 人机验证失败：后端硬编码英文串，前端映射到本地化文案，避免向用户直吐英文。
+        setError(
+          msg === "Captcha verification failed"
+            ? t("captchaFailed")
+            : msg || t("registerFailed"),
+        );
       }
     } catch {
       setError(t("registerFailed"));

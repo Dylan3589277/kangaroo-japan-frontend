@@ -75,7 +75,13 @@ export default function LoginPage() {
         login(response.data.user, response.data.tokens.access_token);
         router.push(`/${lang}`);
       } else {
-        setError(response.error?.message || t("invalidCredentials"));
+        const msg = response.error?.message;
+        // 人机验证失败：后端硬编码英文串，前端映射到本地化文案，避免向用户直吐英文。
+        setError(
+          msg === "Captcha verification failed"
+            ? t("captchaFailed")
+            : msg || t("invalidCredentials"),
+        );
       }
     } catch {
       setError(t("loginFailed"));
