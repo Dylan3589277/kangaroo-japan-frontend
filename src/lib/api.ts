@@ -1813,6 +1813,21 @@ class ApiClient {
     return this.request(`/orders/${id}`);
   }
 
+  /**
+   * 买家「我的订单」并入的**代拍单（老库 st_orders 全状态，只读）**。
+   * 端点 GET /orders/legacy/mine：仅 JWT（Authorization 由 request 自动附带），
+   * uid 服务端从 legacy_member_uid 派生（前端不传 uid，防 IDOR）。
+   * gated 随后端 PROXYBUY_JIA_ENABLED：OFF / 未绑定 / 上游失败时后端返空，
+   * data 为 []、meta.available=false，前端据此静默不展示，绝不报错。
+   */
+  async getMyLegacyOrders(params?: { page?: number; limit?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request(`/orders/legacy/mine${query ? `?${query}` : ""}`);
+  }
+
   async createOrder(data: {
     addressId: string;
     currency?: string;

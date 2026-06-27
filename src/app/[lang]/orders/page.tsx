@@ -89,6 +89,49 @@ const PLATFORM_NAMES: Record<string, string> = {
   yahoo: "Yahoo",
 };
 
+/**
+ * 代拍单（老后台 st_orders，只读并入）。后端 GET /orders/legacy/mine 已脱敏投影：
+ * 仅含下列客户安全字段；金额为 JPY 整数字符串（不除 100）；快递号已脱敏。
+ * 后端 OFF / 未绑定 / 上游不可用时返空数组，本段静默不展示。
+ */
+interface LegacyMineOrder {
+  order_id: string | null;
+  order_no: string | null;
+  goods_name: string | null;
+  status: number | null;
+  amount: string | null;
+  amount_rmb: string | null;
+  created_at: string | null;
+  tracking_number: string | null;
+}
+
+/** 老后台 st_orders 数字状态 → 文案（与 admin/orders 台账同一口径：九状态）。 */
+const LEGACY_STATUS_LABELS: Record<string, { zh: string; en: string; ja: string }> = {
+  "-1": { zh: "已取消", en: "Cancelled", ja: "キャンセル" },
+  "0": { zh: "待支付", en: "Pending Payment", ja: "未払い" },
+  "1": { zh: "待客服确认", en: "Awaiting Confirmation", ja: "確認待ち" },
+  "2": { zh: "待入库", en: "Awaiting Warehouse", ja: "入庫待ち" },
+  "3": { zh: "已入库", en: "In Warehouse", ja: "入庫済み" },
+  "4": { zh: "出库中", en: "Dispatching", ja: "出庫中" },
+  "5": { zh: "已出库", en: "Dispatched", ja: "出庫済み" },
+  "6": { zh: "申请退款", en: "Refund Requested", ja: "返金申請中" },
+  "7": { zh: "已退款", en: "Refunded", ja: "返金済み" },
+};
+
+function getLegacyStatusLabel(status: number | null, lang: string): string {
+  if (status === null || status === undefined) return "-";
+  const entry = LEGACY_STATUS_LABELS[String(status)];
+  if (!entry) return String(status);
+  return entry[lang as keyof typeof entry] || entry.zh;
+}
+
+/** 代拍单段标题（平台无关——这些是经客服/自助建到老库的网页代拍单）。 */
+const PROXY_SECTION_TITLE: Record<string, string> = {
+  zh: "代拍订单",
+  en: "Proxy-buy Orders",
+  ja: "代行注文",
+};
+
 function formatCurrency(amount: number, currency: string = "CNY"): string {
   if (currency === "JPY") return `¥${Math.round(amount).toLocaleString()}`;
   if (currency === "USD") return `$${amount.toFixed(2)}`;
@@ -110,6 +153,7 @@ export default function OrdersPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [legacyOrders, setLegacyOrders] = useState<LegacyMineOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -142,6 +186,22 @@ export default function OrdersPage() {
     }
   }, [page, statusFilter]);
 
+  // 代拍单（老库 st_orders 只读并入）：独立拉取、fail-soft——任何失败/OFF/未绑定
+  // 都只置空数组，绝不影响上方现有订单列表的展示。代拍单不分页（一次取前 50）。
+  const fetchLegacyOrders = useCallback(async () => {
+    try {
+      const res = await api.getMyLegacyOrders({ page: 1, limit: 50 });
+      if (res.success && Array.isArray(res.data)) {
+        setLegacyOrders(res.data as LegacyMineOrder[]);
+      } else {
+        setLegacyOrders([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch proxy-buy orders:", error);
+      setLegacyOrders([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push(`/${lang}/login`);
@@ -149,8 +209,9 @@ export default function OrdersPage() {
     }
     if (isAuthenticated) {
       fetchOrders();
+      fetchLegacyOrders();
     }
-  }, [isAuthenticated, authLoading, lang, fetchOrders, router]);
+  }, [isAuthenticated, authLoading, lang, fetchOrders, fetchLegacyOrders, router]);
 
   const handleCancelOrder = async (orderId: string) => {
     if (!confirm(t("confirmCancel"))) return;
@@ -177,12 +238,77 @@ export default function OrdersPage() {
     { value: "delivered", label: t("tabDelivered") },
   ];
 
+  // 代拍单段（只读并入）：仅当有代拍单时才渲染；OFF/未绑定/上游不可用 → 返空 → 不显示。
+  // 与上方现有订单完全独立的一块，纯展示、无操作（只读），不影响现有渲染。
+  const legacySection =
+    legacyOrders.length > 0 ? (
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold mb-3">
+          {PROXY_SECTION_TITLE[lang] || PROXY_SECTION_TITLE.zh}
+        </h2>
+        <div className="space-y-3">
+          {legacyOrders.map((order, index) => (
+            <Card
+              key={order.order_id ?? order.order_no ?? `legacy-${index}`}
+              className="overflow-hidden"
+            >
+              <div className="bg-muted/30 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-mono">
+                    {order.order_no || order.order_id || "-"}
+                  </span>
+                  <Badge variant="outline">
+                    {PROXY_SECTION_TITLE[lang] || PROXY_SECTION_TITLE.zh}
+                  </Badge>
+                  <Badge className="bg-slate-500 text-white">
+                    {getLegacyStatusLabel(order.status, lang)}
+                  </Badge>
+                </div>
+                {order.created_at && (
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(order.created_at).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium line-clamp-2">
+                      {order.goods_name || "-"}
+                    </div>
+                    {order.tracking_number && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {t("tracking")}: {order.tracking_number}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    {order.amount && (
+                      <div className="text-sm font-semibold">
+                        ¥{Math.round(Number(order.amount) || 0).toLocaleString()}
+                      </div>
+                    )}
+                    {order.amount_rmb && (
+                      <div className="text-xs text-muted-foreground">
+                        ≈ ¥{order.amount_rmb} CNY
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    ) : null;
+
   if (isEn) {
     // 设计 A 深色订单列表：取数/过滤/分页/取消回调全部沿用上方逻辑，只换视觉。
     if (authLoading) {
       return <OrdersTcgLoading title="My Orders" />;
     }
     return (
+      <>
       <OrdersTcgList
         texts={{
           title: "My Orders",
@@ -215,6 +341,60 @@ export default function OrdersPage() {
         formatCurrency={(amount, currency) => formatCurrency(amount, currency)}
         onCancelOrder={handleCancelOrder}
       />
+      {legacyOrders.length > 0 && (
+        <div className="bg-[#0a0e16] text-slate-200">
+          <div className="mx-auto max-w-4xl px-4 pb-10">
+            <h2 className="mb-3 text-lg font-bold text-white">
+              {PROXY_SECTION_TITLE.en}
+            </h2>
+            <div className="space-y-3">
+              {legacyOrders.map((order, index) => (
+                <section
+                  key={order.order_id ?? order.order_no ?? `legacy-${index}`}
+                  className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]"
+                >
+                  <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.02] px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-sm text-slate-300">
+                        {order.order_no || order.order_id || "-"}
+                      </span>
+                      <span className="inline-flex items-center rounded-md bg-black/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200">
+                        {PROXY_SECTION_TITLE.en}
+                      </span>
+                      <span className="inline-flex items-center rounded-full border border-white/15 px-2.5 py-0.5 text-xs font-semibold text-slate-200">
+                        {getLegacyStatusLabel(order.status, lang)}
+                      </span>
+                    </div>
+                    {order.created_at && (
+                      <span className="text-xs text-slate-400">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="line-clamp-2 text-sm font-medium text-slate-100">
+                        {order.goods_name || "-"}
+                      </div>
+                      {order.tracking_number && (
+                        <div className="mt-1 text-xs text-slate-400">
+                          Tracking: {order.tracking_number}
+                        </div>
+                      )}
+                    </div>
+                    {order.amount && (
+                      <div className="text-sm font-semibold text-white">
+                        ¥{Math.round(Number(order.amount) || 0).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
@@ -407,6 +587,9 @@ export default function OrdersPage() {
           )}
         </div>
       )}
+
+      {/* 代拍单（老库 st_orders 只读并入）：独立一块，OFF/空时不渲染。 */}
+      {legacySection}
     </div>
   );
 }
