@@ -67,26 +67,29 @@ const LOCALE_META: Record<string, LocaleMeta> = {
       "TCG",
     ],
   },
+  // GEO：zh 标题/描述打买家真实搜索词（日本代购/煤炉代购/雅虎代拍），
+  // 原"跨境购物平台"过泛，百度/豆包判不出业务。品牌对外叫法未统一前保留 JP-Buy。
   zh: {
     brand: "JP-Buy",
-    titleDefault: "JP-Buy | 日本商品跨境购物平台",
+    titleDefault: "JP-Buy | 日本代购代拍平台 - 煤炉Mercari代购·雅虎竞拍·日淘直邮",
     titleTemplate: "%s | JP-Buy",
     description:
-      "专业的日本商品跨境购物平台，聚合乐天、Yahoo、Amazon、Mercari 等日本电商资源，提供实时价格比较，让你不吃亏",
+      "JP-Buy 日本代购代拍平台：煤炉 Mercari 代购、雅虎拍卖代拍、乐天/Amazon 日淘，实时搜索比价，日本仓验货合箱直邮，手续费透明。",
     ogDescription:
-      "专业的日本商品跨境购物平台，聚合乐天、Yahoo、Amazon、Mercari 等日本电商资源",
+      "日本代购代拍：煤炉 Mercari 代购、雅虎拍卖代拍、乐天/Amazon 日淘，日本仓验货合箱直邮。",
     ogLocale: "zh_CN",
-    ogImageAlt: "JP-Buy - 日本商品跨境购物平台",
+    ogImageAlt: "JP-Buy - 日本代购代拍平台",
     keywords: [
-      "日本购物",
-      "跨境电商",
-      "日本amazon",
-      "乐天市场",
-      "日本拍卖",
-      "Mercari",
-      "Yahoo拍卖",
+      "日本代购",
+      "煤炉代购",
+      "Mercari代购",
+      "雅虎代拍",
+      "日本雅虎竞拍",
       "日淘",
-      "日本商品",
+      "日本代拍",
+      "乐天代购",
+      "日本买卡",
+      "日本谷子代购",
     ],
   },
 };

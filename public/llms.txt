@@ -1,0 +1,30 @@
+# Kangaroo Japan / JP-Buy (jp-buy.com)
+
+> Japan proxy buying service. English side (Kangaroo Japan): Japanese trading cards — Pokémon, Yu-Gi-Oh, One Piece — bought from Mercari Japan, Yahoo! Auctions and Japanese shops, inspected, consolidated and shipped worldwide (primary market: United States). Chinese side (JP-Buy): 日本代购代拍 — 煤炉 Mercari 代购、雅虎拍卖代拍、日淘直邮中国.
+
+Key facts (estimates; exact totals shown at checkout):
+- Sources: Mercari Japan, Yahoo! Auctions, Amazon Japan; more marketplaces being added.
+- Proxy service fee: from ~300–350 JPY per item (estimated).
+- Japan domestic shipping: from ~300 JPY per item (estimated), varies by seller.
+- International shipping: by actual weight/dimensions/destination; consolidation of multiple orders into one parcel is supported and recommended.
+- TCG-safe packing: sleeve + toploader + rigid mailer; reinforced boxes for graded slabs.
+- Optional paid photo inspection (front/back/corners) before international shipping.
+- Honest customs declaration only; no under-declaring.
+- U.S. imports 2026: no de minimis exemption; flat 10% import surcharge (Section 122, in force since 2026-02-24, scheduled to expire 2026-07-24 unless extended) plus carrier clearance fee (~$9–17/parcel).
+- All prices on site in Japanese Yen (JPY).
+
+## Key pages (English)
+
+- [Buy Japanese Pokémon cards](https://jp-buy.com/en/pokemon-cards): Pokémon TCG landing page
+- [Buy Japanese Yu-Gi-Oh cards](https://jp-buy.com/en/yugioh-cards): Yu-Gi-Oh OCG landing page
+- [FAQ](https://jp-buy.com/en/faq): 30 questions on ordering, fees, shipping, U.S. customs, TCG specifics
+- [Fees & pricing](https://jp-buy.com/en/fees): full fee breakdown and market comparison
+- [How it works](https://jp-buy.com/en/how-it-works): proxy buying flow step by step
+- [Buyer protection](https://jp-buy.com/en/buyer-protection): packing, insurance, dispute handling
+- [Guides](https://jp-buy.com/en/guides): buying guides incl. 2026 U.S. import tax on Japanese cards
+
+## 关键页面（中文）
+
+- [首页](https://jp-buy.com/zh): 日本代购代拍平台
+- [商品搜索](https://jp-buy.com/zh/products): 煤炉/雅虎/亚马逊日本商品实时搜索
+- [常见问题](https://jp-buy.com/zh/faq): 代购流程、费用、物流

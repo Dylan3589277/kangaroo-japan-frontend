@@ -3,7 +3,8 @@ import { hasLocale } from "next-intl";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { routing } from "@/i18n/routing";
-import { isIndexable } from "@/lib/seo";
+import { isIndexable, organizationJsonLd, webSiteJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { TcgHeader } from "@/components/tcg/TcgHeader";
 import { TcgFooter } from "@/components/tcg/TcgFooter";
@@ -60,10 +61,20 @@ export default async function LocaleLayout({
   // 客服浮窗在所有公开页（zh + en）统一挂载：ChatProvider 提供「带商品上下文打开
   // 客服」的能力（商品详情页用），ChatWidgetGate 排除 admin/warehouse 内部页并按
   // locale 切皮（zh 暖色 / en 设计 A 深色）。商品页打开带商品卡，其它页纯 FAQ。
+  // GEO：可索引 locale 全站输出 Organization + WebSite 结构化数据（服务端渲染，
+  // AI/搜索引擎抓原始 HTML 即可读到；ja 等 noindex locale 不输出）。
+  const seoJsonLd = isIndexable(lang) ? (
+    <>
+      <JsonLd data={organizationJsonLd(lang)} />
+      <JsonLd data={webSiteJsonLd(lang)} />
+    </>
+  ) : null;
+
   if (lang === "en") {
     return (
       <ChatProvider>
         <div className="flex min-h-screen flex-col bg-[#0a0e16]">
+          {seoJsonLd}
           <TcgHeader />
           <div className="flex-1">{children}</div>
           <TcgFooter />
@@ -76,6 +87,7 @@ export default async function LocaleLayout({
   return (
     <ChatProvider>
       <div className="min-h-screen flex flex-col">
+        {seoJsonLd}
         <SiteHeader />
         {children}
         <ChatWidgetGate />

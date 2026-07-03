@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { buildAlternates, isIndexable } from "@/lib/seo";
+import {
+  buildAlternates,
+  isIndexable,
+  faqPageJsonLd,
+  breadcrumbJsonLd,
+  brandForLocale,
+} from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { PlusIcon, MinusIcon } from "@/components/home/tcg/icons";
 
 /**
@@ -46,14 +53,30 @@ export async function generateMetadata({
 const GROUPS = [
   {
     key: "ordering",
-    items: ["whatIsProxy", "marketplaces", "manualEntry", "orderStatus"],
+    items: [
+      "whatIsProxy",
+      "marketplaces",
+      "manualEntry",
+      "orderStatus",
+      "auctionBids",
+      "searchTips",
+    ],
   },
-  { key: "fees", items: ["whatFees", "intlShipping", "estimates"] },
-  { key: "shipping", items: ["consolidation", "protection", "shippingTime"] },
-  { key: "customs", items: ["willIPay", "underDeclare"] },
+  {
+    key: "fees",
+    items: ["whatFees", "intlShipping", "estimates", "allInExample", "bulkSavings"],
+  },
+  {
+    key: "shipping",
+    items: ["consolidation", "protection", "shippingTime", "insurance", "lostPackage"],
+  },
+  {
+    key: "customs",
+    items: ["willIPay", "underDeclare", "tariff2026", "dutyBilling", "salesTax"],
+  },
   {
     key: "tcg",
-    items: ["conditionTerms", "graded", "sealed", "highValue"],
+    items: ["conditionTerms", "graded", "sealed", "highValue", "whyCheaper", "authenticity"],
   },
   { key: "afterSales", items: ["soldOut", "refunds", "dispute"] },
 ] as const;
@@ -66,8 +89,32 @@ export default async function FaqPage({
   const { lang } = await params;
   const t = await getTranslations({ locale: lang, namespace: "faq" });
 
+  // GEO：FAQPage 结构化数据直接从同一套翻译取问答，保证与页面正文一字不差；
+  // 只对可索引 locale 输出（ja noindex 不给）。
+  const seoJsonLd = isIndexable(lang) ? (
+    <>
+      <JsonLd
+        data={faqPageJsonLd(
+          GROUPS.flatMap((group) =>
+            group.items.map((item) => ({
+              q: t(`groups.${group.key}.items.${item}.q`),
+              a: t(`groups.${group.key}.items.${item}.a`),
+            }))
+          )
+        )}
+      />
+      <JsonLd
+        data={breadcrumbJsonLd(lang, [
+          { name: brandForLocale(lang), path: "" },
+          { name: t("hero.eyebrow"), path: "faq" },
+        ])}
+      />
+    </>
+  ) : null;
+
   return (
     <main className="min-h-screen bg-[#0a0e16] text-slate-200 antialiased">
+      {seoJsonLd}
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-white/[0.08]">
         <div

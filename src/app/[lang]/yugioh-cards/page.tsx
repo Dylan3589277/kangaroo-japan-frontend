@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { buildAlternates, isIndexable } from "@/lib/seo";
+import { buildAlternates, isIndexable, breadcrumbJsonLd, brandForLocale } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { TcgLandingPage } from "@/components/home/tcg/TcgLandingPage";
 import { YUGIOH_KEYWORDS } from "@/components/home/tcg/tcg-keywords";
 import ProductsPage from "../products/page";
@@ -50,12 +51,21 @@ export default async function YugiohCardsPage({
 
   if (lang === "en") {
     return (
-      <TcgLandingPage
-        lang={lang}
-        namespace={NAMESPACE}
-        hotCards={YUGIOH_KEYWORDS}
-        liveKeyword="遊戯王 25th"
-      />
+      <>
+        {/* GEO：面包屑结构化数据（仅 en 落地页输出） */}
+        <JsonLd
+          data={breadcrumbJsonLd(lang, [
+            { name: brandForLocale(lang), path: "" },
+            { name: "Japanese Yu-Gi-Oh Cards", path: PATH },
+          ])}
+        />
+        <TcgLandingPage
+          lang={lang}
+          namespace={NAMESPACE}
+          hotCards={YUGIOH_KEYWORDS}
+          liveKeyword="遊戯王 25th"
+        />
+      </>
     );
   }
 

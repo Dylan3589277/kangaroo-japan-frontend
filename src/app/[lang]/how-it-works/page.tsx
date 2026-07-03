@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { buildAlternates, isIndexable } from "@/lib/seo";
+import {
+  buildAlternates,
+  isIndexable,
+  breadcrumbJsonLd,
+  brandForLocale,
+} from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 import {
   SearchIcon,
   CartIcon,
@@ -73,6 +79,15 @@ export default async function HowItWorksPage({
 
   return (
     <main className="min-h-screen bg-[#0a0e16] text-slate-200 antialiased">
+      {/* GEO：面包屑结构化数据（可索引 locale 输出） */}
+      {isIndexable(lang) && (
+        <JsonLd
+          data={breadcrumbJsonLd(lang, [
+            { name: brandForLocale(lang), path: "" },
+            { name: t("hero.title"), path: "how-it-works" },
+          ])}
+        />
+      )}
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-white/[0.08]">
         <div

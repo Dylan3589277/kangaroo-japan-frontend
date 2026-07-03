@@ -36,6 +36,14 @@ const CARDS_LINKS = [
   { key: "howItWorks", href: "/how-it-works" },
 ] as const;
 
+// GEO 指南（英文限定长文）。本 footer 仅 en 渲染，文案直接硬编码英文——
+// 不加进 tcg.json（该文件正被并行会话修改，避开冲突热文件）。
+const GUIDE_LINKS = [
+  { label: "2026 U.S. import tax guide", href: "/guides/japan-card-import-tax-us-2026" },
+  { label: "Proxy service comparison", href: "/guides/kangaroo-japan-vs-buyee-vs-zenmarket" },
+  { label: "Mercari Japan buying guide", href: "/guides/how-to-buy-pokemon-cards-from-mercari-japan" },
+] as const;
+
 export function TcgFooter() {
   const t = useTranslations("tcg");
   const year = new Date().getFullYear();
@@ -83,7 +91,7 @@ export function TcgFooter() {
             </ul>
           </div>
 
-          {/* Cards 列（TCG 品类落地页） */}
+          {/* Cards 列（TCG 品类落地页 + GEO 指南） */}
           <div>
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {t("footer.columns.cards.title")}
@@ -96,6 +104,21 @@ export function TcgFooter() {
                     className="text-sm text-slate-400 transition-colors hover:text-cyan-300"
                   >
                     {t(`footer.columns.cards.${item.key}`)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <h2 className="mt-8 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              Guides
+            </h2>
+            <ul className="mt-4 space-y-3">
+              {GUIDE_LINKS.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className="text-sm text-slate-400 transition-colors hover:text-cyan-300"
+                  >
+                    {item.label}
                   </Link>
                 </li>
               ))}

@@ -29,6 +29,14 @@
         "orderStatus": {
           "q": "Did my order go through?",
           "a": "If it shows Pending or Awaiting warehouse, the purchase, seller shipment or warehouse intake may still be in progress. Share your order number and a human agent can check it for you."
+        },
+        "auctionBids": {
+          "q": "How does bidding on Yahoo! Auctions work?",
+          "a": "You tell us the auction and your maximum bid, and we bid on your behalf from Japan. You only pay if you win — the winning price plus the standard fees. Auction wins can't be cancelled once the auction closes, and auction sellers often take a few days to ship to our warehouse."
+        },
+        "searchTips": {
+          "q": "I can't find a card — how should I search?",
+          "a": "Japanese marketplaces list cards under Japanese names, so searching Japanese terms works best — e.g. ポケモンカード 151 for the set, or the set code like sv2a plus the card number. If you still can't find it, paste the Mercari or Yahoo! Auctions listing URL and we'll fetch it or enter it manually."
         }
       }
     },
@@ -46,6 +54,14 @@
         "estimates": {
           "q": "Are the prices final?",
           "a": "No. All fee figures on the site are estimates to help you plan. Your exact, itemized total is always shown before you pay at checkout."
+        },
+        "allInExample": {
+          "q": "What does a card really cost all-in (2026)?",
+          "a": "Roughly: the item price + Japan domestic shipping (from ~300 JPY) + our proxy fee (from ~300–350 JPY per item) + international shipping by weight + ~10% U.S. import duty on the item value + your carrier's customs clearance fee. All figures are estimates — your exact itemized total is shown at checkout, and the Fees page breaks each line down."
+        },
+        "bulkSavings": {
+          "q": "Does buying multiple cards together save money?",
+          "a": "Yes, significantly. International shipping is the biggest cost on a single card, and it's largely a per-parcel cost. Buying several cards and consolidating them into one shipment spreads that cost across every card; the proxy fee still applies per item."
         }
       }
     },
@@ -63,6 +79,14 @@
         "shippingTime": {
           "q": "Which carriers and how long to the U.S.?",
           "a": "Shipping time depends on the method you choose and customs processing, so we can't commit to an exact delivery date. Consolidating orders into one parcel is the most cost-effective option."
+        },
+        "insurance": {
+          "q": "Is my parcel insured?",
+          "a": "Coverage depends on the shipping method you pick — carrier compensation is tied to the declared value and that method's insurance terms. We always declare honestly, which keeps any claim valid. For high-value cards, choose a tracked method with insurance when you submit shipping."
+        },
+        "lostPackage": {
+          "q": "What if my package is lost or tracking stops moving?",
+          "a": "Every international shipment is tracked. If tracking stalls for an unusual length of time, contact support with your order number — we open the investigation with the carrier from the Japan side. Compensation follows the carrier's insurance terms and the declared value."
         }
       }
     },
@@ -76,6 +100,18 @@
         "underDeclare": {
           "q": "Can you under-declare the value to avoid duty?",
           "a": "No. We declare the actual item type and value honestly. Under-declaring is illegal, and it would also cap any insurance compensation to the declared amount."
+        },
+        "tariff2026": {
+          "q": "How much is U.S. import tax on Japanese cards in 2026?",
+          "a": "As of February 24, 2026 the U.S. applies a flat 10% import surcharge to goods from all countries, including Japan (the Section 122 measure, currently set to expire July 24, 2026 unless extended or replaced). It's assessed on the item value — international shipping is not part of the duty base. On top of the duty, carriers charge a customs clearance fee, roughly $9–17 per parcel depending on the carrier. Policy is changing fast; the final amount is always what CBP and your carrier assess."
+        },
+        "dutyBilling": {
+          "q": "How do I actually pay the duty?",
+          "a": "Typically the carrier clears customs for you and then bills you the duty plus its clearance fee — at delivery or via a payment link. Unless explicitly stated otherwise, U.S. import charges are not included in our checkout total."
+        },
+        "salesTax": {
+          "q": "Do I also pay state sales tax?",
+          "a": "U.S. import duty is a federal charge. State sales tax generally isn't collected on a purchase shipped from Japan like this; some states expect residents to self-report use tax on out-of-state purchases — that part depends on your state's rules."
         }
       }
     },
@@ -97,6 +133,14 @@
         "highValue": {
           "q": "Can you inspect a high-value card before it ships?",
           "a": "Yes. For high-value cards we recommend paid photo inspection on arrival (front, back, corners). If you want condition confirmed before international shipping, request inspection on the order. Photos can't capture every possible flaw, so we don't promise they reveal everything."
+        },
+        "whyCheaper": {
+          "q": "Why are Japanese cards often cheaper than U.S. prices?",
+          "a": "Three structural reasons: Japan's secondhand market is enormous (Mercari alone lists a huge volume of singles daily), Japanese-language printings usually trade below their English equivalents, and the yen has been favorable for USD buyers in recent years. After fees, shipping and duty, mid-to-high-value cards usually still come out ahead; very cheap singles may not once per-parcel costs are added — consolidation fixes that."
+        },
+        "authenticity": {
+          "q": "How do you protect me from fake cards?",
+          "a": "We buy the exact listing you chose, so authenticity starts with the seller — we favor sellers with strong ratings and flag obvious red flags before buying. On arrival, paid photo inspection (front, back, corners) catches obvious fakes and condition problems before international shipping. For high-value singles we recommend always adding inspection."
         }
       }
     },

@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { buildAlternates, isIndexable } from "@/lib/seo";
+import {
+  buildAlternates,
+  isIndexable,
+  breadcrumbJsonLd,
+  brandForLocale,
+} from "@/lib/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 export async function generateMetadata({
   params,
@@ -73,6 +79,15 @@ export default async function FeesPage({
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      {/* GEO：面包屑结构化数据（可索引 locale 输出） */}
+      {isIndexable(lang) && (
+        <JsonLd
+          data={breadcrumbJsonLd(lang, [
+            { name: brandForLocale(lang), path: "" },
+            { name: t("hero.title"), path: "fees" },
+          ])}
+        />
+      )}
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-white/10">
         {/* electric accent glow */}
