@@ -29,7 +29,7 @@ const translations: Record<Locale, Translations> = {
     pageTitle: "帮助中心",
     pageSubtitle: "常见问题解答 · 日本代拍服务",
     disclaimer:
-      "⚠️ 重要提示：退款、赔偿、补发、改地址、更换物流、禁运品判断及海关税费等事项，最终结果须由人工客服确认，本页面内容仅供参考，不构成任何承诺。",
+      "⚠️ 重要提示：退款、赔偿、补发、改地址、更换物流、禁运品判断及海关税费等事项，最终以人工客服确认为准，本页面内容仅供参考。可以放心的是：代拍失败（竞拍未中或商品售罄），押金及已付款项将全额退还。",
     contactCta: "未找到答案？联系客服",
     categories: [
       {
@@ -50,7 +50,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "代拍失败（竞拍未中/商品售罄）会怎样？",
-            a: "代拍失败时，款项通常会退回您的账户余额；具体退款金额、时间和手续费处理以人工客服最终确认为准。",
+            a: "代拍失败（竞拍未中或商品售罄）时，押金及已付款项将全额退还至您的账户余额。到账时间如有疑问，随时联系客服为您查询。",
           },
           {
             q: "可以代拍多件商品合并发货吗？",
@@ -77,6 +77,28 @@ const translations: Record<Locale, Translations> = {
           {
             q: "国际运费如何计算？",
             a: "运费根据商品实际重量、体积及所选物流方式计算，商品到达仓库称重后系统会显示预估运费，最终以实际重量为准。",
+          },
+        ],
+      },
+      {
+        icon: "🏠",
+        title: "仓储与集运",
+        items: [
+          {
+            q: "商品到日本仓库后会怎样处理？",
+            a: "商品入库时我们会即时通知您。到仓后您可以申请拍照验货、继续凑单等待其它商品，或直接申请出库；发货前仓库会实际称重，按实重和所选物流方式计算国际运费。",
+          },
+          {
+            q: "合箱（合并打包）流程是怎样的？",
+            a: "多件商品全部到仓后，在订单/转运页面申请合并打包。仓库会去除多余包装、合并为一个包裹并重新称重，国际运费按合箱后的实际重量计算，通常比分开寄送更划算。",
+          },
+          {
+            q: "国际运费什么时候支付？",
+            a: "下单代购时不收取国际运费。商品到仓称重后，系统按实际重量显示应付运费，您支付后我们即安排发货。",
+          },
+          {
+            q: "商品可以在日本仓库免费存放多久？",
+            a: "商品入库后可免费存放 30–60 天（按会员等级而定），方便您凑单合箱；超出免费期请联系客服协商处理。",
           },
         ],
       },
@@ -171,7 +193,7 @@ const translations: Record<Locale, Translations> = {
     pageTitle: "Help Center",
     pageSubtitle: "Frequently Asked Questions · Japan Proxy Buying",
     disclaimer:
-      "⚠️ Important: All decisions regarding refunds, compensation, reshipment, address changes, logistics changes, prohibited item assessment, and customs duties must be confirmed by a human support agent. This page is for reference only and does not constitute any guarantee or promise.",
+      "⚠️ Important: refunds, compensation, reshipment, address changes, logistics changes, prohibited-item assessment, and customs duties are always confirmed by a human support agent; this page is for reference. One thing you can count on: if a proxy purchase fails (auction lost or item sold out), your deposit and payment are refunded in full.",
     contactCta: "Didn't find your answer? Contact Support",
     categories: [
       {
@@ -192,7 +214,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "What happens if a proxy purchase fails (auction lost/item sold out)?",
-            a: "If a purchase fails, the amount is usually returned to your wallet balance. The final refundable amount, timing, and any fee handling must be confirmed by a human support agent.",
+            a: "If a purchase fails (auction lost or item sold out), your deposit and payment are refunded in full to your wallet balance. If you have any question about the timing, support is happy to check for you.",
           },
           {
             q: "Can multiple items be consolidated for one shipment?",
@@ -219,6 +241,28 @@ const translations: Record<Locale, Translations> = {
           {
             q: "How is international shipping calculated?",
             a: "Shipping fees are based on actual weight, volume, and the shipping method you choose. An estimated fee is shown after weighing at the warehouse; the final charge is based on actual weight.",
+          },
+        ],
+      },
+      {
+        icon: "🏠",
+        title: "Warehouse & Consolidation",
+        items: [
+          {
+            q: "What happens after my item arrives at the Japan warehouse?",
+            a: "We notify you as soon as each item is checked in. You can then request inspection photos, keep collecting more items, or request shipment right away. Before dispatch the warehouse weighs your parcel, and international shipping is calculated from the actual weight and your chosen method.",
+          },
+          {
+            q: "How does consolidation (combined packing) work?",
+            a: "Once all your items have arrived, request consolidation from the order/forwarding page. The warehouse removes excess packaging, combines everything into one parcel and reweighs it — shipping is charged on the consolidated weight, which is usually cheaper than shipping separately.",
+          },
+          {
+            q: "When do I pay international shipping?",
+            a: "No international shipping is charged when you place a proxy order. After your items are weighed at the warehouse, the system shows the amount due based on actual weight; once you pay, we dispatch your parcel.",
+          },
+          {
+            q: "How long can items be stored for free at the Japan warehouse?",
+            a: "Items are stored free for 30–60 days depending on your membership level, so you can collect several orders into one shipment. If you need longer than your free window, contact support and we'll work it out.",
           },
         ],
       },
@@ -313,7 +357,7 @@ const translations: Record<Locale, Translations> = {
     pageTitle: "ヘルプセンター",
     pageSubtitle: "よくある質問 · 日本代理購入サービス",
     disclaimer:
-      "⚠️ 重要：返金・賠償・再発送・住所変更・配送方法の変更・禁制品の判断・関税に関する最終的な結果は、必ずカスタマーサポートが人工確認いたします。このページの内容は参考情報であり、いかなる保証・約束も行いません。",
+      "⚠️ 重要：返金・賠償・再発送・住所変更・配送方法の変更・禁制品の判断・関税については、必ずカスタマーサポートによる確認結果が優先されます。このページの内容は参考情報です。なお、代理購入が不成立の場合（落札できなかった・売り切れ）は、保証金およびお支払い金額を全額返金いたしますのでご安心ください。",
     contactCta: "解決しない場合はサポートへ",
     categories: [
       {
@@ -334,7 +378,7 @@ const translations: Record<Locale, Translations> = {
           },
           {
             q: "落札できなかった場合や売り切れの場合はどうなりますか？",
-            a: "代理購入に失敗した場合は、通常アカウント残高へ返金されます。返金額・時期・手数料の扱いは担当スタッフが最終確認いたします。",
+            a: "落札できなかった場合や売り切れの場合は、保証金およびお支払い金額を全額アカウント残高へ返金いたします。着金時期についてはお気軽にサポートまでお問い合わせください。",
           },
           {
             q: "複数の商品をまとめて発送できますか？",
@@ -361,6 +405,28 @@ const translations: Record<Locale, Translations> = {
           {
             q: "国際送料はどのように計算されますか？",
             a: "送料は実際の重量・サイズおよび選択した配送方法に基づいて計算されます。倉庫での計量後に概算が表示されますが、最終料金は実重量で確定します。",
+          },
+        ],
+      },
+      {
+        icon: "🏠",
+        title: "倉庫・おまとめ配送",
+        items: [
+          {
+            q: "商品が日本倉庫に到着した後の流れは？",
+            a: "商品の入庫時に随時ご連絡いたします。その後、検品写真の依頼、他の商品の到着待ち、またはすぐに発送申請が可能です。発送前に倉庫で実際に計量し、実重量と選択した配送方法に基づいて国際送料を計算します。",
+          },
+          {
+            q: "合梱（おまとめ梱包）の流れを教えてください。",
+            a: "すべての商品が倉庫に揃った後、注文/転送ページから合梱をご申請ください。倉庫で余分な梱包を取り除き、1つの荷物にまとめて再計量します。国際送料は合梱後の実重量で計算され、通常は別々に送るよりお得です。",
+          },
+          {
+            q: "国際送料はいつ支払いますか？",
+            a: "代理購入のご注文時には国際送料はかかりません。商品が倉庫で計量された後、実重量に基づく送料が表示され、お支払い後に発送手続きを行います。",
+          },
+          {
+            q: "日本倉庫での無料保管期間はどのくらいですか？",
+            a: "入庫後は会員ランクに応じて30〜60日間無料で保管でき、複数の注文をまとめて発送するのに便利です。無料期間を超える場合は、サポートまでご相談ください。",
           },
         ],
       },
