@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
 import { searchMercariTcg, type TcgCardItem } from "@/components/home/tcg/tcg-data";
 import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-data";
+import { ImagePlaceholder } from "@/components/ui/image-placeholder";
 
 /**
  * zh（经典/非 en）Mercari 煤炉列表页（中国导购风，暖色调）。
@@ -76,14 +77,13 @@ function ZhMercariCard({
             alt={item.title}
             fill
             unoptimized
+            loading="lazy"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 200px"
             onError={() => setImgBroken(true)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-zinc-400">
-            暂无图片
-          </div>
+          <ImagePlaceholder label="暂无图片" />
         )}
 
         {/* 平台徽章（左上） */}

@@ -10,6 +10,7 @@ import {
   type YahoofrimaCardItem,
 } from "@/lib/api/yahoofrima";
 import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-data";
+import { ImagePlaceholder } from "@/components/ui/image-placeholder";
 
 /**
  * zh（经典/非 en）PayPayフリマ 搜索 + 列表页（中国导购风，Yahoo 红角标）。
@@ -73,14 +74,13 @@ function ZhYahoofrimaCard({
             alt={item.title}
             fill
             unoptimized
+            loading="lazy"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 200px"
             onError={() => setImgBroken(true)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-zinc-400">
-            {t("noImage")}
-          </div>
+          <ImagePlaceholder label={t("noImage")} />
         )}
 
         <span className="absolute left-2 top-2 inline-flex items-center rounded-md bg-[#ff0033] px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">

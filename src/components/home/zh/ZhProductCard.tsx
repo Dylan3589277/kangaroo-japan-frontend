@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { IMG_PLACEHOLDER_LIGHT } from "@/lib/product-utils";
+import { ImagePlaceholder } from "@/components/ui/image-placeholder";
 import { formatCnyApprox, type ZhHomeItem } from "./zh-daigou-data";
 
 /**
@@ -65,9 +66,7 @@ export function ZhProductCard({
             onError={() => setImgBroken(true)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-zinc-400">
-            暂无图片
-          </div>
+          <ImagePlaceholder label="暂无图片" />
         )}
 
         {/* 平台徽章（左上） */}
