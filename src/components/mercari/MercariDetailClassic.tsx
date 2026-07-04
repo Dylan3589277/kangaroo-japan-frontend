@@ -13,6 +13,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChatLauncher } from "@/components/tcg/ChatProvider";
 import { ImageLightbox } from "@/components/tcg/ImageLightbox";
+import {
+  fetchJpyToCny,
+  formatZhLandedEstimateCny,
+} from "@/components/home/zh/zh-daigou-data";
+import { ImagePlaceholder } from "@/components/ui/image-placeholder";
 interface MercariDetail {
   goods_no: string;
   goods_name: string;
@@ -64,6 +69,8 @@ export function MercariDetailClassic() {
   // 人民币应付：后端 quote 的 amountRmb 才是「按会员等级、含手续费」的权威人民币值。
   // 未登录/报价失败时为 null：退化为「登录后查看」，绝不用单品价×固定汇率算出误导值。
   const [amountRmb, setAmountRmb] = useState<number | null>(null);
+  // 公开汇率（GET /exchange-rates，无需登录）：仅用于未登录「预估到手价」展示。
+  const [jpyToCny, setJpyToCny] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -76,6 +83,18 @@ export function MercariDetailClassic() {
     fetchFee();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // 公开汇率拉取（未登录也可用）；失败保持 null → 退化为「登录后查看」，绝不硬造静态汇率。
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const rate = await fetchJpyToCny();
+      if (active) setJpyToCny(rate);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // 拉动态手续费 + 权威人民币应付（需登录态 JWT）：成功则展示真实 feeJpy / amountRmb；
   // 未登录/失败保持 null，页面退化为「手续费结算时计算」「登录后查看人民币」——
@@ -211,6 +230,11 @@ export function MercariDetailClassic() {
   }
 
   const images = detail.imgurls || [];
+  // 未登录预估到手价（≈元）：仅当拿不到权威 amountRmb 且公开汇率可用时展示；绝非承诺价。
+  const estimateCny =
+    amountRmb === null
+      ? formatZhLandedEstimateCny(Number(detail.price), jpyToCny)
+      : null;
 
   return (
     <div className="container mx-auto py-6 px-4 pb-32 md:pb-8">
@@ -261,9 +285,7 @@ export function MercariDetailClassic() {
                 </span>
               </button>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                {t('noImage')}
-              </div>
+              <ImagePlaceholder label={t('noImage')} iconClassName="h-16 w-16" />
             )}
             {/* Sold Badge */}
             {(detail.status === "ITEM_STATUS_TRADING" || detail.status === "sold_out") && (
@@ -325,6 +347,14 @@ export function MercariDetailClassic() {
                 {t('approx')}¥{Number(amountRmb).toFixed(2)}
                 {t('cny')}
                 <span className="ml-1 text-xs">{t('amountRmbNote')}</span>
+              </div>
+            ) : estimateCny ? (
+              <div className="text-sm text-muted-foreground">
+                <div>
+                  {t('estimateLanded', { amount: estimateCny })}
+                  <span className="ml-1 text-xs">{t('estimateLandedNote')}</span>
+                </div>
+                <div className="mt-1 text-xs">{t('estimateLoginHint')}</div>
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">

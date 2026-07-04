@@ -15,6 +15,11 @@ import { useChatLauncher } from "@/components/tcg/ChatProvider";
 import { ImageLightbox } from "@/components/tcg/ImageLightbox";
 import { getYahoofrimaDetail, getYahoofrimaQuote } from "@/lib/api/yahoofrima";
 import type { MarketplaceItem } from "@/lib/api/yahoofrima";
+import {
+  fetchJpyToCny,
+  formatZhLandedEstimateCny,
+} from "@/components/home/zh/zh-daigou-data";
+import { ImagePlaceholder } from "@/components/ui/image-placeholder";
 
 /**
  * 经典版（浅色通用样式）PayPayフリマ 商品详情页。
@@ -36,6 +41,8 @@ export function YahoofrimaDetailClassic() {
   const [feeJpy, setFeeJpy] = useState<number | null>(null);
   // 人民币应付（后端 quote 的 amountRmb），未登录/无报价时为 null。
   const [amountRmb, setAmountRmb] = useState<number | null>(null);
+  // 公开汇率（GET /exchange-rates，无需登录）：仅用于未登录「预估到手价」展示。
+  const [jpyToCny, setJpyToCny] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -88,6 +95,18 @@ export function YahoofrimaDetailClassic() {
       active = false;
     };
   }, [id]);
+
+  // 公开汇率拉取（未登录也可用）；失败保持 null → 退化为「登录后查看」，绝不硬造静态汇率。
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const rate = await fetchJpyToCny();
+      if (active) setJpyToCny(rate);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const copyLink = () => {
     if (detail?.source_url) {
@@ -167,6 +186,11 @@ export function YahoofrimaDetailClassic() {
 
   const images = detail.images || [];
   const soldOut = detail.status === "sold_out" || detail.status === "ITEM_STATUS_TRADING";
+  // 未登录预估到手价（≈元）：仅当拿不到权威 amountRmb 且公开汇率可用时展示；绝非承诺价。
+  const estimateCny =
+    amountRmb === null
+      ? formatZhLandedEstimateCny(Number(detail.price_jpy), jpyToCny)
+      : null;
 
   return (
     <div className="container mx-auto py-6 px-4 pb-32 md:pb-8">
@@ -217,9 +241,7 @@ export function YahoofrimaDetailClassic() {
                 </span>
               </button>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                {t("noImage")}
-              </div>
+              <ImagePlaceholder label={t("noImage")} iconClassName="h-16 w-16" />
             )}
             {soldOut && (
               <Badge variant="destructive" className="absolute top-4 left-4 text-sm px-3 py-1">
@@ -272,6 +294,14 @@ export function YahoofrimaDetailClassic() {
                 {t("approx")}¥{Number(amountRmb).toFixed(2)}
                 {t("cny")}
                 <span className="ml-1 text-xs">{t("amountRmbNote")}</span>
+              </div>
+            ) : estimateCny ? (
+              <div className="text-sm text-muted-foreground">
+                <div>
+                  {t("estimateLanded", { amount: estimateCny })}
+                  <span className="ml-1 text-xs">{t("estimateLandedNote")}</span>
+                </div>
+                <div className="mt-1 text-xs">{t("estimateLoginHint")}</div>
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">

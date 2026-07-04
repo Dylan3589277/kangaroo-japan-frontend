@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
 import { searchToretoku, type ToretokuCardItem } from "@/lib/api/toretoku";
 import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-data";
+import { ImagePlaceholder } from "@/components/ui/image-placeholder";
 
 /**
  * zh（经典/非 en）トレトク 搜索 + 列表页（中国导购风 + 橙红卡牌点缀）。
@@ -67,14 +68,13 @@ function ZhToretokuCard({
             alt={item.title}
             fill
             unoptimized
+            loading="lazy"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 200px"
             onError={() => setImgBroken(true)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-zinc-400">
-            {t("noImage")}
-          </div>
+          <ImagePlaceholder label={t("noImage")} />
         )}
 
         <span className="absolute left-2 top-2 inline-flex items-center rounded-md bg-gradient-to-r from-orange-500 to-red-600 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-sm">

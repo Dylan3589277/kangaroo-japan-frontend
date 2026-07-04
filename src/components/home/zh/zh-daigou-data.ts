@@ -174,6 +174,32 @@ export function formatCnyApprox(
   return `≈${display}元`;
 }
 
+/**
+ * zh 代购手续费（约值，JPY/件）：仅用于未登录「预估到手价」展示。
+ * 权威值在老后台 st_shops 可调，文案必须带「约」，绝不当承诺价。
+ */
+export const ZH_SERVICE_FEE_JPY_PER_ITEM = 100;
+
+/**
+ * 未登录「预估到手价」CNY 展示串（如 "≈123元"）：
+ * (商品 JPY + 手续费约 100 JPY/件) × 公开汇率（GET /exchange-rates）。
+ * 仅估算展示，必须配 ≈/预估 字样；不含国际运费（到仓称重后收取）。
+ * 无价 / 无汇率 → null（调用方退化为「登录后查看」文案，绝不硬造静态汇率）。
+ */
+export function formatZhLandedEstimateCny(
+  priceJpy: number | undefined,
+  jpyToCny: number | null,
+): string | null {
+  if (
+    typeof priceJpy !== "number" ||
+    !Number.isFinite(priceJpy) ||
+    priceJpy <= 0
+  ) {
+    return null;
+  }
+  return formatCnyApprox(priceJpy + ZH_SERVICE_FEE_JPY_PER_ITEM, jpyToCny);
+}
+
 /** 首页热门品类配置：标题 + 日文检索词（挑能出真货的词）。 */
 export interface ZhCategoryConfig {
   key: string;
