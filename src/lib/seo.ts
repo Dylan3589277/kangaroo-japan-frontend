@@ -79,9 +79,11 @@ export function buildAlternates(
 /* GEO 用：让 AI/搜索引擎机器可读地理解站点与页面。                      */
 /* ------------------------------------------------------------------ */
 
-/** 站点品牌按 locale 分流：en 对外叫 Kangaroo Japan，zh 对外叫 JP-Buy。 */
+/** 站点品牌按 locale 分流：en 对外叫 Kangaroo Japan，zh 对外叫袋鼠君（2026-07-04 花哥拍板，与小程序一致），其余 locale 用 JP-Buy。 */
 export function brandForLocale(lang: string): string {
-  return lang === "en" ? "Kangaroo Japan" : "JP-Buy";
+  if (lang === "en") return "Kangaroo Japan";
+  if (lang === "zh") return "袋鼠君";
+  return "JP-Buy";
 }
 
 /**
@@ -95,11 +97,12 @@ export function organizationJsonLd(lang: string): Record<string, unknown> {
     "@type": "Organization",
     "@id": `${BASE_URL}/#organization`,
     name: brandForLocale(lang),
+    alternateName: isEn ? "JP-Buy" : ["JP-Buy", "Kangaroo Japan"],
     url: `${BASE_URL}/${lang}`,
     logo: `${BASE_URL}/brand/kangaroo-logo.png`,
     description: isEn
       ? "Proxy buying service for Japanese trading cards. We buy Pokémon, Yu-Gi-Oh and One Piece cards from Mercari Japan, Yahoo! Auctions and Japanese shops, then inspect, consolidate and ship them worldwide."
-      : "日本代购代拍平台：煤炉 Mercari 代购、雅虎拍卖代拍、乐天/雅虎购物日淘，日本仓验货合箱直邮。",
+      : "袋鼠君日本代购代拍平台：煤炉 Mercari 代购、雅虎拍卖代拍、乐天/雅虎购物日淘，日本仓验货合箱直邮。",
   };
 }
 

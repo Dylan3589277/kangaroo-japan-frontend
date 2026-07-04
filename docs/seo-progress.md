@@ -62,3 +62,9 @@ Accept-Language中间件
 - /articles CMS 空壳 → noindex（`articles/layout.tsx`，有文章后按注释恢复）
 - 英文 GEO 指南 `/en/guides/*`（共享壳 guide-shell.tsx；非 en noindex+canonical 指 en；TcgFooter 加硬编码英文入口——不进 tcg.json 避热文件冲突）：①2026 关税文 ②对比文（点名 Buyee/ZenMarket，费率与 /fees comparison 同源）③Mercari 教程；en/faq.json 19→30 问
   **🔴 跟进**：Section 122 关税 2026-07-24 到期，续接政策落地后必须更新关税指南 + FAQ tariff2026 条目 + llms.txt；对比文点名竞品与 /fees 页匿名首字母口径不一致（花哥知情，未要求改回）。
+
+## 变更记录 2026-07-04 · zh 品牌切「袋鼠君」+ zh GEO 内容包（中枢 Claude，代码已就绪待推）
+
+**为什么**：花哥 2026-07-04 拍板 zh 对外品牌=袋鼠君（与小程序一致），并给了推广口径（现行活动汇率+收费标准）。
+**改了什么（代码，待推）**：root layout zh meta（title/brand/og 全切袋鼠君，JP-Buy 作副名）、seo.ts brandForLocale zh→袋鼠君 + Organization 加 alternateName、llms.txt zh 段改袋鼠君并补实测费率（汇率0.0424/煤炉手续费200円/雅虎220+200/押金1元=200円额度——来源：小程序公开接口 api/goods/mdetail 实测+详情页展示口径）。
+**站外内容（不进仓库，在 .team\artifacts\geo-zh-content-20260703\）**：小红书笔记×3+发布SOP、知乎对比长文、小红书自动维护方案（结论：不做全自动防封号，做半自动内容管线）、Trustpilot/Reddit 启动清单。

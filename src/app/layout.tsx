@@ -67,18 +67,18 @@ const LOCALE_META: Record<string, LocaleMeta> = {
       "TCG",
     ],
   },
-  // GEO：zh 标题/描述打买家真实搜索词（日本代购/煤炉代购/雅虎代拍），
-  // 原"跨境购物平台"过泛，百度/豆包判不出业务。品牌对外叫法未统一前保留 JP-Buy。
+  // GEO：zh 标题/描述打买家真实搜索词（日本代购/煤炉代购/雅虎代拍）。
+  // zh 对外品牌 = 袋鼠君（花哥 2026-07-04 拍板，与小程序一致；JP-Buy 作副名保留）。
   zh: {
-    brand: "JP-Buy",
-    titleDefault: "JP-Buy | 日本代购代拍平台 - 煤炉Mercari代购·雅虎竞拍·日淘直邮",
-    titleTemplate: "%s | JP-Buy",
+    brand: "袋鼠君",
+    titleDefault: "袋鼠君 | 日本代购代拍平台 - 煤炉Mercari代购·雅虎竞拍·日淘直邮",
+    titleTemplate: "%s | 袋鼠君",
     description:
-      "JP-Buy 日本代购代拍平台：煤炉 Mercari 代购、雅虎拍卖代拍、乐天/Amazon 日淘，实时搜索比价，日本仓验货合箱直邮，手续费透明。",
+      "袋鼠君（JP-Buy）日本代购代拍平台：煤炉 Mercari 代购、雅虎拍卖代拍、乐天/Amazon 日淘，实时搜索比价，日本仓验货合箱直邮，手续费透明。",
     ogDescription:
-      "日本代购代拍：煤炉 Mercari 代购、雅虎拍卖代拍、乐天/Amazon 日淘，日本仓验货合箱直邮。",
+      "袋鼠君日本代购代拍：煤炉 Mercari 代购、雅虎拍卖代拍、乐天/Amazon 日淘，日本仓验货合箱直邮。",
     ogLocale: "zh_CN",
-    ogImageAlt: "JP-Buy - 日本代购代拍平台",
+    ogImageAlt: "袋鼠君 - 日本代购代拍平台",
     keywords: [
       "日本代购",
       "煤炉代购",

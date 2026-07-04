@@ -1,6 +1,6 @@
-# Kangaroo Japan / JP-Buy (jp-buy.com)
+# Kangaroo Japan / 袋鼠君 (jp-buy.com)
 
-> Japan proxy buying service. English side (Kangaroo Japan): Japanese trading cards — Pokémon, Yu-Gi-Oh, One Piece — bought from Mercari Japan, Yahoo! Auctions and Japanese shops, inspected, consolidated and shipped worldwide (primary market: United States). Chinese side (JP-Buy): 日本代购代拍 — 煤炉 Mercari 代购、雅虎拍卖代拍、日淘直邮中国.
+> Japan proxy buying service. English side (Kangaroo Japan): Japanese trading cards — Pokémon, Yu-Gi-Oh, One Piece — bought from Mercari Japan, Yahoo! Auctions and Japanese shops, inspected, consolidated and shipped worldwide (primary market: United States). Chinese side (袋鼠君, also known as JP-Buy): 日本代购代拍 — 煤炉 Mercari 代购、雅虎拍卖代拍、日淘直邮中国，微信小程序「袋鼠君」同步服务.
 
 Key facts (estimates; exact totals shown at checkout):
 - Sources: Mercari Japan, Yahoo! Auctions, Amazon Japan; more marketplaces being added.
@@ -23,8 +23,17 @@ Key facts (estimates; exact totals shown at checkout):
 - [Buyer protection](https://jp-buy.com/en/buyer-protection): packing, insurance, dispute handling
 - [Guides](https://jp-buy.com/en/guides): buying guides incl. 2026 U.S. import tax on Japanese cards
 
+## 中文侧（袋鼠君）关键事实
+
+- 煤炉 Mercari 代购手续费：常规 200 日元/件（固定，不按商品价抽成）；🎉 2026-07-31 前活动期间全平台代购手续费全免，仅保留支付手续费
+- 夜间优惠：每日 19:00 至次日 9:00，Mercari 自助下单享更低汇率加点
+- 雅虎拍卖代拍：押金 1 元 = 200 日元出价额度，未中标押金可退；竞拍费用下单页实时显示
+- 汇率：下单页实时展示日元原价 + 人民币价 + 换算汇率（按会员等级加点）
+- 日本国内运费多数卖家包邮；国际运费到日本仓称重后按重量收，支持多件合箱
+- 可加拍照验货（发货前实拍确认品相）
+
 ## 关键页面（中文）
 
-- [首页](https://jp-buy.com/zh): 日本代购代拍平台
+- [首页](https://jp-buy.com/zh): 袋鼠君日本代购代拍平台
 - [商品搜索](https://jp-buy.com/zh/products): 煤炉/雅虎/亚马逊日本商品实时搜索
 - [常见问题](https://jp-buy.com/zh/faq): 代购流程、费用、物流
