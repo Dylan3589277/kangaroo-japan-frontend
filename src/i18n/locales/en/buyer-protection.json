@@ -40,6 +40,24 @@
       }
     }
   },
+  "refunds": {
+    "title": "Our refund policy, in writing",
+    "subtitle": "No fine print to hunt for. These are the commitments we hold ourselves to on every order.",
+    "items": {
+      "failedPurchase": {
+        "title": "Lost auction or failed purchase — full refund",
+        "body": "If we can't win your auction or a purchase can't be completed, everything you paid toward that item — including any deposit — is refunded in full. You only ever pay for cards we actually secure."
+      },
+      "inspection": {
+        "title": "A real person checks your item in Japan",
+        "body": "Every order is received and checked by hand at our Japan warehouse, and on request we photograph your card and describe its condition before it ships — a genuine human look at your item, not an automated pass-through. (Grading and authentication remain the grading company's call, as explained below.)"
+      },
+      "disputes": {
+        "title": "If something goes wrong, a human sorts it out",
+        "body": "Wrong item, undisclosed damage, or a shipping problem: contact support with your order number and photos. We'll investigate with the seller or carrier and work out a resolution with you case by case."
+      }
+    }
+  },
   "honest": {
     "title": "What we won't promise",
     "subtitle": "TCG buyers deserve straight talk. Beware of any proxy that guarantees these things.",

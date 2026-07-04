@@ -69,6 +69,8 @@ const SAFEGUARD_ICONS = {
 
 const HONEST_KEYS = ["authenticity", "sealed", "noTax"] as const;
 
+const REFUND_KEYS = ["failedPurchase", "inspection", "disputes"] as const;
+
 export default async function BuyerProtectionPage({
   params,
 }: {
@@ -143,6 +145,32 @@ export default async function BuyerProtectionPage({
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* Refund policy in writing (trust: failed purchase = full refund, human inspection, dispute path) */}
+        <section className="mt-14">
+          <h2 className="text-2xl font-bold text-white">
+            {t("refunds.title")}
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-400">
+            {t("refunds.subtitle")}
+          </p>
+          <div className="mt-7 space-y-3">
+            {REFUND_KEYS.map((key) => (
+              <div
+                key={key}
+                className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.05] p-5"
+              >
+                <h3 className="flex items-center gap-2 font-semibold text-cyan-200">
+                  <span aria-hidden>✓</span>
+                  {t(`refunds.items.${key}.title`)}
+                </h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-300/80">
+                  {t(`refunds.items.${key}.body`)}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
 
