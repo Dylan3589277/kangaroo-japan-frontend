@@ -222,7 +222,8 @@ export default function AddressesPage() {
       ) : addresses.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-gray-500">{t("empty")}</p>
+            <p className="text-gray-500 mb-4">{t("empty")}</p>
+            <Button onClick={() => handleOpenDialog()}>+ {t("add")}</Button>
           </CardContent>
         </Card>
       ) : (

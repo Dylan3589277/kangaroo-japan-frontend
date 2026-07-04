@@ -190,6 +190,61 @@ export function HomePageClient() {
         </div>
       </section>
 
+      {/* How it works: 4 步流程 + 费用构成一句话（信任/透明） */}
+      <section className="py-12 bg-white border-b">
+        <div className="mx-auto max-w-7xl px-4">
+          <h3 className="text-xl font-bold text-zinc-900 text-center mb-8">
+            {lang === "zh" ? "四步，把日本好物买回家" : lang === "en" ? "How it works — 4 simple steps" : "ご利用の流れ（4ステップ）"}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              {
+                zh: ["搜索或粘贴链接", "支持 Mercari、Yahoo!拍卖、亚马逊等日本平台"],
+                en: ["Search or paste a link", "Mercari, Yahoo! Auctions, Amazon Japan and more"],
+                ja: ["検索またはリンクを貼付", "メルカリ・Yahoo!オークション・Amazonなどに対応"],
+              },
+              {
+                zh: ["下单支付", "我们在日本替您购买；若未买到，款项全额退还"],
+                en: ["Order & pay", "We buy it in Japan for you; full refund if the purchase fails"],
+                ja: ["注文・お支払い", "日本で代理購入。買付不成立の場合は全額返金"],
+              },
+              {
+                zh: ["到仓验货合箱", "商品寄到日本仓库人工验货，多件可合箱省运费"],
+                en: ["Inspected & consolidated", "Items are checked by hand at our Japan warehouse and can be combined into one parcel"],
+                ja: ["倉庫で検品・合梱", "日本倉庫でスタッフが検品。複数商品はおまとめ可能"],
+              },
+              {
+                zh: ["称重发货", "到仓称重后支付国际运费，直发您的地址"],
+                en: ["Weighed & shipped", "Pay international shipping by actual weight, delivered to your door"],
+                ja: ["計量・発送", "実重量で国際送料を計算し、ご自宅へお届け"],
+              },
+            ].map((step, i) => (
+              <div
+                key={i}
+                className="rounded-xl bg-white border shadow-sm p-5 text-center"
+              >
+                <div className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-rose-600 text-white text-sm font-bold">
+                  {i + 1}
+                </div>
+                <p className="font-medium text-zinc-900 mb-1">
+                  {lang === "zh" ? step.zh[0] : lang === "en" ? step.en[0] : step.ja[0]}
+                </p>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  {lang === "zh" ? step.zh[1] : lang === "en" ? step.en[1] : step.ja[1]}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-sm text-zinc-600 mt-6">
+            {lang === "zh"
+              ? "总费用 = 商品价格 + 服务费 + 国际运费（到仓称重后确定），下单前每一项都看得清。"
+              : lang === "en"
+              ? "Total = item price + service fee + international shipping (set after weighing at our warehouse) — every line is shown before you order."
+              : "合計 = 商品価格 + 手数料 + 国際送料（倉庫での計量後に確定）。ご注文前にすべての内訳をご確認いただけます。"}
+          </p>
+        </div>
+      </section>
+
       {/* Categories */}
       <section className="py-12">
         <div className="mx-auto max-w-7xl px-4">
