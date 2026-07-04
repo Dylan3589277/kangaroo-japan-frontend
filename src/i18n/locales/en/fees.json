@@ -114,6 +114,21 @@
     "body": "Importing trading cards into the United States is not duty-free. We provide HS code guidance for trading cards to help your parcel clear customs smoothly, but U.S. customs duties and taxes are ultimately determined by U.S. Customs and Border Protection (CBP) and the carrier. Any duties, taxes, or brokerage fees assessed on import are the buyer's responsibility and are not included in the estimates above.",
     "note": "We declare the actual transaction value and do not under-declare shipments."
   },
+  "payment": {
+    "title": "Payment methods",
+    "cardsLabel": "Cards we accept",
+    "cards": "Visa, Mastercard and American Express — credit or debit.",
+    "currencyLabel": "Currency",
+    "currency": "Orders on this site are charged in USD. Your exact, itemized total is shown before you confirm payment.",
+    "securityLabel": "How payment works",
+    "security": "You pay on Stripe's secure hosted checkout page. Your card details go directly to Stripe — a PCI-DSS Level 1 certified payment processor — and are never seen or stored by us.",
+    "note": "If your preferred payment method isn't listed, contact support and we'll tell you honestly whether we can take it."
+  },
+  "storage": {
+    "title": "Warehouse storage",
+    "body": "Once your cards arrive at our Japan warehouse, we hold them while you add more orders, request photo inspection, or ask us to consolidate everything into one parcel. Storage is free for 30–60 days depending on your membership level, counted from the day each item arrives.",
+    "note": "Planning to collect items beyond your free window? Contact support and we'll help you plan the shipment."
+  },
   "disclaimer": {
     "title": "About these estimates",
     "body": "All figures on this page are estimates based on typical orders and current market rates. They are not a quote and may change. Your final, itemized total — including any applicable service, shipping, and payment fees — is always shown before you pay at checkout."

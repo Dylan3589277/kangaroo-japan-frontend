@@ -297,6 +297,41 @@ export default async function FeesPage({
           </p>
         </section>
 
+        {/* Payment methods (trust: what cards we take, USD, Stripe-hosted checkout) */}
+        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+          <h2 className="text-lg font-semibold text-zinc-100">
+            {t("payment.title")}
+          </h2>
+          <dl className="mt-4 space-y-4">
+            {(["cards", "currency", "security"] as const).map((key) => (
+              <div key={key}>
+                <dt className="text-sm font-medium text-cyan-300">
+                  {t(`payment.${key}Label`)}
+                </dt>
+                <dd className="mt-1 text-sm leading-relaxed text-zinc-400">
+                  {t(`payment.${key}`)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-4 text-xs leading-relaxed text-zinc-500">
+            {t("payment.note")}
+          </p>
+        </section>
+
+        {/* Warehouse storage (free window exists; exact days confirmed by support) */}
+        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+          <h2 className="text-lg font-semibold text-zinc-100">
+            {t("storage.title")}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+            {t("storage.body")}
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-zinc-500">
+            {t("storage.note")}
+          </p>
+        </section>
+
         {/* Estimates disclaimer */}
         <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
           <h2 className="text-lg font-semibold text-zinc-100">
