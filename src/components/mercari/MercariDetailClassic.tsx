@@ -77,6 +77,8 @@ export function MercariDetailClassic() {
   const [isCollected, setIsCollected] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [cartNum, setCartNum] = useState(0);
+  // 一键翻译：默认显示译文（若有），花哥点按钮可切回日文原文对照。
+  const [showOriginal, setShowOriginal] = useState(false);
 
   useEffect(() => {
     fetchDetail();
@@ -122,7 +124,7 @@ export function MercariDetailClassic() {
     try {
       const res = await api.request(`/integrations/mercari/detail`, {
         method: "POST",
-        body: { id },
+        body: { id, lng: "zh" },
       });
       if (res.success && res.data) {
         const data = res.data as Record<string, unknown>;
@@ -323,12 +325,23 @@ export function MercariDetailClassic() {
         <div>
           {/* Title (clickable to copy) */}
           <h1
-            className="text-2xl font-bold mb-4 cursor-pointer hover:text-primary transition-colors"
+            className="text-2xl font-bold mb-2 cursor-pointer hover:text-primary transition-colors"
             onClick={copyName}
             title={t('clickToCopy')}
           >
-            {detail.titleTranslated || detail.goods_name}
+            {showOriginal || !detail.titleTranslated
+              ? detail.goods_name
+              : detail.titleTranslated}
           </h1>
+          {detail.titleTranslated && (
+            <button
+              type="button"
+              onClick={() => setShowOriginal((v) => !v)}
+              className="mb-4 text-xs text-primary underline underline-offset-2 hover:no-underline"
+            >
+              {showOriginal ? t('showTranslation') : t('showOriginal')}
+            </button>
+          )}
 
           {/* Price */}
           <div className="bg-orange-50 rounded-lg p-6 mb-6">
@@ -548,7 +561,9 @@ export function MercariDetailClassic() {
                 {t('details')}
               </h3>
               <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                {detail.descriptionTranslated || detail.content || detail.description || ""}
+                {showOriginal || !detail.descriptionTranslated
+                  ? detail.content || detail.description || ""
+                  : detail.descriptionTranslated}
               </div>
               {!detail.descriptionTranslated && !detail.content && !detail.description && (
                 <p className="text-muted-foreground">
