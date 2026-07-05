@@ -28,7 +28,7 @@ export function CardrushDetailClassic() {
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
   const id = params.id as string;
-  const t = useTranslations("rakuma");
+  const t = useTranslations("cardrush");
   const { openWithProduct } = useChatLauncher();
 
   const [detail, setDetail] = useState<MarketplaceItem | null>(null);

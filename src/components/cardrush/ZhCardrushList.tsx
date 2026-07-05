@@ -131,7 +131,7 @@ function ZhCardrushCardSkeleton() {
 export function ZhCardrushList() {
   const params = useParams();
   const lang = (params.lang as string) || "zh";
-  const t = useTranslations("rakuma.search");
+  const t = useTranslations("cardrush.search");
 
   const [jpyToCny, setJpyToCny] = useState<number | null>(null);
   const [items, setItems] = useState<CardrushCardItem[]>([]);

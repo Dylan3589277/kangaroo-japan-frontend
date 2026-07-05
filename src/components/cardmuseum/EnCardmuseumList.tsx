@@ -129,7 +129,7 @@ function EnCardmuseumCardSkeleton() {
 export function EnCardmuseumList() {
   const params = useParams();
   const lang = (params.lang as string) || "en";
-  const t = useTranslations("rakuma.search");
+  const t = useTranslations("cardmuseum.search");
 
   const [items, setItems] = useState<CardmuseumCardItem[]>([]);
   const [loading, setLoading] = useState(true);

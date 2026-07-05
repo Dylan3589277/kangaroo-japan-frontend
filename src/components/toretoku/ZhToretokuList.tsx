@@ -138,7 +138,7 @@ function ZhToretokuCardSkeleton() {
 export function ZhToretokuList() {
   const params = useParams();
   const lang = (params.lang as string) || "zh";
-  const t = useTranslations("rakuma.search");
+  const t = useTranslations("toretoku.search");
 
   const [jpyToCny, setJpyToCny] = useState<number | null>(null);
   const [items, setItems] = useState<ToretokuCardItem[]>([]);

@@ -22,14 +22,14 @@ import type { MarketplaceItem } from "@/lib/api/cardmuseum";
  * 设计 A（红黑卡牌风）英文 Card Museum カードラッシュ 商品详情页。
  * en locale 渲染。显美元，TCG quote（tcg=true）。
  * 视觉对齐 rakuma 设计 A 暗色版式，主题色由电光青改为红黑卡牌风（teal-500 强调 + 黑底）。
- * 来源标签显「Card Museum」。i18n 复用 rakuma 命名空间（通用文案）。
+ * 来源标签显「Card Museum」。
  */
 export function CardmuseumDetailDesignA() {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "en";
   const id = params.id as string;
-  const t = useTranslations("rakuma");
+  const t = useTranslations("cardmuseum");
   const { openWithProduct } = useChatLauncher();
 
   const [detail, setDetail] = useState<MarketplaceItem | null>(null);

@@ -130,7 +130,7 @@ function ZhCardmuseumCardSkeleton() {
 export function ZhCardmuseumList() {
   const params = useParams();
   const lang = (params.lang as string) || "zh";
-  const t = useTranslations("rakuma.search");
+  const t = useTranslations("cardmuseum.search");
 
   const [jpyToCny, setJpyToCny] = useState<number | null>(null);
   const [items, setItems] = useState<CardmuseumCardItem[]>([]);

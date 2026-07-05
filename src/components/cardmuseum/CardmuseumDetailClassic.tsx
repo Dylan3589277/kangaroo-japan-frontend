@@ -28,7 +28,7 @@ export function CardmuseumDetailClassic() {
   const router = useRouter();
   const lang = (params.lang as string) || "zh";
   const id = params.id as string;
-  const t = useTranslations("rakuma");
+  const t = useTranslations("cardmuseum");
   const { openWithProduct } = useChatLauncher();
 
   const [detail, setDetail] = useState<MarketplaceItem | null>(null);

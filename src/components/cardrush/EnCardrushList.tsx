@@ -129,7 +129,7 @@ function EnCardrushCardSkeleton() {
 export function EnCardrushList() {
   const params = useParams();
   const lang = (params.lang as string) || "en";
-  const t = useTranslations("rakuma.search");
+  const t = useTranslations("cardrush.search");
 
   const [items, setItems] = useState<CardrushCardItem[]>([]);
   const [loading, setLoading] = useState(true);
