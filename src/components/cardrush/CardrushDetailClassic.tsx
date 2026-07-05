@@ -39,6 +39,8 @@ export function CardrushDetailClassic() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isCollected, setIsCollected] = useState(false);
+  // 一键翻译：默认显示译文（若有），花哥点按钮可切回日文原文对照。
+  const [showOriginal, setShowOriginal] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -46,7 +48,7 @@ export function CardrushDetailClassic() {
     const fetchDetail = async () => {
       setLoading(true);
       try {
-        const res = await getCardrushDetail(id);
+        const res = await getCardrushDetail(id, "zh");
         if (!active) return;
         if (res.success && res.data) {
           setDetail(res.data as MarketplaceItem);
@@ -241,7 +243,20 @@ export function CardrushDetailClassic() {
 
         {/* Item Info */}
         <div>
-          <h1 className="text-2xl font-bold mb-4">{detail.title}</h1>
+          <h1 className="text-2xl font-bold mb-2">
+            {showOriginal || !detail.titleTranslated
+              ? detail.title
+              : detail.titleTranslated}
+          </h1>
+          {detail.titleTranslated && (
+            <button
+              type="button"
+              onClick={() => setShowOriginal((v) => !v)}
+              className="mb-4 text-xs text-primary underline underline-offset-2 hover:no-underline"
+            >
+              {showOriginal ? t("showTranslation") : t("showOriginal")}
+            </button>
+          )}
 
           {/* Price */}
           <div className="bg-red-50 rounded-lg p-6 mb-6">
@@ -393,7 +408,7 @@ export function CardrushDetailClassic() {
                   ))}
                 </div>
               )}
-              {detail.descriptionTranslated ? (
+              {!showOriginal && detail.descriptionTranslated ? (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                   {detail.descriptionTranslated}
                 </p>
