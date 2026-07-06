@@ -49,6 +49,8 @@ export function YahoofrimaDetailClassic() {
   const [isCollected, setIsCollected] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [cartNum, setCartNum] = useState(0);
+  // 一键翻译：默认显示译文（若有），花哥点按钮可切回日文原文对照。
+  const [showOriginal, setShowOriginal] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -56,7 +58,7 @@ export function YahoofrimaDetailClassic() {
     const fetchDetail = async () => {
       setLoading(true);
       try {
-        const res = await getYahoofrimaDetail(id);
+        const res = await getYahoofrimaDetail(id, "zh");
         if (!active) return;
         if (res.success && res.data) {
           const d = res.data as MarketplaceItem;
@@ -277,9 +279,20 @@ export function YahoofrimaDetailClassic() {
         {/* Item Info */}
         <div>
           {/* Title */}
-          <h1 className="text-2xl font-bold mb-4">
-            {detail.title}
+          <h1 className="text-2xl font-bold mb-2">
+            {showOriginal || !detail.titleTranslated
+              ? detail.title
+              : detail.titleTranslated}
           </h1>
+          {detail.titleTranslated && (
+            <button
+              type="button"
+              onClick={() => setShowOriginal((v) => !v)}
+              className="mb-4 text-xs text-primary underline underline-offset-2 hover:no-underline"
+            >
+              {showOriginal ? t("showTranslation") : t("showOriginal")}
+            </button>
+          )}
 
           {/* Price */}
           <div className="bg-orange-50 rounded-lg p-6 mb-6">
@@ -439,7 +452,7 @@ export function YahoofrimaDetailClassic() {
                   ))}
                 </div>
               )}
-              {detail.descriptionTranslated ? (
+              {!showOriginal && detail.descriptionTranslated ? (
                 <p className="whitespace-pre-wrap text-muted-foreground text-sm">
                   {detail.descriptionTranslated}
                 </p>

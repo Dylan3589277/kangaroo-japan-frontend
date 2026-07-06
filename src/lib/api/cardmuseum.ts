@@ -22,10 +22,13 @@ export type CardmuseumQuote = RakumaQuote;
 /**
  * 拉 Card Museum 商品详情。
  * 经 /api/backend 代理 → 后端 GET /api/v1/integrations/cardmuseum/detail?id=...
+ * lng 传 "zh" 时后端按需调用 Azure Translator 附带 titleTranslated/descriptionTranslated
+ * （未配 Azure key 时后端原样忽略，不影响原有字段）。
  */
-export async function getCardmuseumDetail(id: string) {
+export async function getCardmuseumDetail(id: string, lng?: string) {
+  const lngQuery = lng ? `&lng=${encodeURIComponent(lng)}` : "";
   return api.request<MarketplaceItem>(
-    `/integrations/cardmuseum/detail?id=${encodeURIComponent(id)}`,
+    `/integrations/cardmuseum/detail?id=${encodeURIComponent(id)}${lngQuery}`,
   );
 }
 

@@ -24,7 +24,9 @@ export interface MarketplaceItem {
   images: string[];
   /** 后端返回的日文商品描述（后端补上后自动显示） */
   description?: string;
-  /** Azure 翻译后的中文描述（additive，可选） */
+  /** Azure 翻译后的中文标题（additive，可选，需 lng=zh 才返回） */
+  titleTranslated?: string;
+  /** Azure 翻译后的中文描述（additive，可选，需 lng=zh 才返回） */
   descriptionTranslated?: string;
   seller?: {
     id?: string;
@@ -65,10 +67,13 @@ export interface YahoofrimaQuote {
 /**
  * 拉 Yahoofrima 商品详情。
  * 经 /api/backend 代理 → 后端 GET /api/v1/integrations/yahoofrima/detail?id=...
+ * lng 传 "zh" 时后端按需调用 Azure Translator 附带 titleTranslated/descriptionTranslated
+ * （未配 Azure key 时后端原样忽略，不影响原有字段）。
  */
-export async function getYahoofrimaDetail(id: string) {
+export async function getYahoofrimaDetail(id: string, lng?: string) {
+  const lngQuery = lng ? `&lng=${encodeURIComponent(lng)}` : "";
   return api.request<MarketplaceItem>(
-    `/integrations/yahoofrima/detail?id=${encodeURIComponent(id)}`,
+    `/integrations/yahoofrima/detail?id=${encodeURIComponent(id)}${lngQuery}`,
   );
 }
 
