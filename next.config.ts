@@ -173,7 +173,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.shopping.yahoo.co.jp" },
       { protocol: "https", hostname: "**.auctions.yahoo.co.jp" },
       { protocol: "https", hostname: "**.yimg.jp" },
-      { protocol: "https", hostname: "**.toretoku.jp" },
       { protocol: "https", hostname: "dsjpic.kangaroo-japan.net" },
       { protocol: "https", hostname: "placehold.co" },
       { protocol: "https", hostname: "images.unsplash.com" },
