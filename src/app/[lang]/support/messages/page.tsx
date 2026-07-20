@@ -210,6 +210,8 @@ async function postSellerMessages(body: Record<string, unknown>): Promise<
 // 固定颜色，不改任何组件结构/逻辑，老皮（无 data-theme 属性）零变化。
 // 色值：主色 #EF8632 / 深 #D96E1E / 浅底 #FFF0E0 / 页面底 #FFFBF5 / 文字墨色 #4A3426。
 const CANDY_THEME_CSS = `
+[data-theme="candy"] .candy-scene { display: block; margin: 0 auto; width: 112px; height: 112px; border-radius: 16px; object-fit: contain; animation: candyBob 3.4s ease-in-out infinite; }
+@keyframes candyBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 [data-theme="candy"] [class~="bg-[#f5f7fb]"] { background-color: #FFFBF5 !important; }
 [data-theme="candy"] [class~="text-[#FD7E3B]"] { color: #EF8632 !important; }
 [data-theme="candy"] [class~="text-[#F97E2F]"] { color: #D96E1E !important; }
@@ -392,7 +394,12 @@ export default function SellerMessagesH5Page() {
             className="rounded-lg border border-orange-100 bg-white p-5 text-center shadow-sm"
             data-testid="seller-messages-missing-identity"
           >
-            <MessageCircle className="mx-auto h-8 w-8 text-orange-300" />
+            {isCandyTheme ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="https://app.kangaroo-japan.com/static/scenes/message.jpg" alt="" className="candy-scene" />
+            ) : (
+              <MessageCircle className="mx-auto h-8 w-8 text-orange-300" />
+            )}
             <p className="mt-3 text-sm font-medium text-slate-700">
               暂时认不出你是哪位买家
             </p>
@@ -737,7 +744,12 @@ export default function SellerMessagesH5Page() {
             className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center"
             data-testid="seller-messages-error"
           >
-            <AlertTriangle className="mx-auto h-6 w-6 text-amber-500" />
+            {isCandyTheme ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="https://app.kangaroo-japan.com/static/scenes/message.jpg" alt="" className="candy-scene" />
+            ) : (
+              <AlertTriangle className="mx-auto h-6 w-6 text-amber-500" />
+            )}
             <p className="mt-2 text-sm text-amber-800">{listError}</p>
             <button
               type="button"
