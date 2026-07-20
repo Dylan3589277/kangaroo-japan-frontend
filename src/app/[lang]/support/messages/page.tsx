@@ -774,7 +774,12 @@ export default function SellerMessagesH5Page() {
             className="rounded-lg border border-orange-100 bg-white p-5 text-center shadow-sm"
             data-testid="seller-messages-empty"
           >
-            <MessageCircle className="mx-auto h-8 w-8 text-orange-300" />
+            {isCandyTheme ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/scenes/message.jpg" alt="" className="candy-scene" />
+            ) : (
+              <MessageCircle className="mx-auto h-8 w-8 text-orange-300" />
+            )}
             <p className="mt-3 text-sm font-medium text-slate-700">
               还没有留言记录
             </p>
