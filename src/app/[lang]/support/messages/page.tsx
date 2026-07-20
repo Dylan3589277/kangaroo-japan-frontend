@@ -204,10 +204,29 @@ async function postSellerMessages(body: Record<string, unknown>): Promise<
   }
 }
 
+// 糖果橙皮（新版小程序 webview 用 ?theme=candy 拼进 URL 换肤，老小程序不带参数=零变化）。
+// 页面固定用 Tailwind 默认 orange-* 调色板 + 品牌橙 hex(#FD7E3B/#F97E2F) + 页面底
+// #f5f7fb；这里用 [data-theme="candy"] 祖先选择器覆盖这些 utility class 编译出的
+// 固定颜色，不改任何组件结构/逻辑，老皮（无 data-theme 属性）零变化。
+// 色值：主色 #EF8632 / 深 #D96E1E / 浅底 #FFF0E0 / 页面底 #FFFBF5 / 文字墨色 #4A3426。
+const CANDY_THEME_CSS = `
+[data-theme="candy"] [class~="bg-[#f5f7fb]"] { background-color: #FFFBF5 !important; }
+[data-theme="candy"] [class~="text-[#FD7E3B]"] { color: #EF8632 !important; }
+[data-theme="candy"] [class~="text-[#F97E2F]"] { color: #D96E1E !important; }
+[data-theme="candy"] [class~="bg-[#FD7E3B]"] { background-color: #EF8632 !important; }
+[data-theme="candy"] [class~="bg-[#FD7E3B]/10"] { background-color: rgba(239, 134, 50, 0.12) !important; }
+[data-theme="candy"] .border-orange-100,
+[data-theme="candy"] .border-orange-200 { border-color: #F7CDA0 !important; }
+[data-theme="candy"] .text-orange-300 { color: #F0B27E !important; }
+[data-theme="candy"] .text-slate-900 { color: #4A3426 !important; }
+`;
+
 export default function SellerMessagesH5Page() {
   const searchParams = useSearchParams();
   const userId = getNumericH5UserId(searchParams);
   const uidSignature = getH5UidSignature(searchParams);
+  // 新版小程序换肤参数：?theme=candy。缺省/其它值一律按原皮渲染，零回归。
+  const isCandyTheme = searchParams.get("theme") === "candy";
 
   const [tasks, setTasks] = useState<VisitorTask[]>([]);
   const [page, setPage] = useState(1);
@@ -356,7 +375,11 @@ export default function SellerMessagesH5Page() {
   // ── 身份缺失：不发任何 API，只给回小程序的指引占位。 ──
   if (!userId) {
     return (
-      <main className="fixed inset-0 overflow-y-auto bg-[#f5f7fb] text-slate-900">
+      <main
+        className="fixed inset-0 overflow-y-auto bg-[#f5f7fb] text-slate-900"
+        data-theme={isCandyTheme ? "candy" : undefined}
+      >
+        {isCandyTheme ? <style>{CANDY_THEME_CSS}</style> : null}
         <header className="border-b border-orange-100 bg-white px-4 py-3">
           <div className="flex items-center gap-1.5 text-base font-semibold">
             <MessageCircle className="h-4 w-4 text-[#FD7E3B]" />
@@ -656,7 +679,11 @@ export default function SellerMessagesH5Page() {
   };
 
   return (
-    <main className="fixed inset-0 overflow-y-auto bg-[#f5f7fb] text-slate-900">
+    <main
+      className="fixed inset-0 overflow-y-auto bg-[#f5f7fb] text-slate-900"
+      data-theme={isCandyTheme ? "candy" : undefined}
+    >
+      {isCandyTheme ? <style>{CANDY_THEME_CSS}</style> : null}
       <header className="sticky top-0 z-10 border-b border-orange-100 bg-white/95 backdrop-blur">
         <div className="flex items-start justify-between px-4 pt-3">
           <div>

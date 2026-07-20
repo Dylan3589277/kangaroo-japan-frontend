@@ -628,11 +628,36 @@ function getKf53ChatUrl() {
   }
 }
 
+// 糖果橙皮（新版小程序 webview 用 ?theme=candy 拼进 URL 换肤，老小程序不带参数=零变化）。
+// 页面本身固定用 Tailwind 默认 orange-* 调色板 + 页面底 #f5f7fb；这里用
+// [data-theme="candy"] 祖先选择器覆盖这些 utility class 编译出的固定颜色，
+// 不改任何组件结构/逻辑，老皮（无 data-theme 属性）零变化。
+// 色值：主色 #EF8632 / 深 #D96E1E / 浅底 #FFF0E0 / 页面底 #FFFBF5 / 文字墨色 #4A3426。
+const CANDY_THEME_CSS = `
+[data-theme="candy"] [class~="bg-[#f5f7fb]"] { background-color: #FFFBF5 !important; }
+[data-theme="candy"] .bg-orange-500 { background-color: #EF8632 !important; }
+[data-theme="candy"] .bg-orange-500:disabled,
+[data-theme="candy"] .disabled\\:bg-orange-200:disabled { background-color: #F6CBA0 !important; }
+[data-theme="candy"] .bg-orange-50,
+[data-theme="candy"] .bg-orange-100 { background-color: #FFF0E0 !important; }
+[data-theme="candy"] .border-orange-100,
+[data-theme="candy"] .border-orange-200 { border-color: #F7CDA0 !important; }
+[data-theme="candy"] .text-orange-400,
+[data-theme="candy"] .text-orange-500,
+[data-theme="candy"] .text-orange-600,
+[data-theme="candy"] .text-orange-700 { color: #D96E1E !important; }
+[data-theme="candy"] .accent-orange-500 { accent-color: #EF8632 !important; }
+[data-theme="candy"] .focus\\:border-orange-400:focus { border-color: #EF8632 !important; }
+[data-theme="candy"] .text-slate-900 { color: #4A3426 !important; }
+`;
+
 export default function MiniProgramSupportH5Page() {
   const params = useParams<{ lang?: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = params?.lang || "zh";
+  // 新版小程序换肤参数：?theme=candy。缺省/其它值一律按原皮渲染，零回归。
+  const isCandyTheme = searchParams.get("theme") === "candy";
   const initialSessionId = searchParams.get("session_id") || undefined;
   const userId = getNumericH5UserId(searchParams);
   const uidSignature = getH5UidSignature(searchParams);
@@ -1935,7 +1960,9 @@ export default function MiniProgramSupportH5Page() {
     <main
       className="flex min-h-0 flex-col overflow-hidden bg-[#f5f7fb] text-slate-900"
       style={viewportStyle}
+      data-theme={isCandyTheme ? "candy" : undefined}
     >
+      {isCandyTheme ? <style>{CANDY_THEME_CSS}</style> : null}
       <header className="sticky top-0 z-10 border-b bg-white/95 px-4 py-3 backdrop-blur">
         <div className="text-center text-base font-semibold">袋鼠酱</div>
         <div className="mt-1 text-center text-xs text-slate-500">
