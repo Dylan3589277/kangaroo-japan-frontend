@@ -210,6 +210,7 @@ async function postSellerMessages(body: Record<string, unknown>): Promise<
 // 固定颜色，不改任何组件结构/逻辑，老皮（无 data-theme 属性）零变化。
 // 色值：主色 #EF8632 / 深 #D96E1E / 浅底 #FFF0E0 / 页面底 #FFFBF5 / 文字墨色 #4A3426。
 const CANDY_THEME_CSS = `
+main[data-theme="candy"] { background-color: #FFFBF5 !important; }
 [data-theme="candy"] .candy-scene { display: block; margin: 0 auto; width: 112px; height: 112px; border-radius: 16px; object-fit: contain; animation: candyBob 3.4s ease-in-out infinite; }
 @keyframes candyBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 [data-theme="candy"] [class~="bg-[#f5f7fb]"] { background-color: #FFFBF5 !important; }
@@ -396,7 +397,7 @@ export default function SellerMessagesH5Page() {
           >
             {isCandyTheme ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src="https://app.kangaroo-japan.com/static/scenes/message.jpg" alt="" className="candy-scene" />
+              <img src="/scenes/message.jpg" alt="" className="candy-scene" />
             ) : (
               <MessageCircle className="mx-auto h-8 w-8 text-orange-300" />
             )}
@@ -746,7 +747,7 @@ export default function SellerMessagesH5Page() {
           >
             {isCandyTheme ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src="https://app.kangaroo-japan.com/static/scenes/message.jpg" alt="" className="candy-scene" />
+              <img src="/scenes/message.jpg" alt="" className="candy-scene" />
             ) : (
               <AlertTriangle className="mx-auto h-6 w-6 text-amber-500" />
             )}
