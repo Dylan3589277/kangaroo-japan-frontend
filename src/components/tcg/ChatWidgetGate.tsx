@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "@/i18n/navigation";
+import { isEmbeddedSupportPath } from "@/lib/embedded-support-paths";
 import { TcgChatWidget } from "./TcgChatWidget";
 
 /**
@@ -10,9 +11,10 @@ import { TcgChatWidget } from "./TcgChatWidget";
  * 布局，不显示买家客服浮窗。usePathname（next-intl）返回去掉语言前缀后的路径，
  * 因此前缀判断与语言无关，zh/en 一致。
  *
- * 另：H5 在线客服页（/support/h5）本身就是一个完整的客服会话页（小程序 webview
- * 内嵌），页面里已有自己的客服 UI，再叠一个全站浮动客服入口既重复又会遮挡。故在
- * 该路径下隐藏浮窗（zh/en 都隐藏，路径已去语言前缀）。
+ * 另：H5 在线客服页（/support/h5）与留言中心页（/support/messages）本身就是完整
+ * 的独立 UI（小程序 webview 内嵌），页面里已有自己的客服/留言 UI，再叠一个全站
+ * 浮动客服入口既重复又会遮挡。故在这两个路径下隐藏浮窗（zh/en 都隐藏，路径已去
+ * 语言前缀）。共享前缀定义见 @/lib/embedded-support-paths。
  */
 const INTERNAL_PREFIXES = ["/admin", "/warehouse"];
 
@@ -22,7 +24,7 @@ export function ChatWidgetGate() {
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 
-  if (isInternal || (pathname && pathname.includes("/support/h5"))) {
+  if (isInternal || isEmbeddedSupportPath(pathname)) {
     return null;
   }
 
