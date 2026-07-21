@@ -125,3 +125,15 @@ goodsNo=...`，返回 `MercariQuote.valueAdded: { id, name, priceJpy }[]`。但�
   · 网页版保留（对 GEO 有用），但必须符合 zh 站风格。真实 /fee-compare 页本就用 SiteHeader + rose zh 风格（无需改）；问题出在预览 artifact——之前误把 topbar 套成小程序 logo（"名头用小程序的"被误解），现已换回 zh 站真实 logo（public/brand/kangaroo-logo.png，纯袋鼠图标，缩 160px 内联）。
   · 小程序版 = 糖果皮风格，另做（daishujunApp），照糖果皮设计稿 v7。
 - 🔴 教训：花哥一直说"小程序"，中枢却做在 jp-buy zh 网页 + 预览套小程序 logo，连环栽在"没跟花哥确认载体就闷头做 + 凭猜理解风格"。后续动手前先确认载体、先读真实风格。
+
+## 变更记录（追加 7）
+
+- 2026-07-21 网页版已推送上线：commit faacd22 → push origin main（fetch同步无撞车、本地 build 通过、pre-commit lint/prettier 已跑、staged 仅本功能 7 项无夹带），Vercel 自动部署。线上验证：`jp-buy.com/zh/fee-compare` 返回 200，内容关键词全中（费用透明对比 / 现免 / 挖★姬 / 乐★番 / 智能+真人客服 / 与日邮同价 / 试算器）；导航「费用说明」入口在 jp-buy.com/zh 已生效。
+
+## 变更记录（追加 8）
+
+- 2026-07-21 花哥定「网页版一并改」：
+  ① 🔴修线上虚假承诺——免费仓储 90天 → 真实 30天（硬拉 90 天日本仓压力过大，花哥运营侧否）。
+  ② 手续费、仓储移出对比表（三家都现免=都0、仓储30天不占优，比了没意义/自曝），合并成「袋鼠君亮点卡」：⭐10年代拍老店 + 代购手续费 200円限免（现0）+ 免费仓储 30天（BRAND_BADGE/HIGHLIGHTS in data，page.tsx 渲染，rose 风格非糖果粉）。
+  ③ 对比表保留 客服/砍价/拍照/运费/合并打包/纠纷售后 六项；手续费名义价对比仍在试算器。
+  网页版 = zh 站 rose 风格；build 通过、本地截图验亮点卡+对比表渲染 OK。

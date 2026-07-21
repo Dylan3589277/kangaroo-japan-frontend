@@ -14,6 +14,8 @@ import {
   COMPETITOR_B_NAME,
   COMPARE_ROWS,
   FOOTER_DISCLAIMER,
+  BRAND_BADGE,
+  HIGHLIGHTS,
 } from "./fee-compare-data";
 
 /**
@@ -41,7 +43,7 @@ export async function generateMetadata({
   const base: Metadata = {
     title: "日本代购手续费对比｜费用透明对比 - 袋鼠君",
     description:
-      "袋鼠君日本代购手续费、代留言砍价、拍照、仓储、合并打包等费用与同行对比一览，代购手续费长期 0 円，费用透明公开，附手续费试算器。",
+      "袋鼠君日本代购：10 年代拍老店，代购手续费现免、真人客服免费砍价代留言、拍照 200 円、国际运费与日本邮政同价不赚差价，费用透明公开，附手续费试算器与同行对比。",
   };
 
   if (!isIndexable(lang)) {
@@ -100,6 +102,34 @@ export default async function FeeComparePage({
       </section>
 
       <main className="mx-auto max-w-4xl px-4 py-10 sm:py-12">
+        {/* 袋鼠君亮点卡（资历 + 基础服务实价，纯我方，不与竞品比） */}
+        <div className="mb-6 rounded-2xl border-2 border-rose-200 bg-rose-50/60 p-5 shadow-sm sm:mb-8 sm:p-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-lg font-bold text-rose-700">{OUR_NAME}</span>
+            <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">
+              ⭐ {BRAND_BADGE}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {HIGHLIGHTS.map((h) => (
+              <div
+                key={h.label}
+                className="flex items-center justify-between rounded-xl bg-white px-4 py-3"
+              >
+                <span className="text-sm font-medium text-zinc-500">
+                  {h.label}
+                </span>
+                <span className="text-base font-bold text-rose-600">
+                  {h.value}
+                  {h.note ? (
+                    <span className="ml-1 text-xs font-medium">（{h.note}）</span>
+                  ) : null}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* 对比表（桌面端） */}
         <div className="hidden overflow-hidden rounded-2xl border bg-white shadow-sm md:block">
           <table className="w-full border-collapse text-left text-sm">

@@ -5,7 +5,7 @@
  * 不允许在 JSX 里散写数字。改价先改这里。
  *
  * 🔴 TODO（待老后台改价后接入）：我方数字目前是花哥拍板的目标值（手续费名义 200 円·现免 / 拍照
- * 200 円 / 仓储 90 天），不是老后台 st_value_added 的当前实际值（旧值仍是 100 円等）。
+ * 200 円 / 仓储 30 天真实值），不是老后台 st_value_added 的当前实际值（旧值仍是 100 円等）。
  * 本页第一版刻意不接 `api.getMercariQuote()`（该接口是"按 goodsNo 查询单件报价"，
  * 会把增值服务价随手带出来，但没有一个"查当前费用表"的通用端点，且旧值会把目标值
  * 覆盖掉）。等运营在老后台把 st_value_added 改到目标价后，再考虑要不要把本页 our.*
@@ -20,6 +20,18 @@
 export const COMPETITOR_A_NAME = "挖★姬";
 export const COMPETITOR_B_NAME = "乐★番";
 export const OUR_NAME = "袋鼠君";
+
+/**
+ * 袋鼠君亮点卡（资历 + 基础服务实价，纯我方展示，不与竞品比）。
+ * 缘由（花哥 2026-07-21）：代购手续费三家都现免（都 0）、免费仓储我方真实 30 天（不硬拉 90，
+ * 免得日本仓压力过大；且 30 天不占优），这两项拿去和竞品比是硬凑、没意义——改成只讲自己的
+ * 资历（10 年代拍老店）和实价。
+ */
+export const BRAND_BADGE = "10年代拍老店";
+export const HIGHLIGHTS: { label: string; value: string; note?: string }[] = [
+  { label: "代购手续费", value: "200円 限免", note: "现 0" },
+  { label: "免费仓储", value: "30天" },
+];
 
 export interface CompareRow {
   /** 对比维度标题 */
@@ -39,18 +51,9 @@ export interface CompareRow {
   source: string;
 }
 
+// 注：代购手续费、免费仓储两项已移出对比表 → BRAND_BADGE/HIGHLIGHTS 亮点卡（见上），
+// 手续费名义价对比仍在下方试算器。
 export const COMPARE_ROWS: CompareRow[] = [
-  {
-    label: "代购手续费",
-    // 对比表只显示「现免」当前状态，不写具体名义价——名义价对比交给试算器，
-    // 避免对比表(如乐★番"200円起")与试算器(同价10000円算出300)出现同一家两个数字打架。
-    ours: "现免",
-    competitorA: "现免",
-    competitorASub: "限时活动",
-    competitorB: "现免",
-    competitorBSub: "公测期",
-    source: "花哥拍板：名义 200 円、现免（口径与友商对齐，保留调价灵活性，不承诺永久）；试算器实收按 0 计（见 calculateFees.ours）；友商价格采集自其官网公开费用页，2026-07-21。",
-  },
   {
     label: "客服方式",
     ours: "智能+真人客服",
@@ -81,14 +84,6 @@ export const COMPARE_ROWS: CompareRow[] = [
     competitorB: "日本邮政标准价",
     footnote: "* EMS 为日本邮政统一费率，各家一致；我方不加价、不赚运费差。",
     source: "中枢 curl 生产 API 核验：我方 EMS 逐档与挖★姬完全相同（0.5kg 1450／5kg 6400），日邮统一价；乐★番同为日邮价（推断，未逐档采集）。2026-07-21。",
-  },
-  {
-    label: "免费仓储",
-    ours: "90天·合单后不缩水*",
-    competitorA: "90天（合单后仅15天）",
-    competitorB: "30天",
-    footnote: "* 合单后仓储天数以最终公示为准，我方合单政策待运营确认。",
-    source: "花哥拍板目标值 90 天，合单后是否缩水待运营最终确认；友商采集自官网，2026-07-21。",
   },
   {
     label: "合并打包",
