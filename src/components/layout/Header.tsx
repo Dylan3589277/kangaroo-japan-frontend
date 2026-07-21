@@ -89,6 +89,7 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
     { key: "home", href: "/", label: t("nav.home") },
     { key: "cart", href: "/cart", label: t("nav.cart") },
     { key: "compare", href: "/compare", label: t("home.priceCompare") },
+    { key: "feeCompare", href: "/fee-compare", label: t("nav.feeCompare") },
   ];
 
   const getAuthNav = () => {
