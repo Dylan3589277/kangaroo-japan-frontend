@@ -41,6 +41,12 @@ type VisitorTask = {
   created_at?: string;
   sent_at?: string;
   reply_detected_at?: string;
+  // 竞买队列骨架（P1）：仅当本客户是排队/去重参与者时非空。
+  queue_rank?: number;
+  // negotiator/queued/watcher，后端已透传（对抗审查修复），本页只统一渲染
+  // queue_state_text 徽章，不按 role/rank 再分支。
+  queue_role?: string;
+  queue_state_text?: string;
 };
 
 type DetailState = {
@@ -147,6 +153,9 @@ function parseTask(value: unknown): VisitorTask | null {
     created_at: getString(record.created_at),
     sent_at: getString(record.sent_at),
     reply_detected_at: getString(record.reply_detected_at),
+    queue_rank: getNumber(record.queue_rank),
+    queue_role: getString(record.queue_role),
+    queue_state_text: getString(record.queue_state_text),
   };
 }
 
@@ -465,6 +474,19 @@ export default function SellerMessagesH5Page() {
         {task.goods_no ? (
           <div className="mt-1.5 text-xs text-slate-500">
             商品编号：{task.goods_no}
+          </div>
+        ) : null}
+
+        {/* 竞买队列徽章（P1 静态排位展示，无倒计时）：统一渲染后端下发的 queue_state_text
+            ——它已经按角色分好文案（negotiator="已为您发出，等待卖家回复"、
+            queued="已为您加入该商品的讲价队列（当前第 N 位）"、watcher="该问题已有顾客问过…"），
+            前端不再按 queue_rank 猜测角色（曾把 rank=1 的 negotiator 误标成"排队中·第 1 位"）。 */}
+        {task.queue_state_text ? (
+          <div
+            className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-[#F97E2F]"
+            data-testid={`seller-messages-queue-${key}`}
+          >
+            {task.queue_state_text}
           </div>
         ) : null}
 
