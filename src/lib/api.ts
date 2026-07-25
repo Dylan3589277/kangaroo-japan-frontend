@@ -16,6 +16,12 @@ interface ApiOptions {
   body?: any;
   headers?: Record<string, string>;
   credentials?: RequestCredentials;
+  /**
+   * 401 且刷新 token 失败时，不要把用户强制跳到登录页，只返回 UNAUTHORIZED 让调用方自己降级。
+   * 用于「登录了更好、没登录也得能看」的接口（如商品详情页的报价）——默认行为仍是跳登录。
+   * 注意：token 刷新照常尝试，所以已登录但 token 过期的用户不受影响，仍会自动续期并重试。
+   */
+  skipAuthRedirect?: boolean;
 }
 
 interface ApiResponse<T = any> {
@@ -1370,7 +1376,14 @@ class ApiClient {
   }
 
   // Response interceptor: attempt token refresh, then retry or redirect to login
-  private async handleUnauthorized(): Promise<string | null> {
+  /**
+   * 401 处理：先尝试用 refresh cookie 换新 token；换不到才登出。
+   * @param redirectOnFailure 换不到 token 时是否强制跳登录页。默认 true；
+   *   传 false 的调用方（见 ApiOptions.skipAuthRedirect）自行降级，页面不被踢走。
+   */
+  private async handleUnauthorized(
+    redirectOnFailure = true,
+  ): Promise<string | null> {
     if (this.isRefreshing) {
       return new Promise((resolve) => {
         this.refreshQueue.push(resolve);
@@ -1408,11 +1421,15 @@ class ApiClient {
     this.refreshQueue.forEach((resolve) => resolve(newToken));
     this.refreshQueue = [];
 
-    if (!newToken && typeof window !== "undefined") {
+    if (!newToken && redirectOnFailure && typeof window !== "undefined") {
       const { useAuthStore } = await import("@/lib/auth");
       useAuthStore.getState().logout();
       const pathParts = window.location.pathname.split("/");
-      const lang = ["zh", "en", "ja"].includes(pathParts[1])
+      // 与 src/i18n/routing.ts 的 locales 保持一致（改那边记得同步这里）。
+      // 原来只列 zh/en/ja，ko/th/id/vi 的用户会被踢到中文登录页。
+      const lang = ["zh", "en", "ko", "th", "id", "vi", "ja"].includes(
+        pathParts[1],
+      )
         ? pathParts[1]
         : "zh";
       window.location.href = `/${lang}/login`;
@@ -1430,6 +1447,7 @@ class ApiClient {
       body,
       headers = {},
       credentials = "include",
+      skipAuthRedirect = false,
     } = options;
 
     // Request interceptor: attach Authorization header
@@ -1441,7 +1459,7 @@ class ApiClient {
 
       // Response interceptor: handle 401 Unauthorized
       if (response.status === 401 && !endpoint.startsWith("/auth/")) {
-        const newToken = await this.handleUnauthorized();
+        const newToken = await this.handleUnauthorized(!skipAuthRedirect);
         if (!newToken) {
           return {
             success: false,
@@ -1890,10 +1908,20 @@ class ApiClient {
   // 经 /api/backend 代理 → 后端 GET /api/v1/mercari/quote?goodsNo=...，JWT 自动带。
   // opts.tcg=true 仅 TCG（en）结算页传：才启用后台手续费/拍照费覆盖 + 返美元；
   // 中文结算页不传（默认），走旧端动态价，零影响（铁规：TCG 费用不影响中文用户）。
-  async getMercariQuote(goodsNo: string, opts?: { tcg?: boolean }) {
+  /**
+   * @param opts.skipAuthRedirect 未登录时不跳登录页，只返回失败让调用方降级。
+   *   **只有 en TCG 详情页传 true**（该页对游客开放，detail 端点本就免登录，
+   *   调用方写好了 feeJpy=null → 展示「结算时计算」的降级）。
+   *   zh 经典详情页与结账页不传——它们的未登录跳登录行为保持原样。
+   */
+  async getMercariQuote(
+    goodsNo: string,
+    opts?: { tcg?: boolean; skipAuthRedirect?: boolean },
+  ) {
     const tcgQuery = opts?.tcg ? "&tcg=true" : "";
     return this.request<MercariQuote>(
       `/mercari/quote?goodsNo=${encodeURIComponent(goodsNo)}${tcgQuery}`,
+      { skipAuthRedirect: opts?.skipAuthRedirect ?? false },
     );
   }
 

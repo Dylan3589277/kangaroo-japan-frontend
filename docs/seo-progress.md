@@ -85,3 +85,31 @@ Accept-Language中间件
 **验证**：`npm run lint` + `npm run build` 通过；本地 dev 逐页复核 en 首页/关税文/`/en/cards` 渲染。**未推生产**，等花哥明确「推」。
 
 **🔴 剩余未办（本轮范围外，见会话报告完整清单）**：商品详情页强制登录且服务端零内容（P0，最值钱）、无 PayPal/Apple Pay、页脚缺 Privacy Policy/Terms/公司主体、无到手价计算器、`/en/products` 与 `/en/amazon` 页面本身仍是未改版空壳（本轮只摘了 sitemap）、`/en/yahoo` 分类侧栏中文泄漏 + 商品图裂 + Unix 时间戳直显、四个平台页共用首页 title、品牌 JP-Buy/Kangaroo Japan 分裂。
+
+## 变更记录 2026-07-25(2) · en 商品详情页对游客开放（拆登录墙，P0）（中枢 Claude，待推）
+
+**为什么**：体检 P0 —— 游客点开任一商品详情（`/en/mercari/mXXX`）会被弹到 `/en/login`，从 Google/搜索进来的人一秒跳走，转化与 SEO 双杀。
+
+**根因（浏览器 network 实测，连测三次一致）**：详情页加载时并发两个请求——`POST /integrations/mercari/detail` 未登录返 **201（商品信息本就免登录）**，`GET /mercari/quote` 返 **401**。后者命中 `api.ts` 的全局 401 拦截器 → `handleUnauthorized()` 刷新失败 → `window.location.href = /{lang}/login`。**不是有意加的登录墙，是一个报价请求把整页带走了**。而 `MercariDetailDesignA` 本来就写好了降级（`feeJpy=null` → 展示「结算时计算」），只是全局跳转抢在它前面执行，那段代码从来没机会跑。
+
+**改了什么**：
+
+- `ApiOptions` 新增 `skipAuthRedirect?: boolean`；`handleUnauthorized(redirectOnFailure = true)`；`request()` 把 `!skipAuthRedirect` 传下去。**token 刷新照常尝试**——已登录但 token 过期的用户仍自动续期并重试，只跳过「刷新失败后强制跳登录」那一步。
+- `getMercariQuote(goodsNo, opts)` 增加 `opts.skipAuthRedirect`，**默认 false**；**只有 `MercariDetailDesignA`（en TCG 详情页）传 true**。
+  🔴 **中途修正**：最初把豁免写死在 `getMercariQuote` 内部，但该函数有 **3 个调用点**——en 详情页、**zh 经典详情页 `MercariDetailClassic:106`**、**结账页 `mercari-checkout:127`**。那样等于把中文站详情页和结账页的登录守卫一起拆了（违反「en 改动不影响中文用户」铁规）。已改为由调用方传入，只豁免 en 详情页。
+- 顺带修 `handleUnauthorized` 的 locale 判断：原来只列 `["zh","en","ja"]`，**ko/th/id/vi 用户 401 后被踢到中文登录页**；改为与 `src/i18n/routing.ts` 的 7 个 locale 一致。
+
+**验证（本地 dev 实测）**：
+
+| 场景                        | 期望                     | 实测                                                                                                             |
+| --------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| 游客访问 `/en/mercari/mXXX` | 停留、可见商品           | ✅ 停留，渲染出图片/`ITEM PRICE JPY 777 ≈ $5.21 USD`/Add to Cart/Buy Now，报价区降级为「Calculated at checkout」 |
+| 游客访问 `/zh/mercari/mXXX` | **仍跳登录**（行为不变） | ✅ → `/zh/login`                                                                                                 |
+| 游客访问 `/en/orders`       | 仍跳登录                 | ✅ → `/en/login`                                                                                                 |
+| 游客访问 `/zh/orders`       | 仍跳登录                 | ✅ → `/zh/login`                                                                                                 |
+
+`npm run lint` 0 errors + `npm run build` 通过。
+
+**已知代价 / 未验**：①游客每次进详情页会多打一次注定失败的 `/auth/refresh`（保留 token 刷新的副作用，不影响功能；要省这次请求可在 `handleUnauthorized` 开头对「无本地 token」直接返回 null）②**已登录用户路径未实测**（中枢不代注册/登录），仅靠读码保证：token 有效则 quote 200 不进 401 分支，token 过期则照常刷新重试。
+
+**🔴 下一步（P0 的另一半，未做）**：详情页仍是 client component，服务端只吐 853 字符空壳，Google 抓不到商品内容。要 SEO 收录需把详情取数搬到 server component 预取 + Product JSON-LD，属独立一批。

@@ -124,7 +124,13 @@ export function MercariDetailDesignA() {
     const fetchFee = async () => {
       try {
         // 本组件仅 en（TCG）渲染，传 tcg=true 才返 amountUsd/priceUsd（含手续费美元）。
-        const res = await api.getMercariQuote(id, { tcg: true });
+        // skipAuthRedirect：本页对游客开放（detail 端点免登录），报价 401 不该把人踢走，
+        // 让下面的降级分支（feeJpy=null → 「结算时计算」）有机会执行。
+        // 仅本页豁免；zh 经典详情页与结账页不传，跳登录行为保持原样。
+        const res = await api.getMercariQuote(id, {
+          tcg: true,
+          skipAuthRedirect: true,
+        });
         if (!active) return;
         if (res.success && res.data && typeof res.data.feeJpy === "number") {
           setFeeJpy(res.data.feeJpy);
