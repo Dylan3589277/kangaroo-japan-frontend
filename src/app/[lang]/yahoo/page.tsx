@@ -37,8 +37,18 @@ export default async function YahooPage({
       ? EN_DEFAULT_TCG_KEYWORD
       : requestedKeyword;
 
+  // en 挂 .tcg-surface（见 globals.css）：重定义 shadcn 的 --background/--card/--muted
+  // 等变量，让这棵子树跟整站 TCG 深色壳一致，而共用组件与中文站一行都不用改。
+  const isEn = lang === "en";
+
   return (
-    <div className="min-h-screen bg-muted/20">
+    <div
+      className={
+        isEn
+          ? "tcg-surface min-h-screen bg-background text-foreground"
+          : "min-h-screen bg-muted/20"
+      }
+    >
       <YahooSearchPage
         locale={lang}
         initialKeyword={initialKeyword}

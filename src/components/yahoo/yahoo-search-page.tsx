@@ -200,6 +200,17 @@ export function YahooSearchPage({
     void loadPage(1, false, requestVersion);
   };
 
+  // 强调色按站点分流：中文站保持原有橙色，英文站换成 TCG 深色壳的电光青。
+  // （底色/边框/次要文字由外层 .tcg-surface 重定义 shadcn 变量统一接管。）
+  const isEn = locale === "en";
+  const accentButtonClass = isEn
+    ? "bg-cyan-400 text-[#06121b] hover:bg-cyan-300"
+    : "bg-orange-600 text-white hover:bg-orange-700";
+  const accentActiveClass = isEn
+    ? "bg-cyan-400/10 font-medium text-cyan-300"
+    : "bg-orange-50 font-medium text-orange-700 dark:bg-orange-950/40 dark:text-orange-400";
+  const accentPriceClass = isEn ? "text-cyan-300" : "text-orange-600";
+
   const numberFormatter = new Intl.NumberFormat(locale);
 
   return (
@@ -227,7 +238,7 @@ export function YahooSearchPage({
         </div>
         <Button
           type="submit"
-          className="h-10 rounded-full bg-orange-600 px-5 text-white hover:bg-orange-700"
+          className={`h-10 rounded-full px-5 ${accentButtonClass}`}
         >
           {t("searchButton")}
         </Button>
@@ -318,7 +329,7 @@ export function YahooSearchPage({
                   onClick={() => setCategory("")}
                   className={`flex w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                     category === ""
-                      ? "bg-orange-50 font-medium text-orange-700 dark:bg-orange-950/40 dark:text-orange-400"
+                      ? accentActiveClass
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
@@ -332,7 +343,7 @@ export function YahooSearchPage({
                     onClick={() => setCategory(option.value)}
                     className={`flex w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                       category === option.value
-                        ? "bg-orange-50 font-medium text-orange-700 dark:bg-orange-950/40 dark:text-orange-400"
+                        ? accentActiveClass
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
@@ -424,7 +435,7 @@ export function YahooSearchPage({
                             </span>
                           )}
                           <p className="mt-auto flex flex-wrap items-baseline gap-x-2 pt-2">
-                            <span className="text-lg font-bold tabular-nums text-orange-600">
+                            <span className={`text-lg font-bold tabular-nums ${accentPriceClass}`}>
                               {item.currentPrice === undefined
                                 ? t("priceUnavailable")
                                 : `JPY ${numberFormatter.format(item.currentPrice)}`}

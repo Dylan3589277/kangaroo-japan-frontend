@@ -231,3 +231,20 @@ Azure 拒绝凭证。`AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` 在前�
 **验证（本地 dev 实测）**：`/en/privacy` 正文 4076 字符、`/en/terms` 4466 字符，均含公司主体与许可号；`/en/amazon` title「Amazon Japan — coming soon」+ noindex；en 页脚出现 `href="/en/privacy">Privacy Policy` 与 `href="/en/terms">Terms of Service`，版权为 `© 2026 Kangaroo Japan`；`/en/yahoo` 搜索框预填「ポケモンカード」，结果页 TCG 关键词命中 137 次、汽配/杂物类 0 次。tsc 0 errors + lint 0 errors + build 通过。
 
 **待花哥确认**：法律页的公司信息是我从官网截图人工誊录的，**上线前请你核一眼地址与电话是否仍然现行**；代表者姓名官网没有，如需列入请提供。
+
+## 变更记录 2026-07-25(8) · /en/yahoo 配色并入 TCG 深色壳（待推）
+
+**为什么**：上一批把该页内容改成 TCG 专用后，视觉仍是浅色 + 橙色的通用模板，与整站深色 TCG 壳（`#0a0e16` + 电光青）割裂——从首页点进去像换了个网站。
+
+**难点**：`yahoo-search-page.tsx`（535 行）是 **en 与中文站共用**，大量 shadcn 语义色（`bg-card`/`bg-muted`/`text-muted-foreground`）。直接改颜色会把中文站一起改深；复制一份深色组件又要长期同步两份逻辑。
+
+**做法**：分两层，改动都很小。
+
+1. `globals.css` 新增 `.tcg-surface`：在这个类的子树里重定义 shadcn 的 `--background` / `--card` / `--muted` / `--border` / `--primary` 等变量为 TCG 深色调。语义色本就走变量，**整棵子树自动变深，共用组件与中文站一行不用改**。
+2. 硬编码的橙色（Search 按钮、分类选中态 ×2、价格）不走变量，故在组件内按 `locale` 分流：en 用电光青，中文站保持原橙色。
+
+`/en/yahoo` 的 wrapper 挂 `.tcg-surface`，中文站维持 `bg-muted/20`。
+
+**验证（本地 dev 实测）**：`/en/yahoo` 深色底、青色 Search 按钮、青色价格、分类选中青色高亮，与 header 深色壳连贯，商品全为宝可梦卡；`/zh/yahoo` 浅色底、橙色按钮与价格、中文分类名、全站浏览——**与改动前完全一致**。tsc 0 errors + build 通过。
+
+**附带印证**：中文站截图里雅虎商品图正常显示，再次确认此前撤回的「yahoo 图全裂」判断不成立（是懒加载时序）。

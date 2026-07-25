@@ -7,7 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter), var(--font-noto-sans-sc), var(--font-noto-sans-jp), var(--font-noto-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans:
+    var(--font-inter), var(--font-noto-sans-sc), var(--font-noto-sans-jp),
+    var(--font-noto-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -127,4 +129,34 @@
   html {
     @apply font-sans;
   }
+}
+/*
+ * en（TCG）深色皮肤：只作用于挂了这个类的子树。
+ *
+ * 为什么用 CSS 变量而不是逐个改组件的 class：/en/yahoo 与中文站共用
+ * yahoo-search-page.tsx（535 行、大量 shadcn 语义色 bg-card / bg-muted /
+ * text-muted-foreground）。直接改颜色会把中文站一起改深，而复制一份深色组件
+ * 又要长期同步两份逻辑。shadcn 的语义色本就走 CSS 变量，在外层重定义即可让整棵
+ * 子树变深，中文站一行不动。
+ *
+ * 取值对齐 TCG 深色壳（guide-shell / 详情页设计 A）：墨蓝近黑底 + 电光青强调。
+ */
+.tcg-surface {
+  --background: #0a0e16;
+  --foreground: #e2e8f0; /* slate-200 */
+  --card: #121722;
+  --card-foreground: #e2e8f0;
+  --popover: #121722;
+  --popover-foreground: #e2e8f0;
+  --primary: #22d3ee; /* cyan-400 */
+  --primary-foreground: #06121b;
+  --secondary: #1a2030;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1a2030;
+  --muted-foreground: #94a3b8; /* slate-400 */
+  --accent: #1a2030;
+  --accent-foreground: #e2e8f0;
+  --border: #1e2637;
+  --input: #232c40;
+  --ring: #22d3ee;
 }
