@@ -20,6 +20,8 @@ import { ImageLightbox } from "@/components/tcg/ImageLightbox";
 import { TcgInfoBar } from "@/components/tcg/TcgInfoBar";
 import { useChatLauncher } from "@/components/tcg/ChatProvider";
 import { MessageCircle } from "lucide-react";
+// 类型单一来源在数据层（服务端取数与本组件共用同一份形状）；type-only 引用编译期擦除。
+import type { MercariDetail } from "@/lib/server/mercari-detail";
 
 /**
  * 设计 A（深色高级感）英文 Mercari 商品详情页。
@@ -33,39 +35,17 @@ import { MessageCircle } from "lucide-react";
  * 不改任何业务逻辑、不碰后端/支付/中文其它语言渲染。
  */
 
-interface MercariDetail {
-  goods_no: string;
-  goods_name: string;
-  price: number;
-  // 单品美元价（= 商品价 × 后台 USD 汇率，不含手续费；后端 mdetail 公开附加字段，
-  // 未登录访客也有）。汇率不可用/无价时后端不返回 → 可空。ITEM PRICE 优先用它。
-  price_usd?: number;
-  price_rmb: number;
-  rate: number;
-  description: string;
-  imgurls: string[];
-  content: string;
-  status: string;
-  url: string;
-  collect: boolean;
-  cart: boolean;
-  seller_info: {
-    id: string;
-    name: string;
-    photo_url: string;
-    score: number;
-    num_sell_items: number;
-    num_ratings?: number;
-    // 评价分项 + 本人认证标记（后端 mdetail 透传）；用于卖家页头部 + 认证徽章。可空。
-    ratings?: { good?: number; normal?: number; bad?: number };
-    register_sms_confirmation?: string;
-  };
-  extras: { name: string; value: string }[];
-  bid_count?: number;
-  remain_time?: string;
-}
-
-export function MercariDetailDesignA() {
+/**
+ * @param initialDetail 服务端预取的详情（见 lib/server/mercari-detail.ts）。
+ *   传了就直接作为首屏内容，SSR 出的 HTML 里有真实商品数据（SEO 需要），
+ *   同时省掉首屏 loading。取数失败时为 null，退回原来的纯客户端渲染路径。
+ *   用户相关状态（collect / cart）服务端拿不到，仍由下面的 fetchDetail 补齐。
+ */
+export function MercariDetailDesignA({
+  initialDetail = null,
+}: {
+  initialDetail?: MercariDetail | null;
+} = {}) {
   const params = useParams();
   const router = useRouter();
   const lang = (params.lang as string) || "en";
@@ -73,8 +53,9 @@ export function MercariDetailDesignA() {
   const t = useTranslations("mercari");
   const { openWithProduct } = useChatLauncher();
 
-  const [detail, setDetail] = useState<MercariDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState<MercariDetail | null>(initialDetail);
+  // 有服务端预取内容就不进 loading 态：首屏直接是商品，不闪骨架屏。
+  const [loading, setLoading] = useState(!initialDetail);
   // 动态手续费（来自后端 quote → 旧 proxyconfirm，随后台/会员等级实时变）。
   // 未登录/报价失败时为 null：只展示商品价 + 「结算时计算」，绝不显示写死的固定值。
   const [feeJpy, setFeeJpy] = useState<number | null>(null);
@@ -97,7 +78,9 @@ export function MercariDetailDesignA() {
     let active = true;
 
     const fetchDetail = async () => {
-      setLoading(true);
+      // 已有服务端预取内容时不回到 loading 态——这次请求只为补 collect / cart
+      // 等用户相关状态，不该把已经渲染出来的商品又换成骨架屏。
+      if (!initialDetail) setLoading(true);
       try {
         const res = await api.request(`/integrations/mercari/detail`, {
           method: "POST",

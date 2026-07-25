@@ -113,3 +113,36 @@ Accept-Language中间件
 **已知代价 / 未验**：①游客每次进详情页会多打一次注定失败的 `/auth/refresh`（保留 token 刷新的副作用，不影响功能；要省这次请求可在 `handleUnauthorized` 开头对「无本地 token」直接返回 null）②**已登录用户路径未实测**（中枢不代注册/登录），仅靠读码保证：token 有效则 quote 200 不进 401 分支，token 过期则照常刷新重试。
 
 **🔴 下一步（P0 的另一半，未做）**：详情页仍是 client component，服务端只吐 853 字符空壳，Google 抓不到商品内容。要 SEO 收录需把详情取数搬到 server component 预取 + Product JSON-LD，属独立一批。
+
+## 变更记录 2026-07-25(3) · en 商品详情页 SSR + Product JSON-LD（P0 下半）（中枢 Claude，待推）
+
+**为什么**：拆掉登录墙解决了「人能看」，但 Google 那边仍然一无所获——详情页正文是 client component，服务端只吐约 **853 字符**空壳，零卡名零价格，title 还是首页通用标题。长尾卡名搜索永远进不来。
+
+**改了什么**：
+
+- 新增 `src/lib/server/mercari-detail.ts`：服务端直连后端 `POST {BACKEND_ORIGIN}/api/v1/integrations/mercari/detail`（**该端点未登录可取，生产实测 `success:true`**，故不带任何凭证）。缓存走旧模型 `next: { revalidate: 300 }`（本项目未启用 `cacheComponents`）。**取数失败一律返回 null，绝不把整页打成 500**——拿不到就退回原来的纯客户端渲染。丢弃后端返回的 `raw` 字段（Mercari 原始响应，体积大且页面用不到，否则会被序列化进 HTML）。`MercariDetail` 类型移到这里作单一来源，组件改为 `import type`。
+- `[id]/page.tsx`：新增 `generateMetadata`（真实卡名进 title/description/OG image，售罄与在售两套文案）+ **Product JSON-LD**（价格 JPY 整数、`InStock`/`OutOfStock`）+ 服务端预取结果作 `initialDetail` 传给正文组件。
+- `MercariDetailDesignA`：接受可选 `initialDetail`，作为 `detail` 初始值、`loading` 初始为 `!initialDetail`；`fetchDetail` 在已有预取内容时不再回到 loading 态（那次请求只为补 `collect`/`cart` 用户态，不该把已渲染的商品换回骨架屏）。
+- 🔴 **边界**：以上全部**只对 `lang === "en"`** 生效。其它语言分支仍是原样 `return <MercariDetailClassic />`——不预取、不出 metadata、不加 JSON-LD。
+
+**踩到的坑**：根 layout 的 `titleTemplate` 是 `%s | Kangaroo Japan`，页面 title 里再写一遍品牌会渲染成「… – Kangaroo Japan | Kangaroo Japan」。现在页面 title 不带品牌（交给 template），`og:title` 不走 template 故单独带上。
+
+**验证（本地 dev 实测）**：
+
+| 项                              | 改动前                     | 改动后                                                                                                              |
+| ------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| en 详情页服务端正文             | **853 字符**、无卡名无价格 | **2100 字符**，含卡名 + `777`                                                                                       |
+| en `<title>`                    | 首页通用标题               | `ミネズミ AR SV11W ホワイトフレア 151/086 \| Buy from Japan \| Kangaroo Japan`                                      |
+| en `og:title` / `og:image`      | 无                         | 有（含品牌）/ 商品首图                                                                                              |
+| en `description`                | 无                         | `Buy … from Japan for ¥777. We buy it in Japan on your behalf…`                                                     |
+| Product JSON-LD                 | 无                         | 有（sku/image/price 777 JPY/InStock）                                                                               |
+| **zh 详情页 title**             | 站点默认                   | **站点默认（未变）**                                                                                                |
+| **zh 详情页含商品名 / JSON-LD** | 无                         | **无（未变）**                                                                                                      |
+| **zh 详情页服务端正文**         | 空壳                       | **256 字符空壳（未变）**                                                                                            |
+| **zh 详情页游客访问**           | 跳 `/zh/login`             | **仍跳 `/zh/login`**                                                                                                |
+| 浏览器 console                  | —                          | **无 hydration mismatch**                                                                                           |
+| en 游客页面功能                 | —                          | 停留、卡图/JPY 777 ≈ $5.21 USD/TCG DETAILS/Add to Cart/Buy Now 全在，Service Fee 仍降级为「Calculated at checkout」 |
+
+`npx tsc --noEmit` 0 errors + `npm run lint` 0 errors + `npm run build` 通过（路由为 `ƒ` 按需服务端渲染）。
+
+**已知不足 / 下一步**：①卡名是**日文原名**——型号（SV11W、151/086）是美国买家的真实搜索词所以有价值，但纯日文 title 对英文用户不友好，翻译是独立一块（站上已有 Azure 翻译能力，用于 zh）②zh 详情页同样没有 metadata，本次按边界纪律**刻意没碰**，要不要一并做由花哥定 ③售罄商品仍 index（JSON-LD 报 OutOfStock），暂不加 noindex。
