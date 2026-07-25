@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LandedCostCalculator } from "@/components/tcg/LandedCostCalculator";
+import { fetchTcgPricingBasis } from "@/lib/server/exchange-rates";
 import { getTranslations } from "next-intl/server";
 import {
   buildAlternates,
@@ -76,6 +78,9 @@ export default async function FeesPage({
 }) {
   const { lang } = await params;
   const t = await getTranslations({ locale: lang, namespace: "fees" });
+  // 到手价试算只给 en（美国买家对 landed cost 敏感；zh 侧计价体系在老后台，口径不同）。
+  // 取不到费率就不渲染试算器——宁可没有，也不给错数字。
+  const pricingBasis = lang === "en" ? await fetchTcgPricingBasis() : null;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -281,7 +286,30 @@ export default async function FeesPage({
           <p className="mt-4 text-xs leading-relaxed text-zinc-500">
             {t("comparison.footnote")}
           </p>
+          {/*
+            本表按首字母匿名，而 /en/guides 的对比长文是点名的（Buyee / ZenMarket）——
+            同站两套口径，买家看到 K/B/Z 也无从判断。这里给一条出口：想看具体是谁、
+            怎么比的，就去那篇。匿名表本身不动，避免把点名比较搬到定价页上。
+          */}
+          <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+            <Link
+              href={`/${lang}/guides/kangaroo-japan-vs-buyee-vs-zenmarket`}
+              className="text-cyan-300 underline-offset-4 hover:text-cyan-200 hover:underline"
+            >
+              See the named, side-by-side comparison with Buyee and ZenMarket →
+            </Link>
+          </p>
         </section>
+
+        {/* 到手价试算（仅 en，且拿到真实费率才渲染） */}
+        {pricingBasis && (
+          <section className="mt-10">
+            <LandedCostCalculator
+              jpyToUsd={pricingBasis.jpyToUsd}
+              serviceFeeJpy={pricingBasis.serviceFeeJpy}
+            />
+          </section>
+        )}
 
         {/* U.S. customs note (P0) */}
         <section className="mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-6 sm:p-8">

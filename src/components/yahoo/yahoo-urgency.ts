@@ -49,6 +49,45 @@ export function urgencyFromRemainingText(
   return "normal";
 }
 
+/**
+ * 列表接口的 `remaining` 有时给的是**绝对结束时间的 Unix 秒**（如 "1784950961"），
+ * 而不是已经排版好的「剩余 2 天」。原样渲染就会把一串裸时间戳摆在卡片上（线上实测
+ * en 列表 4 张卡片全显示 1784950961）。
+ *
+ * 这里把这种情况转成固定 JST 的绝对结束时间（「Ends Jul 27, 14:22 JST」）：
+ * - 绝对时间**不依赖"现在几点"**，服务端与客户端渲染结果一致，不会触发 hydration 不匹配
+ *   （倒计时式的「还剩 X」做不到这点，除非改成纯客户端计算）。
+ * - 时区固定东京：雅虎拍卖按日本时间结束，也避免两端时区不同导致的文案漂移。
+ *
+ * 非时间戳（后端已给好文本）原样返回；空值返回 undefined 交给调用方兜底。
+ */
+export function formatRemainingLabel(
+  remaining: string | undefined,
+): string | undefined {
+  if (!remaining) return undefined;
+
+  const trimmed = remaining.trim();
+  // 只认 9–11 位纯数字（秒级 Unix）；毫秒级或带单位的文本都不在此列。
+  if (!/^\d{9,11}$/.test(trimmed)) return remaining;
+
+  const seconds = Number(trimmed);
+  if (!Number.isFinite(seconds) || seconds <= 0) return remaining;
+
+  try {
+    const formatted = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Tokyo",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(seconds * 1000));
+    return `Ends ${formatted} JST`;
+  } catch {
+    return remaining;
+  }
+}
+
 /** Tailwind classes for the remaining-time pill, by urgency tier. */
 export const URGENCY_PILL_CLASS: Record<UrgencyLevel, string> = {
   normal: "bg-muted text-muted-foreground",

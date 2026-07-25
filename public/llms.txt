@@ -4,7 +4,7 @@
 
 Key facts (estimates; exact totals shown at checkout):
 - Sources: Mercari Japan and Yahoo! Auctions are live; Amazon Japan and Surugaya are not yet available on the English site.
-- Proxy service fee: from ~300–350 JPY per item (estimated).
+- Proxy service fee: from ~400 JPY per item (estimated; set in admin, see /en/fees for the live figure).
 - Japan domestic shipping: from ~300 JPY per item (estimated), varies by seller.
 - International shipping: by actual weight/dimensions/destination; consolidation of multiple orders into one parcel is supported and recommended.
 - TCG-safe packing: sleeve + toploader + rigid mailer; reinforced boxes for graded slabs.

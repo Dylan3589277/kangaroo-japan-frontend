@@ -191,3 +191,25 @@ Azure 拒绝凭证。`AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` 在前�
 **当前线上状态：安全**。翻译不可用时完整降级为纯日文页面 = (3) 那版已上线的行为；SSR 正文 2100 字符、Product JSON-LD、价格、游客可浏览全部不受影响。401 是快速返回（非超时），对首屏延迟影响可忽略。
 
 **key 修好后无需改代码**：失败不再被缓存，下一次请求即自动重试并生效。若长期不修，可考虑加 env 开关避免每次请求白打一次 Azure。
+
+## 变更记录 2026-07-25(6) · en 体检清单第 5/6/7 条（中枢 Claude，待推）
+
+**第 5 条 · 到手价试算**（`/en/fees` 底部，新增 `components/tcg/LandedCostCalculator.tsx`）
+
+- 费率**取真实值不写死**：新增 `lib/server/exchange-rates.ts` 从公开 `/api/v1/exchange-rates` 取 `jpyToUsd` 与 `tcgServiceFeeJpy`（后台可调，`source: admin_override`）；取不到就**不渲染试算器**——宁可没有，也不给错数字。
+- 🔴 **只算能算准的**：商品价、日本国内运费、代购费、12.5% 关税、$9.35 清关费。**国际运费按实重计价，站上没有权威的按卡数估重表，硬编一个就是骗人** → 不算，单独标出「到仓称重后另计」并说明它不进关税基数。
+- 仅 en 渲染（zh 计价体系在老后台，口径不同）。实测 ¥3,000 → $34.64，与手算一致；`/zh/fees` 无试算器。
+
+**第 6 条 · 竞品口径**：fees 页匿名表（K/B/Z/N/F）与 guides 点名长文并存导致买家无从判断。保留匿名表不动（避免把点名比较搬上定价页），在表下加一条通往 `/en/guides/kangaroo-japan-vs-buyee-vs-zenmarket` 的出口。
+
+**第 7 条 · `/en/yahoo`**（部分）
+
+- **分类侧栏中文泄漏**：`/yahoo/categories` 由老后台提供、`name` 是中文（"计算机"/"玩具、游戏"）。新增 `yahoo-category-labels.ts`，按 **auccat 分类号**（`YahooCategory.value`）映射英文，未收录回退原名。注意不能按 `id` 映射——那是旧库自增主键，前端拿到的结构里根本没有。
+- **搜索占位符**：`Search in Japanese or Chinese` → `Search in Japanese for best results — e.g. ポケモンカード`（说明原因 + 给可复制样例）。
+- 🔴 **移除卡片上的剩余时间徽章**：线上原本显示裸时间戳 `1784950961`。查后端才发现 **`/yahoo/goods` 对整页所有商品返回同一个 `end_time`/`left_time`**（实测一页 20+ 件全是 `end_time=1784968173`、`left_time="49秒"`，且约等于当前时刻），根本不是每件拍卖各自的结束时间。**先做的"格式化成 Ends … JST"被推翻**——那只会把坏数据包装得更可信（用户会以为所有拍卖一分钟后结束）。故移除徽章，`formatRemainingLabel()` 留在 `yahoo-urgency.ts` 备用，**后端数据修好后恢复即可**。
+
+**顺带修正的数据不符**：`/exchange-rates` 实测 `tcgServiceFeeJpy=400`，而 `fees.json` 与 `llms.txt` 都写 "~300–350 JPY"（对买家低报）→ 均改为 ~400。
+
+**一条自我更正**：此前体检把 `/en/yahoo` 记为「商品图全裂」，本轮复查 `_next/image` 请求**全部 200**、图片源站也 200，是把懒加载未完成当成了裂图，**该条不成立，撤回**。
+
+**仍未处理（含原因）**：`/en/yahoo` 列表全是非 TCG 商品（农机/汽配/垃圾桶）与橙白配色断裂——属产品方向，需花哥定；`/en/amazon` 空壳页；页脚 Privacy/Terms（缺公司主体信息）；品牌 JP-Buy vs Kangaroo Japan 统一；列表页卡名翻译（依赖 Azure key 修复）。

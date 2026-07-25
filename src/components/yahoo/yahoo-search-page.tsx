@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Clock3, Gavel, Search } from "lucide-react";
+import { Gavel, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
@@ -23,7 +23,7 @@ import {
   type YahooCategory,
   type YahooItem,
 } from "./yahoo-data";
-import { URGENCY_PILL_CLASS, urgencyFromRemainingText } from "./yahoo-urgency";
+import { localizeYahooCategoryLabel } from "./yahoo-category-labels";
 
 const ALL_CATEGORIES = "__all__";
 
@@ -138,7 +138,17 @@ export function YahooSearchPage({
       .request<unknown>("/yahoo/categories")
       .then((response) => {
         if (active && response.success) {
-          setCategories(normalizeYahooCategories(response.data));
+          // 后端给的是中文分类名（老后台数据）；英文站换成英文标签，其它语言原样。
+          setCategories(
+            normalizeYahooCategories(response.data).map((category) => ({
+              ...category,
+              label: localizeYahooCategoryLabel(
+                category.value,
+                category.label,
+                locale,
+              ),
+            })),
+          );
         }
       })
       .catch(() => {
@@ -148,7 +158,7 @@ export function YahooSearchPage({
     return () => {
       active = false;
     };
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     const requestVersion = requestVersionRef.current + 1;
@@ -367,7 +377,6 @@ export function YahooSearchPage({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 xl:grid-cols-4">
                 {items.map((item) => {
                   const imageBroken = brokenImages.has(item.goodsNo);
-                  const urgency = urgencyFromRemainingText(item.remaining);
 
                   return (
                     <Link
@@ -449,14 +458,15 @@ export function YahooSearchPage({
                             )}
                           </p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium ${URGENCY_PILL_CLASS[urgency]}`}
-                            >
-                              <Clock3 className="size-3 shrink-0" />
-                              <span className="truncate">
-                                {item.remaining || t("remainingUnavailable")}
-                              </span>
-                            </span>
+                            {/*
+                              时间徽章已移除：后端 /yahoo/goods 对**整页所有商品**返回
+                              同一个 end_time / left_time（实测一页 20+ 件全是
+                              end_time=1784968173、left_time="49秒"，且约等于当前时刻），
+                              并非每件拍卖各自的结束时间。把它排版出来只会让坏数据显得
+                              更可信——用户会以为所有拍卖一分钟后结束。
+                              后端修好后：用 formatRemainingLabel(item.remaining)
+                              （见 ./yahoo-urgency）配 URGENCY_PILL_CLASS 恢复即可。
+                            */}
                             <span className="flex items-center gap-1 text-muted-foreground">
                               <Gavel className="size-3 shrink-0" />
                               {item.bidCount === undefined
