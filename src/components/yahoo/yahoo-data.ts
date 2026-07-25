@@ -4,6 +4,12 @@ export type YahooItem = {
   imageUrl?: string;
   currentPrice?: number;
   remaining?: string;
+  /**
+   * 拍卖结束时刻（Unix 秒）。来自后端 `end_timestamp`——由详情链路写入的可信
+   * 时间推算（legacy 列表自带的 end_time 是雅虎改版后的占位假值，后端已剥掉）。
+   * 只有详情缓存里有该商品的才有值，缺失时不渲染倒计时。
+   */
+  endTimestamp?: number;
   bidCount?: number;
   // 富字段（后端 live-legacy 透传，全部容错 optional）
   titleJa?: string;
@@ -251,6 +257,7 @@ function normalizeItem(value: unknown): YahooItem | null {
       "price",
     ]),
     remaining: normalizeRemaining(record),
+    endTimestamp: normalizeEndTimestamp(record),
     bidCount: firstNumber(record, [
       "bidNum",
       "bid_num",

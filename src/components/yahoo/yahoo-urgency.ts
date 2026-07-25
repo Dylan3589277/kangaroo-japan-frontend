@@ -88,6 +88,33 @@ export function formatRemainingLabel(
   }
 }
 
+/**
+ * 由可信的结束时刻（Unix 秒，后端 `end_timestamp`，源自详情链路）生成剩余时间
+ * 文案。已结束/无值返回 null——调用方不渲染徽章。
+ * 组件 en/zh 共用，文案按 locale 分流；列表在客户端 fetch 后才渲染，无 hydration 顾虑。
+ */
+export function formatTimeLeftLabel(
+  endTimestamp: number | undefined,
+  locale: string,
+): string | null {
+  if (!endTimestamp) return null;
+  const totalSeconds = endTimestamp - Math.floor(Date.now() / 1000);
+  if (totalSeconds <= 0) return null;
+
+  const days = Math.floor(totalSeconds / DAY);
+  const hours = Math.floor((totalSeconds % DAY) / HOUR);
+  const minutes = Math.floor((totalSeconds % HOUR) / 60);
+
+  if (locale === "en") {
+    if (days > 0) return `${days}d ${hours}h left`;
+    if (hours > 0) return `${hours}h ${minutes}m left`;
+    return `${Math.max(minutes, 1)}m left`;
+  }
+  if (days > 0) return `剩${days}天 ${hours}小时`;
+  if (hours > 0) return `剩${hours}小时 ${minutes}分`;
+  return `剩${Math.max(minutes, 1)}分`;
+}
+
 /** Tailwind classes for the remaining-time pill, by urgency tier. */
 export const URGENCY_PILL_CLASS: Record<UrgencyLevel, string> = {
   normal: "bg-muted text-muted-foreground",

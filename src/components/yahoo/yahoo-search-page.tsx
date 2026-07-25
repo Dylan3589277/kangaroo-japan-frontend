@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Gavel, Search } from "lucide-react";
+import { Clock3, Gavel, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
@@ -23,6 +23,11 @@ import {
   type YahooCategory,
   type YahooItem,
 } from "./yahoo-data";
+import {
+  URGENCY_PILL_CLASS,
+  formatTimeLeftLabel,
+  urgencyFromTimestamp,
+} from "./yahoo-urgency";
 import { localizeYahooCategoryLabel } from "./yahoo-category-labels";
 
 const ALL_CATEGORIES = "__all__";
@@ -470,14 +475,30 @@ export function YahooSearchPage({
                           </p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                             {/*
-                              时间徽章已移除：后端 /yahoo/goods 对**整页所有商品**返回
-                              同一个 end_time / left_time（实测一页 20+ 件全是
-                              end_time=1784968173、left_time="49秒"，且约等于当前时刻），
-                              并非每件拍卖各自的结束时间。把它排版出来只会让坏数据显得
-                              更可信——用户会以为所有拍卖一分钟后结束。
-                              后端修好后：用 formatRemainingLabel(item.remaining)
-                              （见 ./yahoo-urgency）配 URGENCY_PILL_CLASS 恢复即可。
+                              时间徽章：只对 endTimestamp（后端由详情链路可信时间推算的
+                              end_timestamp）有值的商品渲染——legacy 列表自带的
+                              end_time/left_time 是雅虎改版后的占位假值，后端已剥掉。
+                              没有可信时间就不显示，宁缺毋假。
                             */}
+                            {(() => {
+                              const timeLeft = formatTimeLeftLabel(
+                                item.endTimestamp,
+                                locale,
+                              );
+                              if (!timeLeft) return null;
+                              const urgency = urgencyFromTimestamp(
+                                item.endTimestamp,
+                                Math.floor(Date.now() / 1000),
+                              );
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium ${URGENCY_PILL_CLASS[urgency]}`}
+                                >
+                                  <Clock3 className="size-3 shrink-0" />
+                                  <span className="truncate">{timeLeft}</span>
+                                </span>
+                              );
+                            })()}
                             <span className="flex items-center gap-1 text-muted-foreground">
                               <Gavel className="size-3 shrink-0" />
                               {item.bidCount === undefined
