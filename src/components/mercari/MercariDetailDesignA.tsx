@@ -43,8 +43,15 @@ import type { MercariDetail } from "@/lib/server/mercari-detail";
  */
 export function MercariDetailDesignA({
   initialDetail = null,
+  nameEn = null,
 }: {
   initialDetail?: MercariDetail | null;
+  /**
+   * 服务端译好的英文卡名（Azure，见 lib/server/translate.ts）。有就当主标题——
+   * 英文站的主标题该让美国买家一眼看懂；日文原名降为副标题保留，它是跟 Mercari
+   * 原页核对的依据。翻译不可用时为 null，标题原样回退日文。
+   */
+  nameEn?: string | null;
 } = {}) {
   const params = useParams();
   const router = useRouter();
@@ -366,8 +373,14 @@ export function MercariDetailDesignA({
           {/* 信息区 */}
           <section className="flex flex-col">
             <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold leading-snug tracking-tight text-white md:text-3xl">
-              {detail.goods_name}
+              {nameEn ?? detail.goods_name}
             </h1>
+            {nameEn && (
+              // 日文原名：买家跟 Mercari 原页核对用；lang 标注让读屏与搜索引擎识别语种。
+              <p lang="ja" className="mt-2 text-sm leading-relaxed text-slate-400">
+                {detail.goods_name}
+              </p>
+            )}
 
             {/* 价格区：权威价 + 动态手续费 + estimated 应付 + 人民币次要 */}
             <div className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">

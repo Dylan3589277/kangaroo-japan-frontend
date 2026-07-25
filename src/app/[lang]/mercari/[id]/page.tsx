@@ -8,6 +8,7 @@ import {
   MERCARI_ON_SALE,
   type MercariDetail,
 } from "@/lib/server/mercari-detail";
+import { translateTitleJaToEn } from "@/lib/server/translate";
 
 /**
  * /[lang]/mercari/[id] —— Mercari 商品详情页。
@@ -22,22 +23,30 @@ import {
  * 其它语言完全走原路径（不预取、不出 metadata、不加 JSON-LD），行为零变化。
  */
 
-/** en 详情页的 SEO 文案模板：卡名是日文原名（型号/罗马数字是英文买家的实际搜索词）。 */
+/**
+ * en 详情页的 SEO 文案模板。
+ * 标题优先用英文译名（美国买家读得懂、拿得到英文长尾流量），日文原名放进 description
+ * 保留精确匹配；翻译不可用时整体回退日文原名，不影响任何其它字段。
+ */
 function buildEnMetadata(
   detail: MercariDetail,
   lang: string,
   id: string,
+  nameEn: string | null,
 ): Metadata {
   const canonical = buildCanonical(lang, `mercari/${id}`);
   const soldOut = detail.status !== MERCARI_ON_SALE;
+  const displayName = nameEn ?? detail.goods_name;
+  // 有译名时把日文原名也带进 description，兼顾英文可读与日文精确搜索。
+  const alsoJa = nameEn ? ` (Japanese title: ${detail.goods_name})` : "";
   // 根 layout 的 titleTemplate 是 `%s | Kangaroo Japan`，所以这里不带品牌名，
   // 否则渲染成「… – Kangaroo Japan | Kangaroo Japan」。og:title 不走 template，
   // 是分享卡片上唯一的标题，故单独带上品牌。
-  const title = `${detail.goods_name} | Buy from Japan`;
+  const title = `${displayName} | Buy from Japan`;
   const ogTitle = `${title} – Kangaroo Japan`;
   const description = soldOut
-    ? `${detail.goods_name} — this Japanese listing has sold. Search live Pokémon and Yu-Gi-Oh cards from Japan; we buy, inspect and ship to the U.S.`
-    : `Buy ${detail.goods_name} from Japan for ¥${detail.price.toLocaleString("en-US")}. We buy it in Japan on your behalf, photograph the card before it ships, and send it to your U.S. address.`;
+    ? `${displayName}${alsoJa} — this Japanese listing has sold. Search live Pokémon and Yu-Gi-Oh cards from Japan; we buy, inspect and ship to the U.S.`
+    : `Buy ${displayName}${alsoJa} from Japan for ¥${detail.price.toLocaleString("en-US")}. We buy it in Japan on your behalf, photograph the card before it ships, and send it to your U.S. address.`;
 
   return {
     title,
@@ -66,7 +75,11 @@ export async function generateMetadata({
   const detail = await fetchMercariDetailForSsr(id);
   if (!detail) return {};
 
-  return buildEnMetadata(detail, lang, id);
+  // 翻译失败返回 null → 全套文案回退日文原名。与下面页面里的调用同参数，
+  // 命中 unstable_cache 同一条，不会重复打 Azure。
+  const nameEn = await translateTitleJaToEn(detail.goods_name);
+
+  return buildEnMetadata(detail, lang, id, nameEn);
 }
 
 /** Product 结构化数据：把卡名、图、价格与在售状态喂给搜索引擎。金额为 JPY 整数。 */
@@ -105,12 +118,15 @@ export default async function MercariGoodsDetailPage({
   if (lang === "en") {
     // 取数失败返回 null → 组件退回原来的纯客户端渲染，页面照常工作。
     const detail = await fetchMercariDetailForSsr(id);
+    const nameEn = detail
+      ? await translateTitleJaToEn(detail.goods_name)
+      : null;
     return (
       <>
         {detail && isIndexable(lang) && (
           <JsonLd data={productJsonLd(detail, lang, id)} />
         )}
-        <MercariDetailDesignA initialDetail={detail} />
+        <MercariDetailDesignA initialDetail={detail} nameEn={nameEn} />
       </>
     );
   }

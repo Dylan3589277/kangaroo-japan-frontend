@@ -146,3 +146,26 @@ Accept-Language中间件
 `npx tsc --noEmit` 0 errors + `npm run lint` 0 errors + `npm run build` 通过（路由为 `ƒ` 按需服务端渲染）。
 
 **已知不足 / 下一步**：①卡名是**日文原名**——型号（SV11W、151/086）是美国买家的真实搜索词所以有价值，但纯日文 title 对英文用户不友好，翻译是独立一块（站上已有 Azure 翻译能力，用于 zh）②zh 详情页同样没有 metadata，本次按边界纪律**刻意没碰**，要不要一并做由花哥定 ③售罄商品仍 index（JSON-LD 报 OutOfStock），暂不加 noindex。
+
+## 变更记录 2026-07-25(4) · en 详情页卡名日→英翻译（Azure）（中枢 Claude，待推）
+
+**为什么**：SSR 上线后 title 和正文标题仍是日文原名（「ミネズミ AR SV11W ホワイトフレア 151/086」），美国买家读不懂，英文长尾搜索也拿不到。
+
+**为什么不走后端 `/translate/jp2zh`**：那条链是「后端转发 → 老后台 PHP `/api/trans2zh/jp2zh`」，**目标语言写死中文**，而老后台是脆弱的生产库。查 `vercel env ls` 发现**前端项目本身早已配好** `AZURE_TRANSLATOR_KEY` + `AZURE_TRANSLATOR_REGION`（Production/Preview，40 天前），服务端直连更短也更安全，且不需要新配任何 env。
+
+**改了什么**：
+
+- 新增 `src/lib/server/translate.ts`，`translateTitleJaToEn()`。外部调用三件套（`~/.claude/rules/external-call-resilience.md`）：
+  - **超时** 3s `AbortSignal.timeout`，绝不让翻译拖慢首屏
+  - **缓存** `unstable_cache` **30 天**（同一商品标题不会变；`unstable_cache` 默认已把入参计入 cache key，不同标题各自成条不互串）。本项目未启用 `cacheComponents`，故用 `unstable_cache` 而非 `use cache`——不为一个功能改全局配置
+  - **降级** 任何失败（无 key/超时/非 2xx/结构不符/译文与原文相同）一律返回 null，调用方回退日文原名。serverless 无常驻状态做不了真正的连续失败熔断，以「快速超时 + 全路径降级 + 长缓存」达到同等效果
+- `[id]/page.tsx`：title/og:title 用英文译名，**日文原名进 description**（`(Japanese title: …)`）兼顾英文可读与日文精确匹配；译名为 null 时全套回退。
+- `MercariDetailDesignA`：新增 `nameEn` prop——**英文译名作 h1**（英文站的主标题该让买家一眼看懂），日文原名降为 `<p lang="ja">` 副标题保留（跟 Mercari 原页核对的依据）。
+
+**验证**：
+
+- 本地无 key（降级路径）实测：title 整体回退日文、description **不出现** `Japanese title:` 段、正文仍 2100 字符、Product JSON-LD 仍在——**翻译挂掉 = 完全回到上一版已上线行为，零风险**。
+- `npx tsc --noEmit` 0 errors + `npm run lint` 0 errors + `npm run build` 通过。
+- ⚠️ **真实翻译质量本地无法验**：key 是 Encrypted，`vercel env pull` 拉不到值（见私有记忆 `verify-config-existence-not-pull`）。只能推上生产后立即验；不合格就 revert 这一个 commit。
+
+**成本/性能**：每个商品标题**最多翻一次**（30 天缓存），缓存命中后零延迟；未命中时首屏最坏 +3s（Azure 正常 200–500ms）。
