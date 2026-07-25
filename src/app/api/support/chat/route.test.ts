@@ -219,6 +219,129 @@ test("quick reply switch can disable deterministic answers for rollback", async 
   }
 });
 
+// ---------------------------------------------------------------------------
+// Guardrail keyword coverage (quickreply-vs-kb-compare.md "硬缺口"): with local
+// QUICK_REPLIES disabled, the business-scope guardrail (BUSINESS_KEYWORDS) is
+// the only thing standing between a message and the Hermes bridge. Before this
+// fix, plain "入库了吗？" / "到哪了？" contained none of BUSINESS_KEYWORDS and were
+// wrongly rejected as out-of-scope. This test proves every quick-reply topic and
+// its common spoken logistics variants now pass through instead of regressing.
+// ---------------------------------------------------------------------------
+
+test("all quick-reply topics and their spoken logistics variants pass the business guardrail with quick replies disabled", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED = "false";
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    Response.json({
+      action: "answered",
+      reply: "Bridge fallback",
+      answered_by: "m4-hermes-customer-support",
+    });
+
+  try {
+    const messages = [
+      // ① the 10 canonical QUICK_REPLIES questions verbatim (incl. the 6 H5 buttons)
+      "我是第一次用，不会日语，应该怎么买？",
+      "代拍流程是什么？",
+      "代拍费用如何计算？",
+      "国际运费怎么查？",
+      "商品多久能到仓库？",
+      "入库了吗？",
+      "到哪了？",
+      "押金怎么退？",
+      "押金退了吗？",
+      "我要转人工客服",
+      // ② common spoken/paraphrased variants of the logistics topics — this is
+      // what regressed before BUSINESS_KEYWORDS gained 入库/到仓/到哪/单号/追踪/
+      // 揽收/签收/妥投 (route.ts ~line 631-640).
+      "我的东西入库了吗",
+      "包裹到仓了吗",
+      "帮我查一下单号",
+      "能追踪一下物流吗",
+      "揽收了没",
+      "签收了没",
+    ];
+
+    for (const message of messages) {
+      const request = new NextRequest("http://localhost/api/support/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, language: "zh" }),
+      });
+
+      const response = await POST(request);
+      const payload = await response.json();
+
+      assert.equal(response.status, 200, `status for ${message}`);
+      assert.notEqual(
+        payload.data.reason,
+        "guardrail_out_of_business_scope",
+        `must not be guarded out of scope: ${message}`,
+      );
+      assert.notEqual(
+        payload.data.answeredBy,
+        "kangaroo-chan-guardrail",
+        `must not be local guardrail reply: ${message}`,
+      );
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("business guardrail still blocks out-of-scope questions (weather / write code / politics) after the keyword additions", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED = "false";
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    throw new Error("Bridge fetch must not be called for out-of-scope questions");
+  };
+
+  try {
+    const outOfScopeMessages = [
+      "今天北京天气怎么样？",
+      "帮我写一段Python代码",
+      "你怎么看今年的美国大选？",
+    ];
+
+    for (const message of outOfScopeMessages) {
+      const request = new NextRequest("http://localhost/api/support/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, language: "zh" }),
+      });
+
+      const response = await POST(request);
+      const payload = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.data.reason, "guardrail_out_of_business_scope");
+      assert.deepEqual(payload.data.sourceIds, [
+        "local-customer-service-guardrail",
+      ]);
+    }
+
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
 test("personalized status quick questions with userId pass through to Hermes bridge", async () => {
   const { POST } = await import("./route");
   const originalFetch = globalThis.fetch;
