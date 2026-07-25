@@ -169,3 +169,25 @@ Accept-Language中间件
 - ⚠️ **真实翻译质量本地无法验**：key 是 Encrypted，`vercel env pull` 拉不到值（见私有记忆 `verify-config-existence-not-pull`）。只能推上生产后立即验；不合格就 revert 这一个 commit。
 
 **成本/性能**：每个商品标题**最多翻一次**（30 天缓存），缓存命中后零延迟；未命中时首屏最坏 +3s（Azure 正常 200–500ms）。
+
+## 变更记录 2026-07-25(5) · 翻译 401 定位 + 两处自身缺陷修复（已推 8f0211d）
+
+**现象**：(4) 推上生产后 title 仍是日文，翻译没生效。
+
+**先修自己的两个缺陷**（它们让故障既不可诊断、又会被长期钉死）：
+
+1. 🔴 **失败被缓存 30 天**：`unstable_cache` 把返回值原样缓存，**包括表示失败的 `null`**——任何一次偶发失败（Azure 抖动/限流/超时）都会被钉住一个月，之后即使 Azure 恢复也不再重试，等于「一次失败 = 一个月不可用」。改为缓存层取不到译名就 **throw**（抛出的错误不进缓存，下次请求自然重试），外层捕获转 null 降级。
+2. 🔴 **失败完全静默**：原来 `catch { return null }` 吞掉一切，违反「失败要大声」，导致线上不工作却查不到原因。改为四条失败路径各自 `console.warn`（无 key / 非 2xx 带 status+响应体片段 / payload 结构不符 / 译文等于原文），**日志不含任何密钥**。
+
+**真因（`vercel logs --follow` 实测，多次请求稳定复现）**：
+
+```
+[translate:ja2en] HTTP 401 Unauthorized :: {"error":{"code":401001,
+"message":"The request is not authorized because credentials are missing or invalid."}}
+```
+
+Azure 拒绝凭证。`AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` 在前端项目里确实**存在**（`vercel env ls` 可见，Production+Preview，40 天前配置），但**前端代码此前从未调用过它们**——即这对值从来没被验证过能用。401001 的常见成因：key 已轮换/失效、region 与资源实际区域不匹配（Translator 的 `Ocp-Apim-Subscription-Region` 必须与资源区域一致）、或该 key 属于别的 Azure 服务而非 Translator。**值是 Encrypted，中枢拉不到，无法进一步自查**——需花哥在 Azure 门户核对后更新 Vercel 前端项目的这两个 env。
+
+**当前线上状态：安全**。翻译不可用时完整降级为纯日文页面 = (3) 那版已上线的行为；SSR 正文 2100 字符、Product JSON-LD、价格、游客可浏览全部不受影响。401 是快速返回（非超时），对首屏延迟影响可忽略。
+
+**key 修好后无需改代码**：失败不再被缓存，下一次请求即自动重试并生效。若长期不修，可考虑加 env 开关避免每次请求白打一次 Azure。
