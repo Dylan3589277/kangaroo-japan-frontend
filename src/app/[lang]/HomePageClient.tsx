@@ -200,7 +200,7 @@ export function HomePageClient() {
             {[
               {
                 zh: ["搜索或粘贴链接", "支持 Mercari、Yahoo!拍卖、亚马逊等日本平台"],
-                en: ["Search or paste a link", "Mercari, Yahoo! Auctions, Amazon Japan and more"],
+                en: ["Search or paste a link", "Mercari and Yahoo! Auctions"],
                 ja: ["検索またはリンクを貼付", "メルカリ・Yahoo!オークション・Amazonなどに対応"],
               },
               {

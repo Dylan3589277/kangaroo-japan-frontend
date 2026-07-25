@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { spaceGrotesk } from "@/app/fonts";
 import { SearchIcon, ArrowRightIcon } from "@/components/home/tcg/icons";
 import { TcgCard, TcgCardSkeleton } from "@/components/home/tcg/TcgCard";
@@ -32,10 +32,15 @@ const POPULAR_QUERIES = POPULAR_CHIPS.map((chip) => ({
 // 空关键词时的默认查询：拉首张热门卡（Pokémon 151）一屏，避免落地即空白且全是真卡。
 const DEFAULT_QUERY = POPULAR_CHIPS[0].query;
 
-// 平台筛选：当前只有 Mercari 真有数据；Yahoo Auctions 占位禁用（别假装能筛）。
+/**
+ * 平台筛选：本页数据层只接了 Mercari 在售（searchMercariTcg），Yahoo 没接进来。
+ * 但雅虎代拍业务本身是通的（/yahoo 可浏览，详情页有在线出价与联系客服代拍两条 CTA），
+ * 所以 2026-07-25 起 Yahoo 不再灰置成 "coming soon"——那是在骗买家我们不做雅虎——
+ * 改成通往 /yahoo 浏览页的入口。等 Yahoo 在售接入本页数据层后再改回可筛选。
+ */
 const PLATFORM_OPTIONS = [
-  { key: "mercari", enabled: true },
-  { key: "yahoo", enabled: false },
+  { key: "mercari", href: null },
+  { key: "yahoo", href: "/yahoo" },
 ] as const;
 
 /**
@@ -323,29 +328,29 @@ export function CardsSearchPage() {
               <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
                 {t("filters.platformLabel")}
               </span>
-              {PLATFORM_OPTIONS.map((p) => (
-                <button
-                  key={p.key}
-                  type="button"
-                  disabled={!p.enabled}
-                  aria-disabled={!p.enabled}
-                  title={
-                    p.enabled ? undefined : t("filters.platform.yahooSoon")
-                  }
-                  className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
-                    p.enabled
-                      ? "border-cyan-400/50 bg-cyan-400/10 text-white"
-                      : "cursor-not-allowed border-white/[0.06] bg-white/[0.02] text-slate-600"
-                  }`}
-                >
-                  {t(`filters.platform.${p.key}`)}
-                  {!p.enabled && (
-                    <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-600">
-                      {t("filters.soon")}
+              {PLATFORM_OPTIONS.map((p) =>
+                p.href ? (
+                  <Link
+                    key={p.key}
+                    href={p.href}
+                    title={t("filters.platform.yahooBrowseHint")}
+                    className="rounded-full border border-white/[0.12] bg-white/[0.02] px-3.5 py-1.5 text-sm text-slate-300 transition-colors hover:border-cyan-400/50 hover:bg-cyan-400/10 hover:text-white"
+                  >
+                    {t(`filters.platform.${p.key}`)}
+                    <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-500">
+                      {t("filters.browse")}
                     </span>
-                  )}
-                </button>
-              ))}
+                  </Link>
+                ) : (
+                  <button
+                    key={p.key}
+                    type="button"
+                    className="rounded-full border border-cyan-400/50 bg-cyan-400/10 px-3.5 py-1.5 text-sm text-white transition-colors"
+                  >
+                    {t(`filters.platform.${p.key}`)}
+                  </button>
+                ),
+              )}
             </div>
 
             {/* 价格区间（JPY，客户端过滤已取结果） */}

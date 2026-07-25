@@ -11,9 +11,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     path: string;
     priority: number;
     changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
+    /**
+     * en 侧不报该路由。用于 zh 等 locale 是正常功能页、但 en(TCG) 侧尚未改版的路由——
+     * 报给 Google 只会收录到空壳页。en 的等价入口是 /en/cards。
+     */
+    skipEn?: boolean;
   }> = [
     { path: "", priority: 1.0, changeFrequency: "daily" },
-    { path: "/products", priority: 0.9, changeFrequency: "weekly" },
+    // 2026-07-25：/en/products 实测为未改版模板 + "No products found"，故 en 不报。
+    { path: "/products", priority: 0.9, changeFrequency: "weekly", skipEn: true },
     { path: "/compare", priority: 0.8, changeFrequency: "weekly" },
     { path: "/pokemon-cards", priority: 0.9, changeFrequency: "weekly" },
     { path: "/yugioh-cards", priority: 0.9, changeFrequency: "weekly" },
@@ -42,6 +48,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   for (const lang of INDEXABLE_LOCALES) {
     for (const page of staticPages) {
+      if (page.skipEn && lang === "en") continue;
       entries.push({
         url: `${BASE_URL}/${lang}${page.path}`,
         lastModified: LAST_MODIFIED,

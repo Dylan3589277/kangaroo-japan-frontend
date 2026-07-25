@@ -3,14 +3,14 @@
 > Japan proxy buying service. English side (Kangaroo Japan): Japanese trading cards — Pokémon, Yu-Gi-Oh, One Piece — bought from Mercari Japan, Yahoo! Auctions and Japanese shops, inspected, consolidated and shipped worldwide (primary market: United States). Chinese side (袋鼠君, also known as JP-Buy): 日本代购代拍 — 煤炉 Mercari 代购、雅虎拍卖代拍、日淘直邮中国，微信小程序「袋鼠君」同步服务.
 
 Key facts (estimates; exact totals shown at checkout):
-- Sources: Mercari Japan, Yahoo! Auctions, Amazon Japan; more marketplaces being added.
+- Sources: Mercari Japan and Yahoo! Auctions are live; Amazon Japan and Surugaya are not yet available on the English site.
 - Proxy service fee: from ~300–350 JPY per item (estimated).
 - Japan domestic shipping: from ~300 JPY per item (estimated), varies by seller.
 - International shipping: by actual weight/dimensions/destination; consolidation of multiple orders into one parcel is supported and recommended.
 - TCG-safe packing: sleeve + toploader + rigid mailer; reinforced boxes for graded slabs.
 - Optional paid photo inspection (front/back/corners) before international shipping.
 - Honest customs declaration only; no under-declaring.
-- U.S. imports 2026: no de minimis exemption; flat 10% import surcharge (Section 122, in force since 2026-02-24, scheduled to expire 2026-07-24 unless extended) plus carrier clearance fee (~$9–17/parcel).
+- U.S. imports 2026: no de minimis exemption; 12.5% import duty on goods of Japan (Section 301 forced-labor action, in force since 2026-07-24, replacing the expired 10% Section 122 surcharge; it acts as a floor, so goods with an MFN rate below 12.5% — trading cards included — are assessed a combined 12.5%) plus carrier clearance fee (~$9–17/parcel).
 - All prices on site in Japanese Yen (JPY).
 
 ## Key pages (English)

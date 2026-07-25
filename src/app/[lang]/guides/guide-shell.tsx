@@ -172,6 +172,7 @@ export function GuideShell({
   title,
   intro,
   datePublished,
+  dateModified,
   children,
 }: {
   lang: string;
@@ -180,6 +181,8 @@ export function GuideShell({
   title: string;
   intro: string;
   datePublished: string;
+  /** 改稿日：政策类时效文必须给，Google 会拿它判断内容新鲜度。 */
+  dateModified?: string;
   children: ReactNode;
 }) {
   return (
@@ -187,7 +190,13 @@ export function GuideShell({
       {isIndexable(lang) && (
         <>
           <JsonLd
-            data={articleJsonLd({ path, headline: title, description: intro, datePublished })}
+            data={articleJsonLd({
+              path,
+              headline: title,
+              description: intro,
+              datePublished,
+              dateModified,
+            })}
           />
           <JsonLd
             data={breadcrumbJsonLd("en", [
@@ -214,7 +223,8 @@ export function GuideShell({
           </h1>
           <p className="mt-4 text-base leading-relaxed text-slate-400">{intro}</p>
           <p className="mt-3 text-xs text-slate-500">
-            Published {datePublished} · Kangaroo Japan editorial team
+            Published {datePublished}
+            {dateModified ? ` · Updated ${dateModified}` : ""} · Kangaroo Japan editorial team
           </p>
         </div>
       </section>

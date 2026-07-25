@@ -19,7 +19,7 @@ const GUIDES = [
     tag: "Customs & taxes",
     title: "U.S. Import Tax on Japanese Pokémon Cards in 2026",
     description:
-      "The flat 10% surcharge (expires July 24, 2026), carrier clearance fees, no more de minimis — with a worked example.",
+      "The 12.5% Section 301 rate in force since July 24, 2026, carrier clearance fees, no more de minimis — with a worked example.",
   },
   {
     slug: "kangaroo-japan-vs-buyee-vs-zenmarket",

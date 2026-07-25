@@ -103,7 +103,7 @@
         },
         "tariff2026": {
           "q": "How much is U.S. import tax on Japanese cards in 2026?",
-          "a": "As of February 24, 2026 the U.S. applies a flat 10% import surcharge to goods from all countries, including Japan (the Section 122 measure, currently set to expire July 24, 2026 unless extended or replaced). It's assessed on the item value — international shipping is not part of the duty base. On top of the duty, carriers charge a customs clearance fee, roughly $9–17 per parcel depending on the carrier. Policy is changing fast; the final amount is always what CBP and your carrier assess."
+          "a": "12.5% of the item value, as of July 24, 2026. That morning the earlier 10% Section 122 surcharge expired and a Section 301 forced-labor action replaced it, placing Japan in the 12.5% band. It works as a floor: goods whose normal MFN rate is below 12.5% — trading cards included — are assessed a combined 12.5%. Duty is charged on the item value only; international shipping is not part of the duty base. On top of the duty, carriers charge a customs clearance fee, roughly $9–17 per parcel. Policy is changing fast; the final amount is always what CBP and your carrier assess."
         },
         "dutyBilling": {
           "q": "How do I actually pay the duty?",

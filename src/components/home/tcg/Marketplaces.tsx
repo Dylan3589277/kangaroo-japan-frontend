@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 const MARKETS = [
   { key: "mercari", status: "live", accent: "#ff5252" },
   { key: "yahoo", status: "live", accent: "#a78bfa" },
-  { key: "amazon", status: "live", accent: "#fbbf24" },
+  // 2026-07-25：/en/amazon 搜索无结果（英文/日文关键词均无），标 soon 直到接通。
+  { key: "amazon", status: "soon", accent: "#fbbf24" },
   { key: "surugaya", status: "soon", accent: "#38bdf8" },
 ] as const;
 

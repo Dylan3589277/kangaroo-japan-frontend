@@ -442,7 +442,7 @@ const CUSTOMER_SERVICE_TCG_FAQ_KB = [
   },
   {
     id: "tcg-proxy-flow-001",
-    text: "How proxy buying works: pick a Japanese listing (or paste a link), place an order and pay; JP-Buy buys or bids on your behalf in Japan. Once the item reaches our Japan warehouse it shows as in-warehouse, then you submit international shipping to the U.S. We can buy from Mercari Japan, Yahoo Auctions and Amazon Japan today (Surugaya coming soon). We can't promise an item will still be available, that a seller will reply, or that an auction will be won.",
+    text: "How proxy buying works: pick a Japanese listing (or paste a link), place an order and pay; JP-Buy buys or bids on your behalf in Japan. Once the item reaches our Japan warehouse it shows as in-warehouse, then you submit international shipping to the U.S. We can buy from Mercari Japan and Yahoo Auctions today (Amazon Japan and Surugaya coming soon). We can't promise an item will still be available, that a seller will reply, or that an auction will be won.",
   },
   {
     id: "tcg-fees-001",
