@@ -1,8 +1,8 @@
 {
   "contact": {
     "meta": {
-      "title": "Contact JP-Buy support",
-      "description": "Get help with proxy buying Japanese Pokémon and Yu-Gi-Oh cards. Reach the JP-Buy team on WhatsApp, email or Discord, or start a live chat."
+      "title": "Contact Kangaroo Japan support",
+      "description": "Get help with proxy buying Japanese Pokémon and Yu-Gi-Oh cards. Reach the Kangaroo Japan team on WhatsApp, email or Discord, or start a live chat."
     },
     "hero": {
       "eyebrow": "We're here to help",
@@ -25,14 +25,14 @@
         },
         "discord": {
           "name": "Discord",
-          "desc": "Join the JP-Buy collector community for drops, tips and live help.",
+          "desc": "Join the Kangaroo Japan collector community for drops, tips and live help.",
           "action": "Join our Discord"
         }
       }
     },
     "liveChat": {
       "title": "Chat with us",
-      "subtitle": "Live chat with the JP-Buy team is coming soon. In the meantime, reach us on WhatsApp, email or Discord.",
+      "subtitle": "Live chat with the Kangaroo Japan team is coming soon. In the meantime, reach us on WhatsApp, email or Discord.",
       "button": "Live chat",
       "comingSoon": "Coming soon"
     },

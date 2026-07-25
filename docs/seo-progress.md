@@ -213,3 +213,21 @@ Azure 拒绝凭证。`AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` 在前�
 **一条自我更正**：此前体检把 `/en/yahoo` 记为「商品图全裂」，本轮复查 `_next/image` 请求**全部 200**、图片源站也 200，是把懒加载未完成当成了裂图，**该条不成立，撤回**。
 
 **仍未处理（含原因）**：`/en/yahoo` 列表全是非 TCG 商品（农机/汽配/垃圾桶）与橙白配色断裂——属产品方向，需花哥定；`/en/amazon` 空壳页；页脚 Privacy/Terms（缺公司主体信息）；品牌 JP-Buy vs Kangaroo Japan 统一；列表页卡名翻译（依赖 Azure key 修复）。
+
+## 变更记录 2026-07-25(7) · 花哥拍板的四项（法律页 / amazon 占位 / 品牌统一 / yahoo 转 TCG）（待推）
+
+**第 4 条 · Privacy Policy + Terms of Service**（`/en/privacy`、`/en/terms`，共用 `components/legal/legal-shell.tsx`）
+
+- 运营主体取自公司官网 `nagatsuki-japan.com/contact/` 的会社概要表（⚠️ 该表 DOM 抓不到、只能截图读，故信息以人工核对为准）：株式会社長月商事 / Nagatsuki Corporation、〒550-0006 大阪市西区江之子島1丁目6番2号 奥内第八ビル905、06-6131-8337、contact@nagatsuki-japan.com、古物商許可 大阪府公安委員会 第62107R048268号。**代表者姓名官网未列，故未写**。
+- 🔴 **条款只复述站上已有口径，不新增承诺**：没买成全额退（含押金）= buyer-protection；免费仓储 30–60 天按会员等级 = fees；不鉴真不评级 = buyer-protection；关税买家承担 + 诚实申报 = 关税指南。改这些数字前先对齐那几页。
+- Privacy 同理只写实际在做的：密码哈希存储、卡号不过我们服务器（走支付处理方）、登录态 cookie 与 Turnstile、代购必须把收货信息交给承运商与海关、不卖数据不做广告共享。**未经证实的（如是否已建 GDPR/CCPA 专门流程）一律不写**。
+
+**第 8 条 · `/en/amazon` 改 Coming soon**：原页是未改版浅色模板 + 英文/日文关键词都搜不出结果 + 排序下拉漏 `SORT_CREATED_TIME|ORDER_DESC`。因该页是 client component，条件 return 会破坏 hooks 顺序，故把搜索页整体挪到 `AmazonSearchPage.tsx`、`page.tsx` 重写为 server 分流壳：en → 占位页（导回 Mercari / Yahoo，**robots noindex**，保留路由避免导航断链与已收录地址 404），其它语言原样。
+
+**第 11 条 · en 品牌统一为 Kangaroo Japan**：清掉 en 侧全部 JP-Buy——`tcg.json`（header 品牌 + 版权）、`contact.json`×4、`tcg-chat.json`×2、3 处硬编码 `document.title` 后缀、AI 客服 system prompt ×4（含自我介绍）。**保留 `seo.ts` 的 `alternateName: "JP-Buy"`**（品牌别名，搜这个词也能找到），其它 locale 的默认品牌不动。
+
+**第 7 条 · `/en/yahoo` 转 TCG 视角**：英文站默认拉全站在售，首屏实测全是农业薄膜/汽车避震/垃圾箱，与「Built for U.S. TCG collectors」直接打架。改为 en 且 URL 未带 `keyword` 时默认「ポケモンカード」（不用「ポケカ」——`tcg-keywords.ts` 标注它返 0）；带 `?keyword=` 一律尊重用户输入（含显式空串看全站）。zh 维持全站浏览。
+
+**验证（本地 dev 实测）**：`/en/privacy` 正文 4076 字符、`/en/terms` 4466 字符，均含公司主体与许可号；`/en/amazon` title「Amazon Japan — coming soon」+ noindex；en 页脚出现 `href="/en/privacy">Privacy Policy` 与 `href="/en/terms">Terms of Service`，版权为 `© 2026 Kangaroo Japan`；`/en/yahoo` 搜索框预填「ポケモンカード」，结果页 TCG 关键词命中 137 次、汽配/杂物类 0 次。tsc 0 errors + lint 0 errors + build 通过。
+
+**待花哥确认**：法律页的公司信息是我从官网截图人工誊录的，**上线前请你核一眼地址与电话是否仍然现行**；代表者姓名官网没有，如需列入请提供。

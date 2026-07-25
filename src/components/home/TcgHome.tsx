@@ -30,7 +30,7 @@ export function TcgHome() {
 
   // SEO：英文 TCG 首页标题/描述（与现有 HomePageClient 一致的客户端写法）。
   useEffect(() => {
-    document.title = `${t("title")} | JP-Buy`;
+    document.title = `${t("title")} | Kangaroo Japan`;
     let metaDesc = document.querySelector('meta[name="description"]');
     if (!metaDesc) {
       metaDesc = document.createElement("meta");

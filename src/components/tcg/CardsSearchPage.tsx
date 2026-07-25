@@ -99,7 +99,7 @@ export function CardsSearchPage() {
   const requestId = useRef(0);
 
   useEffect(() => {
-    document.title = `${t("metaTitle")} | JP-Buy`;
+    document.title = `${t("metaTitle")} | Kangaroo Japan`;
   }, [t]);
 
   // 解析价格输入为 JPY 整数（空/非数字视为无界）。

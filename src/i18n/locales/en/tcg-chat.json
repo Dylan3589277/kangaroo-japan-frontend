@@ -2,10 +2,10 @@
   "tcg-chat": {
     "launcherOpen": "Chat with us",
     "launcherClose": "Close chat",
-    "title": "JP-Buy live chat",
+    "title": "Kangaroo Japan live chat",
     "subtitle": "Ask about fees, services, condition, customs and shipping.",
     "faqBadge": "FAQ assistant",
-    "greeting": "Hi! I'm the JP-Buy assistant. Ask me about how proxy buying works, fees, value-added services, card condition, grading, sealed-product risk, packaging, consolidation, U.S. customs or shipping. For anything about a specific order, I'll point you to a human agent.",
+    "greeting": "Hi! I'm the Kangaroo Japan assistant. Ask me about how proxy buying works, fees, value-added services, card condition, grading, sealed-product risk, packaging, consolidation, U.S. customs or shipping. For anything about a specific order, I'll point you to a human agent.",
     "inputPlaceholder": "Type your question…",
     "inputAria": "Type your question",
     "send": "Send",

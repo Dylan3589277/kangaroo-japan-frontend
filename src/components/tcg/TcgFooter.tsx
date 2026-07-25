@@ -27,6 +27,8 @@ const COMPANY_LINKS = [
   { key: "fees", href: "/fees" },
   { key: "shipping", href: "/buyer-protection" },
   { key: "about", href: "/about" },
+  { key: "privacy", href: "/privacy" },
+  { key: "terms", href: "/terms" },
 ] as const;
 
 // TCG 品类落地页（由另一分身建好的路由），底部新增一列避免死链。

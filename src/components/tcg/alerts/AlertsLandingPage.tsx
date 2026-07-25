@@ -35,7 +35,7 @@ export function AlertsLandingPage() {
   const showBanner = bannerKind !== null && !bannerDismissed;
 
   useEffect(() => {
-    document.title = `${t("meta.title")} | JP-Buy`;
+    document.title = `${t("meta.title")} | Kangaroo Japan`;
   }, [t]);
 
   return (
