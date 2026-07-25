@@ -1,5 +1,6 @@
 "use client";
 
+import { loginPathWithNext } from "@/lib/login-redirect";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
@@ -106,7 +107,7 @@ export default function PrintersPage() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push(`/${lang}/login`);
+      router.push(loginPathWithNext(lang));
       return;
     }
     if (isAuthenticated) {

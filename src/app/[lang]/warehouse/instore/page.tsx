@@ -1,5 +1,6 @@
 "use client";
 
+import { loginPathWithNext } from "@/lib/login-redirect";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -42,7 +43,7 @@ export default function InstorePage() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push(`/${lang}/login`);
+      router.push(loginPathWithNext(lang));
     }
   }, [isAuthenticated, authLoading, lang]);
 

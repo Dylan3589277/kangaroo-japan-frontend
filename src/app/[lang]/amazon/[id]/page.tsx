@@ -1,5 +1,6 @@
 "use client";
 
+import { loginPathWithNext } from "@/lib/login-redirect";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
@@ -89,7 +90,7 @@ export default function AmazonDetailPage() {
 
   const toggleCollect = async () => {
     if (!isAuthenticated) {
-      router.push(`/${lang}/login`);
+      router.push(loginPathWithNext(lang));
       return;
     }
     try {
@@ -107,7 +108,7 @@ export default function AmazonDetailPage() {
 
   const addToCart = async () => {
     if (!isAuthenticated) {
-      router.push(`/${lang}/login`);
+      router.push(loginPathWithNext(lang));
       return;
     }
     try {

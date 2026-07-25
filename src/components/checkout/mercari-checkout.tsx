@@ -1,5 +1,6 @@
 "use client";
 
+import { loginPathWithNext } from "@/lib/login-redirect";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -153,7 +154,7 @@ export default function MercariCheckout() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push(`/${lang}/login`);
+      router.push(loginPathWithNext(lang));
       return;
     }
     if (isAuthenticated) {

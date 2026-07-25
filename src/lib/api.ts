@@ -1432,7 +1432,14 @@ class ApiClient {
       )
         ? pathParts[1]
         : "zh";
-      window.location.href = `/${lang}/login`;
+      // 带上被拦下的这一页，登录成功后回到原处而不是首页（登录页侧会校验 next
+      // 只放行站内同 locale 路径，见 [lang]/login/page.tsx 的 safeNextPath）。
+      const current = `${window.location.pathname}${window.location.search}`;
+      const alreadyOnLogin = current.startsWith(`/${lang}/login`);
+      const nextQuery = alreadyOnLogin
+        ? ""
+        : `?next=${encodeURIComponent(current)}`;
+      window.location.href = `/${lang}/login${nextQuery}`;
     }
 
     return newToken;

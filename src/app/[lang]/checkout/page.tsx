@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import MercariCheckout from "@/components/checkout/mercari-checkout";
 import ProxyBuyCheckout from "@/components/checkout/proxy-buy-checkout";
 import { useAuthStore } from "@/lib/auth";
+import { loginPathWithNext } from "@/lib/login-redirect";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -167,7 +168,8 @@ function CartCheckoutPage() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push(`/${lang}/login`);
+      // 带上本页地址：登录后回到这单的结算页，而不是被甩回首页重新找商品。
+      router.push(loginPathWithNext(lang));
       return;
     }
     if (isAuthenticated) {

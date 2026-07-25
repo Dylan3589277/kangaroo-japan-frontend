@@ -1,5 +1,6 @@
 "use client";
 
+import { loginPathWithNext } from "@/lib/login-redirect";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
@@ -40,7 +41,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push(`/${lang}/login`);
+      router.push(loginPathWithNext(lang));
       return;
     }
     if (isAuthenticated) {
@@ -79,7 +80,7 @@ export default function ProfilePage() {
   const handleLogout = () => {
     if (window.confirm(t("profile.logoutConfirm"))) {
       logout();
-      router.push(`/${lang}/login`);
+      router.push(loginPathWithNext(lang));
     }
   };
 

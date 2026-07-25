@@ -1,4 +1,5 @@
 "use client";
+import { loginPathWithNext } from "@/lib/login-redirect";
 import { useTranslations } from "next-intl";
 
 import { useState, useRef } from "react";
@@ -192,7 +193,7 @@ export default function DaipayPage() {
         </p>
         <Button
           className="bg-rose-600 hover:bg-rose-700"
-          onClick={() => router.push(`/${lang}/login`)}
+          onClick={() => router.push(loginPathWithNext(lang))}
         >
           {t("REPLACE_ME")}
         </Button>

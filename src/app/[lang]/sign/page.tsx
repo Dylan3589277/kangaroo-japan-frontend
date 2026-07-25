@@ -1,5 +1,6 @@
 "use client";
 
+import { loginPathWithNext } from "@/lib/login-redirect";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -62,7 +63,7 @@ export default function SignPage() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push(`/${lang}/login`);
+      router.push(loginPathWithNext(lang));
       return;
     }
     if (isAuthenticated) {
@@ -121,7 +122,7 @@ export default function SignPage() {
         <p className="text-muted-foreground mb-6">{t('needLoginDesc')}</p>
         <Button
           className="bg-rose-600 hover:bg-rose-700"
-          onClick={() => router.push(`/${lang}/login`)}
+          onClick={() => router.push(loginPathWithNext(lang))}
         >
           {t('goLogin')}
         </Button>

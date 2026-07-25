@@ -20,7 +20,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "", priority: 1.0, changeFrequency: "daily" },
     // 2026-07-25：/en/products 实测为未改版模板 + "No products found"，故 en 不报。
     { path: "/products", priority: 0.9, changeFrequency: "weekly", skipEn: true },
-    { path: "/compare", priority: 0.8, changeFrequency: "weekly" },
+    // skipEn：/en/compare 目前是空壳（正文仅约 1.1k 字符、还共用首页 title），
+    // 收录它只会给 Google 一个低质页面。等这页真正有内容再放回来。
+    { path: "/compare", priority: 0.8, changeFrequency: "weekly", skipEn: true },
     { path: "/pokemon-cards", priority: 0.9, changeFrequency: "weekly" },
     { path: "/yugioh-cards", priority: 0.9, changeFrequency: "weekly" },
     { path: "/faq", priority: 0.8, changeFrequency: "monthly" },

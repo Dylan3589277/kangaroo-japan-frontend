@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { safeNextPath } from "@/lib/login-redirect";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
@@ -25,7 +26,10 @@ const SOCIAL_ERROR_LABELS: Record<string, string> = {
 function getLoginCopy(lang: string) {
   if (lang === "en") {
     return {
-      slogan: "Committed to becoming a truly useful and affordable Japan proxy shopping service.",
+      // 原文是中文标语的直译（"致力成为真正好用便宜的日本代拍"），读起来不像英文母语
+      // 文案。改为贴合 TCG 定位的地道表述；zh/ja 分支不动。
+      slogan:
+        "Japanese cards, bought in Japan — inspected, consolidated, and shipped to your door.",
       forgot: "Forgot password?",
     };
   }
@@ -73,7 +77,8 @@ export default function LoginPage() {
 
       if (response.success && response.data) {
         login(response.data.user, response.data.tokens.access_token);
-        router.push(`/${lang}`);
+        // 回到被登录墙拦下的那一页（如某张卡的详情或结算），而不是一律甩回首页。
+        router.push(safeNextPath(searchParams.get("next"), lang));
       } else {
         const msg = response.error?.message;
         // 人机验证失败：后端硬编码英文串，前端映射到本地化文案，避免向用户直吐英文。
