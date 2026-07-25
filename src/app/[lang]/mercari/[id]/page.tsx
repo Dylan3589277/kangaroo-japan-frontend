@@ -87,11 +87,15 @@ function productJsonLd(
   detail: MercariDetail,
   lang: string,
   id: string,
+  nameEn: string | null,
 ): Record<string, unknown> {
   return {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: detail.goods_name,
+    // name 与页面 h1/title 保持一致用英文译名；日文原名放 alternateName，
+    // 两边都喂给搜索引擎，避免结构化数据与可见标题给出不一致的信号。
+    name: nameEn ?? detail.goods_name,
+    alternateName: nameEn ? detail.goods_name : undefined,
     sku: detail.goods_no,
     image: detail.imgurls?.length ? detail.imgurls : undefined,
     description: detail.description || detail.goods_name,
@@ -124,7 +128,7 @@ export default async function MercariGoodsDetailPage({
     return (
       <>
         {detail && isIndexable(lang) && (
-          <JsonLd data={productJsonLd(detail, lang, id)} />
+          <JsonLd data={productJsonLd(detail, lang, id, nameEn)} />
         )}
         <MercariDetailDesignA initialDetail={detail} nameEn={nameEn} />
       </>
