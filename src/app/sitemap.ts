@@ -16,6 +16,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
      * 报给 Google 只会收录到空壳页。en 的等价入口是 /en/cards。
      */
     skipEn?: boolean;
+    /**
+     * zh 侧不报该路由。用于 zh 正文尚未中文化、报给 Google 只会收录到
+     * 「标题中文正文英文」低质页面的路由。
+     * 2026-07-26：faq/fees/how-it-works/buyer-protection/photo-inspection/about
+     * 六页的 zh 正文已补齐并随本批上线，标记已撤除；机制保留备用。
+     */
+    skipZh?: boolean;
   }> = [
     { path: "", priority: 1.0, changeFrequency: "daily" },
     // 2026-07-25：/en/products 实测为未改版模板 + "No products found"，故 en 不报。
@@ -51,6 +58,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   for (const lang of INDEXABLE_LOCALES) {
     for (const page of staticPages) {
       if (page.skipEn && lang === "en") continue;
+      if (page.skipZh && lang === "zh") continue;
       entries.push({
         url: `${BASE_URL}/${lang}${page.path}`,
         lastModified: LAST_MODIFIED,

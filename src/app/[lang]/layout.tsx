@@ -6,6 +6,7 @@ import { routing } from "@/i18n/routing";
 import { isIndexable, organizationJsonLd, webSiteJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { TcgHeader } from "@/components/tcg/TcgHeader";
 import { TcgFooter } from "@/components/tcg/TcgFooter";
 import { ChatProvider } from "@/components/tcg/ChatProvider";
@@ -56,8 +57,9 @@ export default async function LocaleLayout({
   // 按 locale 分支站点外壳（chrome）：
   // - en：美国 TCG 站设计方向 A 深色外壳（TcgHeader + TcgFooter），统一套在所有
   //   英文页（首页/cards/fees + 后续英文页）外层，确保风格一致。
-  // - 其它语言：保持现有通用买家头部 SiteHeader，原样不变（无 footer）。
-  // 最小改动、两套外壳互不影响。
+  // - 其它语言：通用买家头部 SiteHeader + 浅色买家页脚 SiteFooter（2026-07-26 补，
+  //   施工卡1）。SiteHeader/SiteFooter 各自内部排除 admin/warehouse/内嵌客服页。
+  // 两套外壳互不影响，en 分支原样未动。
   // 客服浮窗在所有公开页（zh + en）统一挂载：ChatProvider 提供「带商品上下文打开
   // 客服」的能力（商品详情页用），ChatWidgetGate 排除 admin/warehouse 内部页并按
   // locale 切皮（zh 暖色 / en 设计 A 深色）。商品页打开带商品卡，其它页纯 FAQ。
@@ -90,6 +92,7 @@ export default async function LocaleLayout({
         {seoJsonLd}
         <SiteHeader />
         {children}
+        <SiteFooter />
         <ChatWidgetGate />
       </div>
     </ChatProvider>

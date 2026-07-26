@@ -38,7 +38,7 @@ const translations: Record<Locale, Translations> = {
         items: [
           {
             q: "什么是日本代拍？",
-            a: "我们替您在日本各大购物平台（Mercari、Yahoo!拍卖、亚马逊等）购买商品，并帮您完成付款、验货、打包、国际发货全流程。",
+            a: "我们替您在日本各大购物平台购买商品，并帮您完成付款、验货、打包、国际发货全流程。煤炉 Mercari、雅虎竞拍、雅虎 Frima、乐天 Rakuma 可以在站内直接搜索下单；日本亚马逊、骏河屋等平台暂不支持站内搜索，把商品链接发给客服即可人工代购。",
           },
           {
             q: "如何下单代拍？",
@@ -174,7 +174,7 @@ const translations: Record<Locale, Translations> = {
         items: [
           {
             q: "客服服务时间是什么？",
-            a: "人工客服服务时间为周一至周五 9:00-18:00（日本时间 JST）。节假日可能有所调整，请以平台公告为准。",
+            a: "人工客服服务时间为周一至周日 9:00-18:00（中国时间）。夜间留言我们会在次日早上批量回复。节假日可能有所调整，请以平台公告为准。",
           },
           {
             q: "如何联系客服？",
@@ -338,7 +338,7 @@ const translations: Record<Locale, Translations> = {
         items: [
           {
             q: "What are the support hours?",
-            a: "Human support is available Monday to Friday, 9:00-18:00 Japan Standard Time (JST). Hours may vary on public holidays — please check platform announcements.",
+            a: "Human support is available daily, 9:00-18:00 China time (10:00-19:00 JST). Messages left overnight are answered the next morning. Hours may vary on public holidays — please check platform announcements.",
           },
           {
             q: "How can I reach support?",
@@ -502,7 +502,7 @@ const translations: Record<Locale, Translations> = {
         items: [
           {
             q: "サポートの対応時間は？",
-            a: "人工サポートの対応時間は月〜金 9:00〜18:00（日本時間）です。祝日は変更になる場合がありますので、プラットフォームのお知らせをご確認ください。",
+            a: "人工サポートの対応時間は月〜日 10:00〜19:00（日本時間／中国時間 9:00〜18:00）です。夜間のメッセージは翌朝まとめて返信いたします。祝日は変更になる場合がありますので、プラットフォームのお知らせをご確認ください。",
           },
           {
             q: "サポートへの連絡方法は？",

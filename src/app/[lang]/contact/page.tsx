@@ -236,7 +236,7 @@ export default function ContactPage() {
       email: "邮件客服",
       emailDesc: "support@jp-buy.com",
       hours: "服务时间",
-      hoursValue: "周一至周五 9:00-18:00 (JST)",
+      hoursValue: "周一至周日 9:00-18:00（中国时间）",
       faq: "常见问题",
       faqLink: "查看 FAQ",
     },
@@ -250,7 +250,8 @@ export default function ContactPage() {
       email: "メールサポート",
       emailDesc: "support@jp-buy.com",
       hours: "サービス時間",
-      hoursValue: "月〜金 9:00-18:00 (JST)",
+      // 中国時間 9:00-18:00 ＝ 日本時間 10:00-19:00（時差 +1h）。日本語表示は日本時間で。
+      hoursValue: "月〜日 10:00-19:00（日本時間）",
       faq: "よくある質問",
       faqLink: "FAQを見る",
     },

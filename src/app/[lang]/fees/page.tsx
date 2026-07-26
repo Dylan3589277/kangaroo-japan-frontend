@@ -171,7 +171,12 @@ export default async function FeesPage({
           ))}
         </div>
 
-        {/* Competitor fee comparison */}
+        {/* Competitor fee comparison —— 仅 en 渲染（2026-07-26）。
+            B/Z/N/F/J.R. 五列对比的是面向海外买家的日本代购平台，对中国大陆买家
+            全部不适用，在 zh 下渲染出来是一张整列「—」的空表，再配一段"本表不适用
+            于你"的解释——比不显示更不专业。zh 侧有专门的 /fee-compare 页做国内
+            同行对比（挖煤姬/乐一番），那才是中国买家该看的那张表。 */}
+        {lang === "en" && (
         <section className="mt-12">
           <h2 className="text-xl font-semibold text-zinc-100">
             {t("comparison.title")}
@@ -300,6 +305,7 @@ export default async function FeesPage({
             </Link>
           </p>
         </section>
+        )}
 
         {/* 到手价试算（仅 en，且拿到真实费率才渲染） */}
         {pricingBasis && (

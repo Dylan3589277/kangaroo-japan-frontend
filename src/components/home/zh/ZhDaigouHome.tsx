@@ -30,20 +30,27 @@ const PLATFORM_ENTRIES = [
     className: "from-violet-50 to-purple-100 text-purple-700",
   },
   {
+    // 2026-07-26：日亚站内搜索没接通（后端 search 返回空数组），但**业务上一直能买**
+    // ——客服接单人工代购（老后台 st_shops: amazon is_show=1、手续费 220 円）。
+    // 所以不写「即将上线」（会赶走本来能成交的客户），写清楚「发链接给客服代购」。
     name: "亚马逊日本",
-    desc: "Amazon.co.jp 正品直邮",
+    desc: "Amazon.co.jp · 发链接客服代购",
     href: "/amazon",
     emoji: "📦",
     className: "from-amber-50 to-orange-100 text-orange-700",
   },
 ] as const;
 
+// 2026-07-26（花哥拍板）：原「正品保证」改为「日本平台直采」。
+// 原因：客服话术库里明写「我们没有验货和甄别真伪的能力」（为划分与日本卖家的责任默认不拆封），
+// 首页却挂着「正品保证」——这是我们做不到的绝对承诺，一旦出纠纷是对我方最不利的证据。
+// 改成陈述事实（从日本正规平台直接买 + 可申请拍照验货），卖点还在，但不承诺鉴定责任。
 const TRUST_BADGES = [
-  { icon: "🔨", label: "专业代拍保障" },
-  { icon: "✅", label: "正品保证" },
-  { icon: "✈️", label: "全球直邮" },
+  { icon: "🔨", label: "专业代拍保障", desc: "十年代拍老店，人工跟单" },
+  { icon: "✅", label: "日本平台直采", desc: "从日本正规平台代购，发货前可申请拍照验货" },
+  { icon: "✈️", label: "全球直邮", desc: "EMS / 海运 / 经济小包多种方式" },
   // 自助下单：你自己在站内下单购物，客服全程辅助（而非「人工代拍」）。
-  { icon: "🛒", label: "自助下单·客服辅助" },
+  { icon: "🛒", label: "自助下单·客服辅助", desc: "站内自助下单，客服全程协助" },
 ] as const;
 
 const HOT_KEYWORDS = [
@@ -80,7 +87,7 @@ export function ZhDaigouHome() {
     }
     metaDesc.setAttribute(
       "content",
-      "日本代购代拍一站式平台：煤炉 Mercari、雅虎竞拍、亚马逊日本真实在售商品，专业买手代拍、正品保证、全球直邮。",
+      "日本代购代拍一站式平台：煤炉 Mercari、雅虎竞拍、雅虎 Frima、乐天 Rakuma 真实在售商品站内直接下单，日本亚马逊可发链接给客服代购，专业买手代拍、全球直邮。",
     );
   }, []);
 
@@ -178,8 +185,11 @@ export function ZhDaigouHome() {
                 className="flex flex-col items-center gap-1 text-center"
               >
                 <span className="text-2xl">{badge.icon}</span>
-                <span className="text-xs font-medium text-zinc-600">
+                <span className="text-xs font-medium text-zinc-700">
                   {badge.label}
+                </span>
+                <span className="text-[11px] leading-snug text-zinc-500">
+                  {badge.desc}
                 </span>
               </div>
             ))}

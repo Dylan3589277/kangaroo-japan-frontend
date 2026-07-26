@@ -12,6 +12,19 @@ import { SITE_MENU } from "./siteMenu";
 // 移出后延迟收起的毫秒数：给鼠标从触发器斜向移到菜单项留出余量（hover 意图）。
 const HOVER_CLOSE_DELAY = 240;
 
+// 「我的」下拉菜单项：登录态下把零入口孤儿页（全站 0 处链接、只能手敲 URL）接回导航。
+// label 走各页面已有的 i18n key（如 coupons.title），不新增翻译键、不碰 zh/common.json
+// （并行卡2占用中）。这些 key 所在的 namespace 均已在 request.ts 里做英文兜底合并。
+const ACCOUNT_MENU_ITEMS = [
+  { key: "coupons", href: "/coupons", labelKey: "coupons.title" },
+  { key: "deposit", href: "/deposit", labelKey: "deposit.title" },
+  { key: "bids", href: "/bids", labelKey: "bids.title" },
+  { key: "messages", href: "/messages", labelKey: "messages.title" },
+  { key: "sign", href: "/sign", labelKey: "sign.title" },
+  { key: "vip", href: "/vip", labelKey: "vip.title" },
+  { key: "addresses", href: "/addresses", labelKey: "address.title" },
+] as const;
+
 interface HeaderProps {
   showSearch?: boolean;
   initialSearchQuery?: string;
@@ -85,11 +98,74 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
   // 卸载时清掉计时器，避免泄漏。
   useEffect(() => clearSitesCloseTimer, [clearSitesCloseTimer]);
 
+  // 「我的」下拉（登录态孤儿页导航）：交互实现照抄上面「站点」下拉的模式
+  // （hover 延迟收起 + 点击 toggle + 外部点击/Esc 收起），各自一套独立状态，不抽公共 hook。
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
+  const accountMenuId = useId();
+  const accountCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAccountCloseTimer = useCallback(() => {
+    if (accountCloseTimer.current !== null) {
+      clearTimeout(accountCloseTimer.current);
+      accountCloseTimer.current = null;
+    }
+  }, []);
+
+  const openAccountNow = useCallback(() => {
+    clearAccountCloseTimer();
+    setAccountOpen(true);
+  }, [clearAccountCloseTimer]);
+
+  const closeAccountNow = useCallback(() => {
+    clearAccountCloseTimer();
+    setAccountOpen(false);
+  }, [clearAccountCloseTimer]);
+
+  const scheduleAccountClose = useCallback(() => {
+    clearAccountCloseTimer();
+    accountCloseTimer.current = setTimeout(() => {
+      accountCloseTimer.current = null;
+      setAccountOpen(false);
+    }, HOVER_CLOSE_DELAY);
+  }, [clearAccountCloseTimer]);
+
+  const toggleAccount = useCallback(() => {
+    clearAccountCloseTimer();
+    setAccountOpen((open) => !open);
+  }, [clearAccountCloseTimer]);
+
+  useEffect(() => {
+    if (!accountOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
+        setAccountOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAccountOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [accountOpen]);
+
+  // 卸载时清掉计时器，避免泄漏。
+  useEffect(() => clearAccountCloseTimer, [clearAccountCloseTimer]);
+
   const navItems = [
     { key: "home", href: "/", label: t("nav.home") },
     { key: "cart", href: "/cart", label: t("nav.cart") },
     { key: "compare", href: "/compare", label: t("home.priceCompare") },
     { key: "feeCompare", href: "/fee-compare", label: t("nav.feeCompare") },
+    // 2026-07-26：补零入口页导航入口（施工卡1）。zh/common.json 暂不改动（并行卡2
+    // 占用），故直接硬编码中文标签；ko/th/id/vi/ja 共用本组件也会看到中文，
+    // 与页脚硬编码同理（见 Footer.tsx 顶部注释）。
+    { key: "howItWorks", href: "/how-it-works", label: "代购流程" },
+    { key: "help", href: "/help", label: "帮助中心" },
   ];
 
   const getAuthNav = () => {
@@ -223,6 +299,53 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
                 {item.label}
               </Link>
             ))}
+            {isAuthenticated && (
+              <div
+                ref={accountRef}
+                className="relative"
+                onMouseEnter={openAccountNow}
+                onMouseLeave={scheduleAccountClose}
+              >
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={accountOpen}
+                  aria-controls={accountMenuId}
+                  onClick={toggleAccount}
+                  className="flex items-center gap-1 whitespace-nowrap text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
+                >
+                  我的
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform ${accountOpen ? "rotate-180" : ""}`}
+                    aria-hidden="true"
+                  />
+                </button>
+                {/* pt-2 桥接触发器与菜单之间的空隙，移动鼠标不会触发 onMouseLeave */}
+                <div
+                  className={`absolute right-0 top-full z-50 pt-2 ${accountOpen ? "block" : "hidden"}`}
+                >
+                  <ul
+                    id={accountMenuId}
+                    role="menu"
+                    aria-label="我的"
+                    className="w-44 rounded-lg border bg-white py-1.5 shadow-xl"
+                  >
+                    {ACCOUNT_MENU_ITEMS.map((item) => (
+                      <li key={item.key} role="none">
+                        <Link
+                          href={item.href}
+                          role="menuitem"
+                          onClick={closeAccountNow}
+                          className="block px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                        >
+                          {t(item.labelKey)}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
           </nav>
 
           {/* 语言切换器已移除（站点级软锁）：按浏览器语言自动落地，详见
@@ -300,6 +423,30 @@ export function Header({ showSearch = false, initialSearchQuery = "", onSearch }
                     {item.label}
                   </Link>
                 ))}
+                {isAuthenticated && (
+                  <details className="group/account">
+                    <summary className="flex cursor-pointer list-none items-center justify-between rounded px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-rose-50 hover:text-rose-600 [&::-webkit-details-marker]:hidden">
+                      我的
+                      <ChevronDown
+                        className="h-4 w-4 transition-transform group-open/account:rotate-180"
+                        aria-hidden="true"
+                      />
+                    </summary>
+                    <ul className="mt-1 flex flex-col gap-0.5 pl-3" role="menu" aria-label="我的">
+                      {ACCOUNT_MENU_ITEMS.map((item) => (
+                        <li key={item.key} role="none">
+                          <Link
+                            href={item.href}
+                            role="menuitem"
+                            className="block rounded px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                          >
+                            {t(item.labelKey)}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </nav>
             </div>
           </details>

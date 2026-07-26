@@ -199,9 +199,11 @@ export function HomePageClient() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
               {
-                zh: ["搜索或粘贴链接", "支持 Mercari、Yahoo!拍卖、亚马逊等日本平台"],
+                // 2026-07-26：亚马逊日本未接通（search 返回空），从平台列表移除，
+                // 换成实际可用的雅虎 Frima / 乐天 Rakuma。
+                zh: ["搜索或粘贴链接", "支持 Mercari、Yahoo!拍卖、Yahoo!Frima、Rakuma 等日本平台"],
                 en: ["Search or paste a link", "Mercari and Yahoo! Auctions"],
-                ja: ["検索またはリンクを貼付", "メルカリ・Yahoo!オークション・Amazonなどに対応"],
+                ja: ["検索またはリンクを貼付", "メルカリ・Yahoo!オークション・Yahoo!フリマ・ラクマに対応"],
               },
               {
                 zh: ["下单支付", "我们在日本替您购买；若未买到，款项全额退还"],
