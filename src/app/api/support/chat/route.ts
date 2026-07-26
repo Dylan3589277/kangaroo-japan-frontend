@@ -16,8 +16,10 @@ const HERMES_BRIDGE_TOKEN =
   process.env.KANGAROO_AGENT_TOKEN || process.env.HERMES_BRIDGE_TOKEN || "";
 const HERMES_BRIDGE_TIMEOUT_MS = 28_000;
 
-const HUMAN_TRANSFER_REPLY =
-  "袋鼠酱这边暂时有点忙，我先带你转人工客服继续处理～";
+// 2026-07-26 花哥拍板：顾客主动要求转人工时，回"我有点忙"不贴题也不实诚（真实对话
+// 里顾客点了转人工还换会话重试）。改为直接应答。与 bridge.py 的
+// EXPLICIT_HUMAN_TRANSFER_REPLY 保持同一段话术（点按钮 / 打字问 两条路径体验一致）。
+const HUMAN_TRANSFER_REPLY = "好的，这就为您转接人工客服～";
 const QUICK_REPLY_SOURCE_ID = "local-quick-reply";
 const FIRST_TIME_NO_JAPANESE_REPLY =
   "不会日语完全没关系哦～\n\n我们小程序提供了简单的翻译功能，浏览商品时点击页面下方的【中文】按钮即可切换为中文查看。若仍有不理解的商品描述、卖家说明或注意事项，也可以随时联系人工客服帮您确认。\n\n第一次使用的话，购买流程很简单：\n1. 在小程序里提交你想买的商品（比如你现在看的这个 Mercari 商品）。\n2. 按系统显示的金额付款。\n3. 袋鼠君帮你在日本平台下单或出价。\n4. 商品到达日本仓库后，你在小程序申请国际发货。\n5. 等待收货就好啦。\n\n费用一般包括：商品价格、日本国内运费、服务费、国际运费，以及可能产生的关税。多件商品可以等一起到仓库后合并发货，更省钱哦！";
