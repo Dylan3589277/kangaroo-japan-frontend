@@ -2,8 +2,18 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, Link } from "@/i18n/navigation";
+import {
+  Building2,
+  Gavel,
+  Headset,
+  Package,
+  Plane,
+  ShieldCheck,
+  ShoppingBag,
+} from "lucide-react";
 import { ZhBanner } from "./ZhBanner";
 import { ZhCategoryRow } from "./ZhCategoryRow";
+import { ZhHowItWorksStrip } from "./ZhHowItWorksStrip";
 import { fetchJpyToCny, ZH_HOME_CATEGORIES } from "./zh-daigou-data";
 
 /**
@@ -11,7 +21,7 @@ import { fetchJpyToCny, ZH_HOME_CATEGORIES } from "./zh-daigou-data";
  * 仅在 locale === "zh" 时由 [lang]/page.tsx 渲染；其它语言不受影响。
  * 文案直接写中文（无 i18n namespace，避免 key 缺失）。zh 站只显人民币（≈元），绝不显美元。
  *
- * 区块（上→下）：Banner 轮播 → 大搜索框 + 热门词 → 平台入口卡 → 信任标签条 → 热门品类推荐区。
+ * 区块（上→下）：价值主张 + 大搜索框 + 热门词 → 三步流程图解 → Banner 轮播 → 平台入口卡 → 信任标签条 → 热门品类推荐区。
  */
 
 const PLATFORM_ENTRIES = [
@@ -19,15 +29,15 @@ const PLATFORM_ENTRIES = [
     name: "Mercari 煤炉",
     desc: "日本最大二手交易平台",
     href: "/mercari",
-    emoji: "🛍️",
-    className: "from-rose-50 to-rose-100 text-rose-700",
+    Icon: ShoppingBag,
+    accent: "bg-rose-50 text-rose-600",
   },
   {
     name: "雅虎竞拍",
     desc: "Yahoo! 拍卖 · 代拍代抢",
     href: "/yahoo",
-    emoji: "🔨",
-    className: "from-violet-50 to-purple-100 text-purple-700",
+    Icon: Gavel,
+    accent: "bg-zinc-100 text-zinc-700",
   },
   {
     // 2026-07-26：日亚站内搜索没接通（后端 search 返回空数组），但**业务上一直能买**
@@ -36,8 +46,8 @@ const PLATFORM_ENTRIES = [
     name: "亚马逊日本",
     desc: "Amazon.co.jp · 发链接客服代购",
     href: "/amazon",
-    emoji: "📦",
-    className: "from-amber-50 to-orange-100 text-orange-700",
+    Icon: Package,
+    accent: "bg-orange-50 text-orange-600",
   },
 ] as const;
 
@@ -46,11 +56,11 @@ const PLATFORM_ENTRIES = [
 // 首页却挂着「正品保证」——这是我们做不到的绝对承诺，一旦出纠纷是对我方最不利的证据。
 // 改成陈述事实（从日本正规平台直接买 + 可申请拍照验货），卖点还在，但不承诺鉴定责任。
 const TRUST_BADGES = [
-  { icon: "🔨", label: "专业代拍保障", desc: "十年代拍老店，人工跟单" },
-  { icon: "✅", label: "日本平台直采", desc: "从日本正规平台代购，发货前可申请拍照验货" },
-  { icon: "✈️", label: "全球直邮", desc: "EMS / 海运 / 经济小包多种方式" },
+  { Icon: ShieldCheck, label: "专业代拍保障", desc: "十年代拍老店，人工跟单" },
+  { Icon: Building2, label: "日本平台直采", desc: "从日本正规平台代购，发货前可申请拍照验货" },
+  { Icon: Plane, label: "全球直邮", desc: "EMS / 海运 / 经济小包多种方式" },
   // 自助下单：你自己在站内下单购物，客服全程辅助（而非「人工代拍」）。
-  { icon: "🛒", label: "自助下单·客服辅助", desc: "站内自助下单，客服全程协助" },
+  { Icon: Headset, label: "自助下单·客服辅助", desc: "站内自助下单，客服全程协助" },
 ] as const;
 
 const HOT_KEYWORDS = [
@@ -113,8 +123,18 @@ export function ZhDaigouHome() {
   return (
     <div className="min-h-screen bg-zinc-50 pb-12">
       {/* 大搜索框（顶部） */}
-      <section className="bg-gradient-to-b from-rose-50 to-zinc-50 pb-6 pt-8">
+      <section className="bg-gradient-to-b from-rose-50 to-zinc-50 pb-6 pt-10">
         <div className="mx-auto w-full max-w-7xl px-4">
+          {/* 价值主张：先说清楚我们是谁、能做什么，再给搜索框 */}
+          <div className="mx-auto mb-6 max-w-2xl text-center">
+            <h1 className="text-2xl font-extrabold text-zinc-900 sm:text-3xl">
+              日本代购代拍 · 煤炉/雅虎竞拍一站直邮
+            </h1>
+            <p className="mt-2 text-sm text-zinc-500 sm:text-base">
+              你看中日本商品，我们在日本替你买，验货合箱直邮到家
+            </p>
+          </div>
+
           <form onSubmit={handleSearch} className="mx-auto max-w-2xl">
             <div className="relative">
               <input
@@ -149,6 +169,9 @@ export function ZhDaigouHome() {
         </div>
       </section>
 
+      {/* 三步流程图解（搜索区之后、Banner 之前） */}
+      <ZhHowItWorksStrip />
+
       {/* Banner 轮播 */}
       <section className="pb-6">
         <ZhBanner />
@@ -162,12 +185,18 @@ export function ZhDaigouHome() {
               <Link
                 key={entry.name}
                 href={entry.href}
-                className={`flex items-center gap-3 rounded-2xl border border-white bg-gradient-to-br p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${entry.className}`}
+                className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md"
               >
-                <span className="text-3xl">{entry.emoji}</span>
+                <span
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${entry.accent}`}
+                >
+                  <entry.Icon className="h-5 w-5" strokeWidth={1.75} />
+                </span>
                 <span className="flex flex-col">
-                  <span className="text-base font-bold">{entry.name}</span>
-                  <span className="text-xs opacity-80">{entry.desc}</span>
+                  <span className="text-base font-bold text-zinc-900">
+                    {entry.name}
+                  </span>
+                  <span className="text-xs text-zinc-500">{entry.desc}</span>
                 </span>
               </Link>
             ))}
@@ -184,7 +213,10 @@ export function ZhDaigouHome() {
                 key={badge.label}
                 className="flex flex-col items-center gap-1 text-center"
               >
-                <span className="text-2xl">{badge.icon}</span>
+                <badge.Icon
+                  className="h-6 w-6 text-rose-600"
+                  strokeWidth={1.75}
+                />
                 <span className="text-xs font-medium text-zinc-700">
                   {badge.label}
                 </span>

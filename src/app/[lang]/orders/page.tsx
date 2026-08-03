@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { OrdersTcgList, OrdersTcgLoading } from "@/components/orders/orders-tcg";
+import { MascotScene } from "@/components/common/MascotScene";
 
 interface OrderItem {
   id: string;
@@ -514,7 +515,11 @@ export default function OrdersPage() {
         </div>
       ) : orders.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-6xl mb-4">📦</div>
+          {lang === "zh" ? (
+            <MascotScene name="empty" alt="暂无订单" className="mb-4" />
+          ) : (
+            <div className="text-6xl mb-4">📦</div>
+          )}
           <h2 className="text-xl font-bold mb-2">{t("empty")}</h2>
           <p className="text-muted-foreground mb-8">
             {t("emptySubtitle")}

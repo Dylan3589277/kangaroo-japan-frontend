@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { MascotScene } from "@/components/common/MascotScene";
 
 interface Coupon {
   id: string;
@@ -240,7 +241,11 @@ export default function CouponsPage() {
           <TabsContent value="active" className="space-y-4">
             {activeCoupons.length === 0 ? (
               <div className="text-center py-16">
-                <div className="text-6xl mb-4">🎫</div>
+                {lang === "zh" ? (
+                  <MascotScene name="coupon" alt="暂无可用优惠券" className="mb-4" />
+                ) : (
+                  <div className="text-6xl mb-4">🎫</div>
+                )}
                 <p className="text-xl font-medium mb-2">暂无可用优惠券</p>
                 <p className="text-muted-foreground mb-6">
                   前往积分商城兑换优惠券，或关注我们的活动获取更多优惠
@@ -260,7 +265,11 @@ export default function CouponsPage() {
           <TabsContent value="expired" className="space-y-4">
             {expiredCoupons.length === 0 ? (
               <div className="text-center py-16">
-                <div className="text-6xl mb-4">📭</div>
+                {lang === "zh" ? (
+                  <MascotScene name="coupon" alt="暂无已失效优惠券" className="mb-4" />
+                ) : (
+                  <div className="text-6xl mb-4">📭</div>
+                )}
                 <p className="text-xl font-medium mb-2">暂无已失效优惠券</p>
               </div>
             ) : (

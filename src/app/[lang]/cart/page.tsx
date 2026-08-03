@@ -19,6 +19,7 @@ import {
   CartTcgEmpty,
   CartTcgLoading,
 } from "@/components/cart/cart-tcg";
+import { MascotScene } from "@/components/common/MascotScene";
 
 interface CartItem {
   id: string;
@@ -328,7 +329,11 @@ export default function CartPage() {
     }
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <div className="text-6xl mb-4">🛒</div>
+        {lang === "zh" ? (
+          <MascotScene name="empty" alt="购物车是空的" className="mb-4" />
+        ) : (
+          <div className="text-6xl mb-4">🛒</div>
+        )}
         <h1 className="text-2xl font-bold mb-2">{tr("yourCartIsEmpty")}</h1>
         <p className="text-muted-foreground mb-8">{tr("startShopping")}</p>
         <Link href={`/${lang}/products`}>

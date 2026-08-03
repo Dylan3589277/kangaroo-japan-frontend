@@ -22,19 +22,23 @@ const SLIDES: BannerSlide[] = [
     title: "日本代拍 · 全球直邮",
     subtitle: "雅虎竞拍 · 煤炉一键代购，专业买手帮你抢",
     href: "/yahoo",
-    gradient: "from-rose-500 via-orange-500 to-amber-400",
+    gradient: "from-rose-500 to-orange-400",
   },
   {
     title: "宝可梦卡专场",
-    subtitle: "日本在售卡牌实时同步，正品保障",
+    // 2026-08-03：原文案「正品保障」是我们做不到的鉴定承诺（话术库明写没有验货甄别真伪的能力），
+    // 改成陈述事实，口径与首页信任标签「日本平台直采」一致。
+    subtitle: "日本在售卡牌实时同步，可申请拍照验货",
     href: "/yahoo?kw=ポケモンカード",
-    gradient: "from-violet-600 via-fuchsia-500 to-rose-500",
+    gradient: "from-orange-500 to-rose-600",
   },
   {
-    title: "新人首单优惠",
-    subtitle: "注册即享专属代拍服务，人工客服全程跟单",
-    href: "/register",
-    gradient: "from-amber-500 via-orange-500 to-rose-500",
+    // 2026-08-03：站内没有任何「新人首单优惠」的真实促销依据（无对应券/折扣配置），
+    // 原标题会许下站内兑现不了的承诺，改为陈述服务事实（新手引导），不承诺折扣。
+    title: "新手代购不用慌",
+    subtitle: "全流程客服跟单，从选品下单到直邮到家手把手带你",
+    href: "/how-it-works",
+    gradient: "from-amber-500 to-rose-500",
   },
 ];
 
@@ -66,15 +70,15 @@ export function ZhBanner() {
             <Link
               key={slide.title}
               href={slide.href}
-              className={`relative flex min-h-[160px] w-full shrink-0 flex-col justify-center bg-gradient-to-r px-6 py-8 text-white md:min-h-[220px] md:px-12 ${slide.gradient}`}
+              className={`relative flex min-h-[120px] w-full shrink-0 flex-col justify-center bg-gradient-to-r px-6 py-5 text-white md:min-h-[160px] md:px-12 ${slide.gradient}`}
             >
-              <h2 className="text-2xl font-extrabold drop-shadow-sm md:text-4xl">
+              <h2 className="text-xl font-extrabold drop-shadow-sm md:text-2xl">
                 {slide.title}
               </h2>
-              <p className="mt-2 max-w-md text-sm text-white/90 md:text-base">
+              <p className="mt-1.5 max-w-md text-xs text-white/90 md:text-sm">
                 {slide.subtitle}
               </p>
-              <span className="mt-4 inline-flex w-fit items-center rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-rose-600">
+              <span className="mt-3 inline-flex w-fit items-center rounded-full bg-white/90 px-4 py-1.5 text-xs font-semibold text-rose-600">
                 立即查看 →
               </span>
             </Link>

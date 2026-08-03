@@ -9,6 +9,7 @@ import { useAuthStore } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { MascotScene } from "@/components/common/MascotScene";
 
 interface DepositItem {
   id: string;
@@ -168,7 +169,11 @@ export default function DepositHistoryPage() {
         </div>
       ) : items.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-6xl mb-4">📋</div>
+          {lang === "zh" ? (
+            <MascotScene name="deposit" alt={t('noHistory')} className="mb-4" />
+          ) : (
+            <div className="text-6xl mb-4">📋</div>
+          )}
           <h2 className="text-xl font-bold mb-2">{t('noHistory')}</h2>
           <p className="text-muted-foreground">
             {t('noHistoryDesc')}

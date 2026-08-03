@@ -29,6 +29,7 @@ import {
   urgencyFromTimestamp,
 } from "./yahoo-urgency";
 import { localizeYahooCategoryLabel } from "./yahoo-category-labels";
+import { MascotScene } from "@/components/common/MascotScene";
 
 const ALL_CATEGORIES = "__all__";
 
@@ -380,7 +381,11 @@ export function YahooSearchPage({
             </div>
           ) : items.length === 0 ? (
             <div className="rounded-2xl border bg-card px-4 py-14 text-center">
-              <Search className="mx-auto size-8 text-muted-foreground" />
+              {locale === "zh" ? (
+                <MascotScene name="search" alt={t("emptyTitle")} className="mb-1" />
+              ) : (
+                <Search className="mx-auto size-8 text-muted-foreground" />
+              )}
               <p className="mt-3 text-sm font-medium">{t("emptyTitle")}</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {t("emptyHint")}

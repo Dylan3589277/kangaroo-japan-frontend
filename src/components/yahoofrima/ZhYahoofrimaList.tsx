@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/yahoofrima";
 import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-data";
 import { ImagePlaceholder } from "@/components/ui/image-placeholder";
+import { MascotScene } from "@/components/common/MascotScene";
 
 /**
  * zh（经典/非 en）PayPayフリマ 搜索 + 列表页（中国导购风，Yahoo 红角标）。
@@ -282,7 +283,11 @@ export function ZhYahoofrimaList() {
           </div>
         ) : sortedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white py-16 text-center">
-            <div className="mb-3 text-5xl">{failed ? "😵" : "📦"}</div>
+            {failed ? (
+              <div className="mb-3 text-5xl">😵</div>
+            ) : (
+              <MascotScene name="search" alt={t("emptyTitle")} className="mb-3" />
+            )}
             <p className="text-base font-medium text-zinc-700">
               {failed ? t("failedTitle") : t("emptyTitle")}
             </p>

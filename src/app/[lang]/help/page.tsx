@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
+import { MascotScene } from "@/components/common/MascotScene";
 
 type Locale = "zh" | "en" | "ja";
 
@@ -551,6 +552,14 @@ export default function HelpPage() {
       <main className="container mx-auto px-4 py-12 max-w-3xl">
         {/* Page header */}
         <div className="text-center mb-10">
+          {/* 吉祥物：戴耳机客服袋鼠（kefu.jpg），呼应「帮助中心」；仅 zh */}
+          {lang === "zh" && (
+            <div className="mb-4 flex justify-center">
+              <div className="overflow-hidden rounded-2xl">
+                <MascotScene name="kefu" alt="袋鼠君客服" size={150} />
+              </div>
+            </div>
+          )}
           <h1 className="text-3xl font-bold mb-2">{t.pageTitle}</h1>
           <p className="text-gray-500">{t.pageSubtitle}</p>
         </div>

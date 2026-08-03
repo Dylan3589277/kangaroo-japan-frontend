@@ -17,6 +17,7 @@ import {
   Package,
   type LucideIcon,
 } from "lucide-react";
+import { MascotScene } from "@/components/common/MascotScene";
 
 interface Message {
   id: number;
@@ -198,7 +199,11 @@ export default function MessagesPage() {
         </div>
       ) : messages.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-6xl mb-4">--</div>
+          {lang === "zh" ? (
+            <MascotScene name="message" alt={t('noMessages')} className="mb-4" />
+          ) : (
+            <div className="text-6xl mb-4">--</div>
+          )}
           <h2 className="text-xl font-bold mb-2">{t('noMessages')}</h2>
           <p className="text-muted-foreground">{t('noMessagesDesc')}</p>
         </div>

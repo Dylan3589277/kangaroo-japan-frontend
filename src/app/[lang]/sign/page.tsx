@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { MascotScene } from "@/components/common/MascotScene";
 
 interface SignDay {
   index: number;
@@ -149,6 +150,12 @@ export default function SignPage() {
             </div>
           </div>
         </div>
+        {/* 吉祥物：袋鼠举日历本（sign.jpg），呼应「每日签到」；仅 zh，桌面端显示 */}
+        {lang === "zh" && (
+          <div className="absolute right-4 top-1/2 hidden -translate-y-1/2 overflow-hidden rounded-xl sm:block">
+            <MascotScene name="sign" alt="每日签到" size={104} />
+          </div>
+        )}
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/4" />
       </div>
@@ -207,9 +214,14 @@ export default function SignPage() {
           </Button>
 
           {allSigned && (
-            <p className="text-center text-sm text-green-600 mt-2">
-              ✅ {t('allSignedMsg')}
-            </p>
+            <div className="text-center mt-4">
+              {lang === "zh" && (
+                <MascotScene name="celebrate" alt={t('allSignedMsg')} size={140} />
+              )}
+              <p className="text-sm text-green-600 mt-2">
+                ✅ {t('allSignedMsg')}
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

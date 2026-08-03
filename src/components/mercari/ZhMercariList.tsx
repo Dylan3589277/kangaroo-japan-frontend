@@ -7,6 +7,7 @@ import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatfo
 import { searchMercariTcg, type TcgCardItem } from "@/components/home/tcg/tcg-data";
 import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-data";
 import { ImagePlaceholder } from "@/components/ui/image-placeholder";
+import { MascotScene } from "@/components/common/MascotScene";
 
 /**
  * zh（经典/非 en）Mercari 煤炉列表页（中国导购风，暖色调）。
@@ -297,7 +298,11 @@ export function ZhMercariList() {
           </div>
         ) : sortedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white py-16 text-center">
-            <div className="mb-3 text-5xl">{failed ? "😵" : "📦"}</div>
+            {failed ? (
+              <div className="mb-3 text-5xl">😵</div>
+            ) : (
+              <MascotScene name="search" alt="没有找到相关商品" className="mb-3" />
+            )}
             <p className="text-base font-medium text-zinc-700">
               {failed ? "加载失败，请稍后重试" : "没有找到相关商品"}
             </p>
