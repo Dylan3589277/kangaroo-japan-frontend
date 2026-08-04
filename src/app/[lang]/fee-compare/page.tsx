@@ -8,6 +8,7 @@ import {
 } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { FeeCalculator } from "./FeeCalculator";
+import { LandedCostEstimator } from "./LandedCostEstimator";
 import {
   OUR_NAME,
   COMPETITOR_A_NAME,
@@ -250,9 +251,14 @@ export default async function FeeComparePage({
           ))}
         </div>
 
-        {/* 试算器 */}
+        {/* 代购手续费对比试算器 */}
         <div className="mt-10">
           <FeeCalculator />
+        </div>
+
+        {/* 到手价试算（商品价 + 手续费，折合人民币，不含国际运费） */}
+        <div className="mt-6">
+          <LandedCostEstimator />
         </div>
 
         <p className="mt-8 text-center text-xs leading-relaxed text-zinc-400">

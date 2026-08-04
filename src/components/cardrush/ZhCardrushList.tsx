@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
+import { useTitleTranslations } from "@/components/platform-search/useTitleTranslations";
 import { searchCardrush, type CardrushCardItem } from "@/lib/api/cardrush";
 import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-data";
 import { ImagePlaceholder } from "@/components/ui/image-placeholder";
@@ -50,10 +51,12 @@ function ZhCardrushCard({
   item,
   jpyToCny,
   t,
+  translatedTitle,
 }: {
   item: CardrushCardItem;
   jpyToCny: number | null;
   t: ReturnType<typeof useTranslations>;
+  translatedTitle?: string;
 }) {
   const [imgBroken, setImgBroken] = useState(false);
   const hasImage = Boolean(item.imageUrl) && !imgBroken;
@@ -94,9 +97,16 @@ function ZhCardrushCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-        <h3 className="line-clamp-2 min-h-[2.4rem] text-xs leading-snug text-zinc-700">
-          {item.title}
-        </h3>
+        <div className="min-h-[2.4rem]">
+          <h3 className="line-clamp-2 text-xs leading-snug text-zinc-700">
+            {translatedTitle || item.title}
+          </h3>
+          {translatedTitle && (
+            <p className="line-clamp-1 text-[10px] leading-tight text-zinc-400">
+              {item.title}
+            </p>
+          )}
+        </div>
 
         <div className="mt-auto flex items-baseline gap-1.5">
           {typeof item.priceJpy === "number" ? (
@@ -195,6 +205,9 @@ export function ZhCardrushList() {
   }, []);
 
   const sortedItems = sortItems(items, sort);
+  const titleTranslations = useTitleTranslations(
+    sortedItems.map((item) => item.title),
+  );
   void lang;
 
   return (
@@ -310,6 +323,7 @@ export function ZhCardrushList() {
                 item={item}
                 jpyToCny={jpyToCny}
                 t={t}
+                translatedTitle={titleTranslations[item.title]}
               />
             ))}
           </div>

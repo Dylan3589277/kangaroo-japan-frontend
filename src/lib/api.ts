@@ -400,6 +400,30 @@ export interface ExchangeRatesResponse {
   updatedBy?: string;
 }
 
+export type FeeEstimatePlatform =
+  | "mercari"
+  | "yahoo"
+  | "yahoofrima"
+  | "rakuma"
+  | "amazon";
+
+// zh /fee-compare 到手价试算：老后台实时汇率快照 + 静态平台手续费口径，
+// 详见后端 src/fee-estimate/fee-estimate.service.ts 顶部注释。
+export type FeeEstimateResponse =
+  | { available: false }
+  | {
+      available: true;
+      platform: FeeEstimatePlatform;
+      priceJpy: number;
+      shopFeeJpy: number;
+      levelFeeJpy: number;
+      amountJpy: number;
+      rate: number;
+      amountRmb: number;
+      amountRmbLegacyCeil: number;
+      rateAsOf: string;
+    };
+
 export interface AdminPlatformHealthItem {
   platform: "yahoo" | "yahoo-shopping" | "rakuten" | "amazon" | "mercari";
   configured: boolean;
@@ -2869,6 +2893,17 @@ class ApiClient {
   // Exchange rate admin endpoints
   async getExchangeRates() {
     return this.request<ExchangeRatesResponse>("/exchange-rates");
+  }
+
+  // zh 到手价试算（/fee-compare 页专用，公开只读，不需要登录）。
+  async getFeeEstimate(platform: FeeEstimatePlatform, priceJpy: number) {
+    const params = new URLSearchParams({
+      platform,
+      priceJpy: String(Math.trunc(priceJpy)),
+    });
+    return this.request<FeeEstimateResponse>(
+      `/fee-estimate?${params.toString()}`,
+    );
   }
 
   async updateExchangeRates(data: {

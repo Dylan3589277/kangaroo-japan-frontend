@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { usePlatformSearchKeyword } from "@/components/platform-search/usePlatformSearchKeyword";
+import { useTitleTranslations } from "@/components/platform-search/useTitleTranslations";
 import { searchMercariTcg, type TcgCardItem } from "@/components/home/tcg/tcg-data";
 import { fetchJpyToCny, formatCnyApprox } from "@/components/home/zh/zh-daigou-data";
 import { ImagePlaceholder } from "@/components/ui/image-placeholder";
@@ -55,9 +56,11 @@ function sortItems(items: TcgCardItem[], sort: SortKey): TcgCardItem[] {
 function ZhMercariCard({
   item,
   jpyToCny,
+  translatedTitle,
 }: {
   item: TcgCardItem;
   jpyToCny: number | null;
+  translatedTitle?: string;
 }) {
   const [imgBroken, setImgBroken] = useState(false);
   const hasImage = Boolean(item.imageUrl) && !imgBroken;
@@ -102,9 +105,16 @@ function ZhMercariCard({
 
       {/* 文字内容 */}
       <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-        <h3 className="line-clamp-2 min-h-[2.4rem] text-xs leading-snug text-zinc-700">
-          {item.title}
-        </h3>
+        <div className="min-h-[2.4rem]">
+          <h3 className="line-clamp-2 text-xs leading-snug text-zinc-700">
+            {translatedTitle || item.title}
+          </h3>
+          {translatedTitle && (
+            <p className="line-clamp-1 text-[10px] leading-tight text-zinc-400">
+              {item.title}
+            </p>
+          )}
+        </div>
 
         <div className="mt-auto flex items-baseline gap-1.5">
           {typeof item.priceJpy === "number" ? (
@@ -207,6 +217,9 @@ export function ZhMercariList() {
   }, []);
 
   const sortedItems = sortItems(items, sort);
+  const titleTranslations = useTitleTranslations(
+    sortedItems.map((item) => item.title),
+  );
 
   return (
     <div className="min-h-screen bg-zinc-50 pb-12">
@@ -324,6 +337,7 @@ export function ZhMercariList() {
                 key={item.goodsNo}
                 item={item}
                 jpyToCny={jpyToCny}
+                translatedTitle={titleTranslations[item.title]}
               />
             ))}
           </div>

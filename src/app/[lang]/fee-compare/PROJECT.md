@@ -137,3 +137,64 @@ goodsNo=...`，返回 `MercariQuote.valueAdded: { id, name, priceJpy }[]`。但�
   ② 手续费、仓储移出对比表（三家都现免=都0、仓储30天不占优，比了没意义/自曝），合并成「袋鼠君亮点卡」：⭐10年代拍老店 + 代购手续费 200円限免（现0）+ 免费仓储 30天（BRAND_BADGE/HIGHLIGHTS in data，page.tsx 渲染，rose 风格非糖果粉）。
   ③ 对比表保留 客服/砍价/拍照/运费/合并打包/纠纷售后 六项；手续费名义价对比仍在试算器。
   网页版 = zh 站 rose 风格；build 通过、本地截图验亮点卡+对比表渲染 OK。
+
+## 变更记录（追加 9）——到手价试算区块（2026-08-04）
+
+- 花哥拍板加「到手价试算」区块，补上待办 3（试算器人民币显示）。**新组件**
+  `LandedCostEstimator.tsx`，插在 `FeeCalculator`（代购手续费三方对比，纯前端）之后，
+  两者互不影响、职责不同。
+
+- **计价口径先读码实证**（阿里云老后台只读 SSH，未做任何写操作）：
+  - `app/api/controller/Orders.php::confirm()`/`proxyConfirm()`（Mercari/Yahoo/Amazon 走这条）
+    与 `app/admin/controller/Orders.php::legacyQuote()`（rakuma/yahoofrima/cardrush/
+    surugaya/torecacamp/cardmuseum/toretoku 走这条）算价逐行一致：
+    `amount_jpy = price + shops.fee(平台) + user_levels.fee(会员等级"代拍手续费额外")`，
+    `amount_rmb = amount_jpy × rate`，`rate = EXCHANGE_RATE(st_config,每日更新) + user_levels.rate`。
+  - 只读 mysql 查询 `st_shops`：mercari 100 / yahoo(竞拍) 220 / yahoofrima 100 / rakuma 100
+    / amazon 220 円；`st_user_levels` 四档（普通/黄金/白金/钻石）**当前 rate 统一 0.0025、
+    fee 统一 0.00**（代拍手续费限时免费属实）。
+  - 🔴 **口径分歧，已如实上报未擅自采信**：客服话术 `Chat.php` 里「非会员代拍汇率
+    +0.006／会员代拍汇率 +0.003」这句，在当前 `st_user_levels` 实际值里查无实据（四档
+    完全一样，不存在会员/非会员差异）；0.003 实为 `SHIP_EXCHANGE_RATE`（国际运费换算
+    专用）与 `EXCHANGE_RATE` 之差，跟商品款换算汇率是两回事，客服文案把两者混为一谈了。
+    据此**没做「会员/非会员」切换**（做了也是假选项，两个值算出来完全一样）。
+
+- **后端**：新模块 `kangaroo-japan-backend/src/fee-estimate/`（service + controller +
+  module，已注册进 `app.module.ts`）。公开只读端点 `GET /api/v1/fee-estimate?
+platform=<mercari|yahoo|yahoofrima|rakuma|amazon>&priceJpy=<int>`，不需要登录。
+  实现上**复用已有的老后台签名只读代理**（`DSR_LEGACY_READONLY_API_BASE_URL` +
+  `ADMIN_READONLY_PROXY_SECRET`，即 `tcg-quote.service.ts` 在用的同一套基建）打
+  `/admin/orders/rakuma-quote` 拿实时 `{rate, realrate, fee_level_jpy}` 快照（5 分钟
+  内存缓存 + 5s 超时 + 失败/未配置返 `{available:false}`，不建单不写老后台），本地再按
+  用户选的平台套静态 `shops.fee` 算出该平台的 `amount_jpy`/`amount_rmb`。mercari/yahoo/
+  amazon 老后台没有公开 quote 路由，只能静态写死其 `shops.fee`（有漂移风险，见「待办」）。
+
+- **前端**：`src/lib/api.ts` 加 `FeeEstimatePlatform`/`FeeEstimateResponse` 类型 +
+  `api.getFeeEstimate()`；`LandedCostEstimator.tsx` 400ms 防抖调用，展示商品款/支付
+  手续费/代拍手续费(现免)/小计(JPY) + 预估到手价(CNY，两位小数) + 汇率取数时间；
+  显著注明「国际运费到仓称重后另计，不含在内」与「下单页实付以老后台按元向上取整为准
+  （本页两位小数仅供参考）」。汇率接口不可用时显示「暂时无法估算」，不出 NaN。
+
+- **验证**：后端 `nest build`/`eslint`/14 条单元测试全绿（覆盖 5 平台费率映射、5 分钟
+  缓存、TTL 过期重取、env 未配/HTTP 错误/code≠0/畸形响应/网络错误/超时全部 fail-closed
+  返 null）；另写一次性脚本直接实例化 `FeeEstimateService` 打生产老后台真实汇率验证
+  （price=12345 全平台手算对照一致，用后即删，未入库未提交）。前端 `next build`/
+  `eslint` 全绿。🔴 **未做浏览器可视化验证**——本机 `.next` 目录被另一并行会话的 dev
+  server 占用（Next.js 单实例锁，换端口也拒绝，未 kill 对方 PID），未接触。
+
+- 未改老后台、未 git 操作（按任务书边界）；`ref/php-api/Robot.php`（另一会话遗留的
+  未提交修改）与标题翻译卡的文件（`translate-zh.ts`/`api/translate-titles/`/
+  `useTitleTranslations.ts`/各 `Zh*List.tsx`/`yahoo-search-page.tsx` 等）全程未碰。
+
+## 待办（追加）
+
+6. mercari/yahoo(竞拍)/amazon 三个平台的 `shops.fee` 在新后端里是**静态写死**（见
+   `fee-estimate.service.ts` 顶部 `PLATFORM_SHOP_FEE_JPY`），老后台若改这三个平台的
+   支付手续费，这里不会自动同步——需要人工核对或后续给这三个平台也开一条
+   `xxx-quote` 老后台路由（同 rakuma/yahoofrima）后切成动态取数。
+7. 补一次真实浏览器截图验证（见上「未做浏览器可视化验证」），下次没有并行 dev
+   server 占用时补跑。
+8. 「会员/非会员」到底要不要在页面上出现，取决于花哥怎么定这个分歧：是客服话术该
+   改（改成「所有会员汇率一致」），还是以后要真的给会员等级分层定价（那样再回来接
+   `st_user_levels` 的差异化 rate/fee，现在预留了 `levelFeeJpy` 字段，加了也不用改
+   接口形状）。

@@ -30,6 +30,7 @@ import {
 } from "./yahoo-urgency";
 import { localizeYahooCategoryLabel } from "./yahoo-category-labels";
 import { MascotScene } from "@/components/common/MascotScene";
+import { useTitleTranslations } from "@/components/platform-search/useTitleTranslations";
 
 const ALL_CATEGORIES = "__all__";
 
@@ -218,6 +219,14 @@ export function YahooSearchPage({
   const accentPriceClass = isEn ? "text-cyan-300" : "text-orange-600";
 
   const numberFormatter = new Intl.NumberFormat(locale);
+
+  // zh 站列表标题日译中兜底：后端 titleTranslated（老网关）优先，本管线只补它没覆盖的
+  // 条目；en 站/已有译名的条目不占请求配额。
+  const titlesNeedingTranslation =
+    locale === "zh"
+      ? items.filter((item) => !item.titleTranslated).map((item) => item.title)
+      : [];
+  const titleTranslations = useTitleTranslations(titlesNeedingTranslation);
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -430,11 +439,15 @@ export function YahooSearchPage({
                         </div>
                         <div className="flex min-w-0 flex-1 flex-col p-3 lg:min-h-32">
                           <h2 className="line-clamp-2 min-h-10 text-sm leading-5 font-medium">
-                            {item.titleTranslated || item.title}
+                            {item.titleTranslated ||
+                              titleTranslations[item.title] ||
+                              item.title}
                           </h2>
-                          {/* 原日文标题副标题：有 titleJa 用之，否则当主标题是译文时回退 title。 */}
+                          {/* 原日文标题副标题：有 titleJa 用之，否则当主标题是译文（后端或本管线）时回退 title。 */}
                           {(item.titleJa ||
-                            (item.titleTranslated && item.title)) && (
+                            ((item.titleTranslated ||
+                              titleTranslations[item.title]) &&
+                              item.title)) && (
                             <p className="mt-0.5 truncate text-xs text-muted-foreground">
                               {item.titleJa || item.title}
                             </p>
