@@ -288,6 +288,35 @@
 
 ## 变更记录
 
+### 2026-08-04 · zh 体检四问题修复（前端 `d53cc09` / 后端 `2128f07`，已上线）
+
+**为什么**：花哥线上体检报四个问题：代购流程页"像 en 翻译的"、价格对比不好用、
+torecacamp/cardrush 打开零商品、雅虎详情描述原文截断致翻译不全。
+
+**改动**：
+
+- 六信任页（how-it-works/faq/fees/buyer-protection/photo-inspection/about）按 locale
+  分皮：en 深色 TCG 壳逐字保留（脚本核对 className 序列 1:1），zh 走浅色买家壳
+  （DARK/LIGHT 常量对象方案，正文 JSX 共享不复制）
+- 价格对比页重建：原 unifiedSearch 恒返 0 且失败静默（按钮永久 disabled）；改为并行
+  调各平台真实搜索接口，摘 Amazon、新增雅虎 Frima/乐天 Rakuma，20s 超时+单站降级+
+  最低价徽章。实测四平台各 12 条
+- 卡店默认词修复：torecacamp 默认 PSA(0件)→ポケモン(120件)，toretoku/cardrush 调热词，
+  cardmuseum 实测无恙未动；**cardrush 上游 cardrush-pokemon.jp 反爬 403（花哥拍板）：
+  暂从 zh 站点下拉摘除**（siteMenu.ts 注释行，页面直链保留，解封或 M4 无头方案后恢复）
+- 首页三步流程图标统一袋鼠吉祥物（花哥拍板：原仅第 3 步袋鼠混搭线性图标突兀）
+- 后端雅虎详情描述截断旁路补丁（yahoo.goods.service.ts）：雅虎页自带预览版（截断）
+  与完整版两份正文、老后台抓的预览版；识别截断结尾即直连雅虎取完整 descriptionHtml，
+  5s 超时/2 万字上限/失败回退/写缓存。实测 230 字断尾→246 字完整
+
+**验证**：线上 zh 深色类 0 / en 深色保留 / 导航无 cardrush / compare 四 chips 正确 /
+torecacamp 默认词生效 / 雅虎测试商品描述无截断特征；后端推后 /health ok。
+
+**回滚**：前端 `git revert d53cc09`；后端 `git revert 2128f07`（补丁失败时自动回退原值，
+风险本身受控）。
+
+**备注**：本批两张施工卡中途死于会话额度，半成品经中枢逐项实测收尾后上线。
+
 ### 2026-08-03 · zh 首页视觉第二批 + 袋鼠君吉祥物接入（commit `8596ef0`，已上线）
 
 **为什么**：第一批补的是骨架和内容（页脚/导航/信任页），花哥「一看就不够专业」指的视觉层
