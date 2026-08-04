@@ -288,6 +288,31 @@
 
 ## 变更记录
 
+### 2026-08-04 · 标题日译中管线 + 到手价试算器（前端 `86002e1` / 后端 `e3409a9`，已上线）
+
+**标题翻译**：zh 列表满屏日文 → opencode go(DeepSeek) 批量日译中。`translate-zh.ts`
+（20条/请求合并、30天缓存、并发上限2、15s超时、失败静默）+ `/api/translate-titles`
+
+- `useTitleTranslations` hook，接线 8 个 zh 列表；yahoo 共用组件 locale 门控且
+  后端老网关 titleTranslated 优先。**无 key 时降级显日文原名**——
+  `OPENCODE_GO_API_KEY` 待配到 Vercel（配后 `scripts/test-translate-zh.mjs` 验证）。
+
+**到手价试算器**（/fee-compare `LandedCostEstimator`）：计价公式经老后台源码实证
+（api/Orders.php confirm 链路）：人民币 = ⌈(商品价+st_shops.fee+等级fee)×
+(EXCHANGE_RATE+等级rate)⌉。配套后端 `GET /api/v1/fee-estimate`（签名只读代理取
+实时汇率，5min 缓存，失败 available:false）。线上核验 mercari 12345→568.74/569、
+yahoo 8000→375.65/376 与手算一致。
+
+**🔴 实证发现待拍板**：客服话术「会员+0.003/非会员+0.006」查无实据——
+st_user_levels 四档 rate 全 0.0025/fee 全 0，无会员差价；0.003 实为国际运费汇率
+(SHIP_EXCHANGE_RATE)差值，话术混淆。故试算器未做会员切换。改话术 or 真做会员
+差异，待花哥定。
+
+**风险**：mercari/yahoo/amazon 三平台 fee 在后端静态写死（老后台无对应 quote 路
+由），调价需同步；翻译端到端质量待 key 配置后验证。
+
+**回滚**：前端 `git revert 86002e1`；后端 `git revert e3409a9`。
+
 ### 2026-08-04 · zh 体检四问题修复（前端 `d53cc09` / 后端 `2128f07`，已上线）
 
 **为什么**：花哥线上体检报四个问题：代购流程页"像 en 翻译的"、价格对比不好用、
