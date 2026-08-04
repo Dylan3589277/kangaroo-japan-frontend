@@ -4,6 +4,7 @@
   "searchLabel": "คำค้นหาสินค้า",
   "searchPlaceholder": "ใส่คำค้นหาสินค้าที่ต้องการเปรียบเทียบ",
   "searchButton": "เปรียบเทียบ",
+  "searching": "กำลังเปรียบเทียบ…",
   "priceMinLabel": "ราคาต่ำสุด (JPY)",
   "priceMaxLabel": "ราคาสูงสุด (JPY)",
   "pricePlaceholderMin": "เช่น 1000",
@@ -18,8 +19,9 @@
   "noSiteSelected": "กรุณาเลือกอย่างน้อยหนึ่งเว็บไซต์",
   "platform": {
     "mercari": "Mercari",
-    "amazon": "Amazon",
-    "yahoo": "Yahoo Auctions"
+    "yahoo": "Yahoo Auctions",
+    "yahoofrima": "PayPay Frima",
+    "rakuma": "Rakuma"
   },
   "idleTitle": "เริ่มเปรียบเทียบราคา",
   "idleHint": "ใส่คำค้นหา เลือกเว็บไซต์ แล้วกด \"เปรียบเทียบ\"",

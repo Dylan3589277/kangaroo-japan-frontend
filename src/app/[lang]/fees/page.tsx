@@ -71,6 +71,91 @@ const COMPARISON_COLUMNS = [
   { key: "jr", header: "J.R.", us: false },
 ] as const;
 
+// en 保持原深色 TCG 皮肤（逐字保留原 className）；其它 locale 走浅色买家壳。
+// 竞品对比表和到手价试算器仅 en 渲染（见下方 `lang === "en"` / pricingBasis 判断），
+// 在其它 locale 下从不出现在 DOM 里，故这两段无需光壳、原样不动即可。
+const DARK = {
+  main: "min-h-screen bg-zinc-950 text-zinc-100",
+  heroSection: "relative overflow-hidden border-b border-white/10",
+  heroGlow:
+    "pointer-events-none absolute -top-32 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-cyan-500/20 blur-3xl",
+  badge:
+    "inline-block rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-cyan-300",
+  h1: "mt-5 text-4xl font-bold tracking-tight sm:text-5xl",
+  heroSubtitle: "mx-auto mt-4 max-w-2xl text-base leading-relaxed text-zinc-400",
+  heroNoteWrap: "mx-auto mt-6 flex max-w-2xl flex-col items-center gap-1 text-sm text-zinc-500",
+  tableBox: "hidden overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:block",
+  theadRow: "border-b border-white/10 text-zinc-400",
+  tbodyRow: "border-b border-white/5 last:border-0 align-top transition-colors hover:bg-white/[0.04]",
+  tdTitle: "px-6 py-5 font-medium text-zinc-100",
+  tdEstimate: "px-6 py-5 whitespace-nowrap text-cyan-300",
+  tdNotes: "px-6 py-5 leading-relaxed text-zinc-400",
+  mobileCard: "rounded-xl border border-white/10 bg-white/[0.03] p-5",
+  mobileCardTitle: "font-semibold text-zinc-100",
+  mobileCardEstimate: "shrink-0 text-right text-sm font-medium text-cyan-300",
+  mobileCardNotes: "mt-2 text-sm leading-relaxed text-zinc-400",
+  customsSection: "mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-6 sm:p-8",
+  customsTitle: "flex items-center gap-2 text-lg font-semibold text-amber-200",
+  customsBody: "mt-3 text-sm leading-relaxed text-amber-100/80",
+  customsNote: "mt-3 text-sm leading-relaxed text-amber-100/70",
+  infoSection: "mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8",
+  infoTitle: "text-lg font-semibold text-zinc-100",
+  paymentDt: "text-sm font-medium text-cyan-300",
+  paymentDd: "mt-1 text-sm leading-relaxed text-zinc-400",
+  paymentNote: "mt-4 text-xs leading-relaxed text-zinc-500",
+  bodyText: "mt-3 text-sm leading-relaxed text-zinc-400",
+  storageNote: "mt-3 text-sm leading-relaxed text-zinc-500",
+  ctaSection:
+    "mt-10 rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-8 text-center",
+  ctaTitle: "text-xl font-semibold text-zinc-100",
+  ctaBody: "mx-auto mt-2 max-w-xl text-sm leading-relaxed text-zinc-400",
+  primaryBtn:
+    "inline-flex items-center justify-center rounded-xl bg-cyan-400 px-6 py-3 text-sm font-semibold text-zinc-950 transition-colors hover:bg-cyan-300",
+  secondaryBtn:
+    "inline-flex items-center justify-center rounded-xl border border-white/15 px-6 py-3 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/5",
+};
+
+const LIGHT: typeof DARK = {
+  main: "min-h-screen bg-zinc-50 text-zinc-700",
+  heroSection:
+    "relative overflow-hidden border-b border-zinc-200 bg-gradient-to-b from-rose-50 to-zinc-50",
+  heroGlow:
+    "pointer-events-none absolute -top-32 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-rose-200/40 blur-3xl",
+  badge:
+    "inline-block rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium uppercase tracking-wider text-rose-600",
+  h1: "mt-5 text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl",
+  heroSubtitle: "mx-auto mt-4 max-w-2xl text-base leading-relaxed text-zinc-600",
+  heroNoteWrap: "mx-auto mt-6 flex max-w-2xl flex-col items-center gap-1 text-sm text-zinc-500",
+  tableBox: "hidden overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm md:block",
+  theadRow: "border-b border-zinc-200 bg-zinc-50 text-zinc-500",
+  tbodyRow: "border-b border-zinc-100 last:border-0 align-top transition-colors hover:bg-zinc-50",
+  tdTitle: "px-6 py-5 font-medium text-zinc-900",
+  tdEstimate: "px-6 py-5 whitespace-nowrap font-semibold text-rose-600",
+  tdNotes: "px-6 py-5 leading-relaxed text-zinc-600",
+  mobileCard: "rounded-xl border border-zinc-200 bg-white p-5 shadow-sm",
+  mobileCardTitle: "font-semibold text-zinc-900",
+  mobileCardEstimate: "shrink-0 text-right text-sm font-medium text-rose-600",
+  mobileCardNotes: "mt-2 text-sm leading-relaxed text-zinc-600",
+  customsSection: "mt-10 rounded-2xl border border-amber-200 bg-amber-50 p-6 sm:p-8",
+  customsTitle: "flex items-center gap-2 text-lg font-semibold text-amber-800",
+  customsBody: "mt-3 text-sm leading-relaxed text-amber-700",
+  customsNote: "mt-3 text-sm leading-relaxed text-amber-700/80",
+  infoSection: "mt-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8",
+  infoTitle: "text-lg font-semibold text-zinc-900",
+  paymentDt: "text-sm font-medium text-rose-600",
+  paymentDd: "mt-1 text-sm leading-relaxed text-zinc-600",
+  paymentNote: "mt-4 text-xs leading-relaxed text-zinc-500",
+  bodyText: "mt-3 text-sm leading-relaxed text-zinc-600",
+  storageNote: "mt-3 text-sm leading-relaxed text-zinc-500",
+  ctaSection: "mt-10 rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-8 text-center",
+  ctaTitle: "text-xl font-semibold text-zinc-900",
+  ctaBody: "mx-auto mt-2 max-w-xl text-sm leading-relaxed text-zinc-600",
+  primaryBtn:
+    "inline-flex items-center justify-center rounded-xl bg-rose-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-rose-700",
+  secondaryBtn:
+    "inline-flex items-center justify-center rounded-xl border border-zinc-300 bg-white px-6 py-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100",
+};
+
 export default async function FeesPage({
   params,
 }: {
@@ -81,9 +166,10 @@ export default async function FeesPage({
   // 到手价试算只给 en（美国买家对 landed cost 敏感；zh 侧计价体系在老后台，口径不同）。
   // 取不到费率就不渲染试算器——宁可没有，也不给错数字。
   const pricingBasis = lang === "en" ? await fetchTcgPricingBasis() : null;
+  const shell = lang === "en" ? DARK : LIGHT;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className={shell.main}>
       {/* GEO：面包屑结构化数据（可索引 locale 输出） */}
       {isIndexable(lang) && (
         <JsonLd
@@ -94,23 +180,14 @@ export default async function FeesPage({
         />
       )}
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-white/10">
+      <section className={shell.heroSection}>
         {/* electric accent glow */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-32 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-cyan-500/20 blur-3xl"
-        />
+        <div aria-hidden className={shell.heroGlow} />
         <div className="relative container mx-auto max-w-4xl px-4 py-16 sm:py-20 text-center">
-          <span className="inline-block rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-cyan-300">
-            {t("hero.eyebrow")}
-          </span>
-          <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl">
-            {t("hero.title")}
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-zinc-400">
-            {t("hero.subtitle")}
-          </p>
-          <div className="mx-auto mt-6 flex max-w-2xl flex-col items-center gap-1 text-sm text-zinc-500">
+          <span className={shell.badge}>{t("hero.eyebrow")}</span>
+          <h1 className={shell.h1}>{t("hero.title")}</h1>
+          <p className={shell.heroSubtitle}>{t("hero.subtitle")}</p>
+          <div className={shell.heroNoteWrap}>
             <p>{t("hero.estimateNote")}</p>
             <p>{t("hero.currencyNote")}</p>
           </div>
@@ -119,10 +196,10 @@ export default async function FeesPage({
 
       <main className="container mx-auto max-w-4xl px-4 py-12 sm:py-16">
         {/* Fee breakdown table (desktop) */}
-        <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:block">
+        <div className={shell.tableBox}>
           <table className="w-full border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-white/10 text-zinc-400">
+              <tr className={shell.theadRow}>
                 <th className="px-6 py-4 font-medium">{t("table.item")}</th>
                 <th className="px-6 py-4 font-medium">{t("table.estimate")}</th>
                 <th className="px-6 py-4 font-medium">{t("table.notes")}</th>
@@ -130,19 +207,12 @@ export default async function FeesPage({
             </thead>
             <tbody>
               {ITEM_KEYS.map((key) => (
-                <tr
-                  key={key}
-                  className="border-b border-white/5 last:border-0 align-top transition-colors hover:bg-white/[0.04]"
-                >
-                  <td className="px-6 py-5 font-medium text-zinc-100">
-                    {t(`items.${key}.title`)}
-                  </td>
-                  <td className="px-6 py-5 whitespace-nowrap text-cyan-300">
+                <tr key={key} className={shell.tbodyRow}>
+                  <td className={shell.tdTitle}>{t(`items.${key}.title`)}</td>
+                  <td className={shell.tdEstimate}>
                     {t(`items.${key}.estimate`)}
                   </td>
-                  <td className="px-6 py-5 leading-relaxed text-zinc-400">
-                    {t(`items.${key}.notes`)}
-                  </td>
+                  <td className={shell.tdNotes}>{t(`items.${key}.notes`)}</td>
                 </tr>
               ))}
             </tbody>
@@ -152,21 +222,16 @@ export default async function FeesPage({
         {/* Fee breakdown cards (mobile) */}
         <div className="space-y-4 md:hidden">
           {ITEM_KEYS.map((key) => (
-            <div
-              key={key}
-              className="rounded-xl border border-white/10 bg-white/[0.03] p-5"
-            >
+            <div key={key} className={shell.mobileCard}>
               <div className="flex items-start justify-between gap-4">
-                <h3 className="font-semibold text-zinc-100">
+                <h3 className={shell.mobileCardTitle}>
                   {t(`items.${key}.title`)}
                 </h3>
-                <span className="shrink-0 text-right text-sm font-medium text-cyan-300">
+                <span className={shell.mobileCardEstimate}>
                   {t(`items.${key}.estimate`)}
                 </span>
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                {t(`items.${key}.notes`)}
-              </p>
+              <p className={shell.mobileCardNotes}>{t(`items.${key}.notes`)}</p>
             </div>
           ))}
         </div>
@@ -318,83 +383,51 @@ export default async function FeesPage({
         )}
 
         {/* U.S. customs note (P0) */}
-        <section className="mt-10 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-6 sm:p-8">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-amber-200">
+        <section className={shell.customsSection}>
+          <h2 className={shell.customsTitle}>
             <span aria-hidden>⚠️</span>
             {t("customs.title")}
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-amber-100/80">
-            {t("customs.body")}
-          </p>
-          <p className="mt-3 text-sm leading-relaxed text-amber-100/70">
-            {t("customs.note")}
-          </p>
+          <p className={shell.customsBody}>{t("customs.body")}</p>
+          <p className={shell.customsNote}>{t("customs.note")}</p>
         </section>
 
         {/* Payment methods (trust: what cards we take, USD, Stripe-hosted checkout) */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-          <h2 className="text-lg font-semibold text-zinc-100">
-            {t("payment.title")}
-          </h2>
+        <section className={shell.infoSection}>
+          <h2 className={shell.infoTitle}>{t("payment.title")}</h2>
           <dl className="mt-4 space-y-4">
             {(["cards", "currency", "security"] as const).map((key) => (
               <div key={key}>
-                <dt className="text-sm font-medium text-cyan-300">
-                  {t(`payment.${key}Label`)}
-                </dt>
-                <dd className="mt-1 text-sm leading-relaxed text-zinc-400">
-                  {t(`payment.${key}`)}
-                </dd>
+                <dt className={shell.paymentDt}>{t(`payment.${key}Label`)}</dt>
+                <dd className={shell.paymentDd}>{t(`payment.${key}`)}</dd>
               </div>
             ))}
           </dl>
-          <p className="mt-4 text-xs leading-relaxed text-zinc-500">
-            {t("payment.note")}
-          </p>
+          <p className={shell.paymentNote}>{t("payment.note")}</p>
         </section>
 
         {/* Warehouse storage (free window exists; exact days confirmed by support) */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-          <h2 className="text-lg font-semibold text-zinc-100">
-            {t("storage.title")}
-          </h2>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-            {t("storage.body")}
-          </p>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-500">
-            {t("storage.note")}
-          </p>
+        <section className={shell.infoSection}>
+          <h2 className={shell.infoTitle}>{t("storage.title")}</h2>
+          <p className={shell.bodyText}>{t("storage.body")}</p>
+          <p className={shell.storageNote}>{t("storage.note")}</p>
         </section>
 
         {/* Estimates disclaimer */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-          <h2 className="text-lg font-semibold text-zinc-100">
-            {t("disclaimer.title")}
-          </h2>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-            {t("disclaimer.body")}
-          </p>
+        <section className={shell.infoSection}>
+          <h2 className={shell.infoTitle}>{t("disclaimer.title")}</h2>
+          <p className={shell.bodyText}>{t("disclaimer.body")}</p>
         </section>
 
         {/* CTA */}
-        <section className="mt-10 rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-500/10 to-transparent p-8 text-center">
-          <h2 className="text-xl font-semibold text-zinc-100">
-            {t("cta.title")}
-          </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-zinc-400">
-            {t("cta.body")}
-          </p>
+        <section className={shell.ctaSection}>
+          <h2 className={shell.ctaTitle}>{t("cta.title")}</h2>
+          <p className={shell.ctaBody}>{t("cta.body")}</p>
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href={`/${lang}/products`}
-              className="inline-flex items-center justify-center rounded-xl bg-cyan-400 px-6 py-3 text-sm font-semibold text-zinc-950 transition-colors hover:bg-cyan-300"
-            >
+            <Link href={`/${lang}/products`} className={shell.primaryBtn}>
               {t("cta.primary")}
             </Link>
-            <Link
-              href={`/${lang}/contact`}
-              className="inline-flex items-center justify-center rounded-xl border border-white/15 px-6 py-3 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/5"
-            >
+            <Link href={`/${lang}/contact`} className={shell.secondaryBtn}>
               {t("cta.secondary")}
             </Link>
           </div>

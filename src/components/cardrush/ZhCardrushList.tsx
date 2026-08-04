@@ -18,6 +18,10 @@ import { ImagePlaceholder } from "@/components/ui/image-placeholder";
  * 金额一律 JPY 整数；≈元 = JPY × 后台 jpyToCny 汇率（前端算，复用 zh 首页口径）。zh 只显人民币。
  */
 
+// 2026-08-04：cardrush-pokemon.jp 全站被 Cloudflare 挑战墙拦截（后端每个关键词都返回 0
+// 件，详见 cardrush.service.ts 诊断），暂时无法逐词实测出货情况。リザードン 是同类站点
+// （toretoku）实测确认有货的通用热词，先按此作最佳猜测；VSTAR 在 toretoku 实测已无货，
+// 换成同样验证有货的 SR。后端恢复抓取后应重新实测校准。
 const DEFAULT_KEYWORD = "リザードン";
 
 type SortKey = "newest" | "priceAsc" | "priceDesc";
@@ -26,7 +30,7 @@ const HOT_KEYWORDS: { label: string; keyword: string }[] = [
   { label: "喷火龙", keyword: "リザードン" },
   { label: "皮卡丘", keyword: "ピカチュウ" },
   { label: "梦幻", keyword: "ミュウ" },
-  { label: "VSTAR", keyword: "VSTAR" },
+  { label: "SR", keyword: "SR" },
   { label: "SAR", keyword: "SAR" },
   { label: "宝可梦卡", keyword: "ポケモンカード" },
 ];

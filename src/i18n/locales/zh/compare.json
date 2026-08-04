@@ -4,6 +4,7 @@
   "searchLabel": "商品关键词",
   "searchPlaceholder": "输入要对比的商品关键词",
   "searchButton": "对比",
+  "searching": "对比中…",
   "priceMinLabel": "最低价（JPY）",
   "priceMaxLabel": "最高价（JPY）",
   "pricePlaceholderMin": "如 1000",
@@ -17,9 +18,10 @@
   "sitesLabel": "选择对比站点",
   "noSiteSelected": "请至少选择一个站点。",
   "platform": {
-    "mercari": "Mercari",
-    "amazon": "Amazon",
-    "yahoo": "Yahoo 竞拍"
+    "mercari": "煤炉 Mercari",
+    "yahoo": "雅虎竞拍",
+    "yahoofrima": "PayPay/雅虎 Frima",
+    "rakuma": "乐天 Rakuma"
   },
   "idleTitle": "开始对比价格",
   "idleHint": "输入关键词、选择站点，然后点击「对比」。",

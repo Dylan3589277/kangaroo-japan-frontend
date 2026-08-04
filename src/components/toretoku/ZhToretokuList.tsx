@@ -21,11 +21,12 @@ const DEFAULT_KEYWORD = "ポケモンカード";
 
 type SortKey = "newest" | "priceAsc" | "priceDesc";
 
+// 2026-08-04 实测：VSTAR 目录内已无货（返回 0 件），换成同样实测有货的 SR。
 const HOT_KEYWORDS: { label: string; keyword: string }[] = [
   { label: "喷火龙", keyword: "リザードン" },
   { label: "皮卡丘", keyword: "ピカチュウ" },
   { label: "梦幻", keyword: "ミュウ" },
-  { label: "VSTAR", keyword: "VSTAR" },
+  { label: "SR", keyword: "SR" },
   { label: "SAR", keyword: "SAR" },
   { label: "宝可梦卡", keyword: "ポケモンカード" },
 ];

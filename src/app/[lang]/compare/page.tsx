@@ -4,6 +4,7 @@ import {
   FormEvent,
   Suspense,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -11,7 +12,6 @@ import {
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
-import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,18 +25,21 @@ import {
 import { CompareResults } from "@/components/compare/compare-results";
 import {
   COMPARE_PLATFORMS,
+  attachCnyApprox,
   cheapestAcross,
   filterByPriceRange,
-  groupUnifiedItems,
   sortCompareItems,
-  type CompareItem,
   type ComparePlatform,
   type CompareSort,
   type ComparePlatformResult,
 } from "@/components/compare/compare-data";
+import { searchComparePlatforms } from "@/components/compare/compare-search";
+import { fetchJpyToCny } from "@/components/home/zh/zh-daigou-data";
 
 const SORT_OPTIONS: CompareSort[] = ["relevance", "price_asc", "price_desc"];
-const PER_SITE_LIMIT = 8;
+const PER_SITE_LIMIT = 12;
+// 每站独立超时：某一站慢/挂不拖累其它站，整体最多等这么久必定 settle（按钮必恢复可点）。
+const SEARCH_TIMEOUT_MS = 20_000;
 
 function parsePrice(value: string): number | undefined {
   const trimmed = value.trim();
@@ -64,6 +67,20 @@ function CompareContent() {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const requestVersionRef = useRef(0);
 
+  // ≈人民币汇率（仅非 en 站需要；英文站只显 JPY，绝不显人民币，与列表页/详情页口径一致）。
+  const [jpyToCny, setJpyToCny] = useState<number | null>(null);
+  useEffect(() => {
+    if (locale === "en") return;
+    let active = true;
+    (async () => {
+      const rate = await fetchJpyToCny();
+      if (active) setJpyToCny(rate);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [locale]);
+
   const toggleSite = (site: ComparePlatform) => {
     setSelectedSites((previous) =>
       previous.includes(site)
@@ -87,41 +104,34 @@ function CompareContent() {
       setGlobalError(null);
 
       try {
-        const response = await api.unifiedSearch({
-          keyword: term,
-          page: 1,
-          limit: PER_SITE_LIMIT * sites.length,
-          platforms: sites.join(","),
-        });
+        // 每站独立真实接口 + 独立超时并行搜索（见 compare-search.ts）；某站超时/失败
+        // 只标记该站 status:"error"，不影响其它站，Promise.all 最多等 SEARCH_TIMEOUT_MS
+        // 就必定 settle——按钮/加载态保证能恢复，不会再出现「55 秒无响应也无报错」。
+        const settlements = await searchComparePlatforms(
+          sites,
+          term,
+          locale,
+          SEARCH_TIMEOUT_MS,
+        );
 
         if (version !== requestVersionRef.current) return;
 
-        if (!response.success) {
-          setResults([]);
-          setGlobalError(response.error?.message || t("loadError"));
-          return;
-        }
-
-        // 后端聚合接口已并发各站；此处按站归并 + 前端筛选/排序。
-        // 某站无结果只显示空态，不影响其它站（allSettled 思路）。
-        const grouped = groupUnifiedItems(response.data, sites).map(
-          (result): ComparePlatformResult => {
-            const filtered: CompareItem[] = filterByPriceRange(
-              result.items,
-              min,
-              max,
-            );
-            const sorted = sortCompareItems(filtered, currentSort).slice(
-              0,
-              PER_SITE_LIMIT,
-            );
-            return {
-              ...result,
-              items: sorted,
-              status: sorted.length > 0 ? "ok" : "empty",
-            };
-          },
-        );
+        const grouped: ComparePlatformResult[] = settlements.map((result) => {
+          if (result.status === "error") {
+            return { platform: result.platform, status: "error", items: [] };
+          }
+          const withCny = attachCnyApprox(result.items, jpyToCny);
+          const filtered = filterByPriceRange(withCny, min, max);
+          const sorted = sortCompareItems(filtered, currentSort).slice(
+            0,
+            PER_SITE_LIMIT,
+          );
+          return {
+            platform: result.platform,
+            items: sorted,
+            status: sorted.length > 0 ? "ok" : "empty",
+          };
+        });
         setResults(grouped);
       } catch (error) {
         if (version !== requestVersionRef.current) return;
@@ -132,7 +142,7 @@ function CompareContent() {
         if (version === requestVersionRef.current) setLoading(false);
       }
     },
-    [t],
+    [t, locale, jpyToCny],
   );
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -178,10 +188,10 @@ function CompareContent() {
           </div>
           <Button
             type="submit"
-            disabled={!canSearch}
+            disabled={!canSearch || loading}
             className="h-10 rounded-full px-6"
           >
-            {t("searchButton")}
+            {loading ? t("searching") : t("searchButton")}
           </Button>
         </div>
 
@@ -284,6 +294,7 @@ function CompareContent() {
             results={results}
             cheapestPlatform={cheapest?.platform}
             cheapestPriceJpy={cheapest?.priceJpy}
+            skeletonCount={selectedSites.length}
           />
         )
       )}

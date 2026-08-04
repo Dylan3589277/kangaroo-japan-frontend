@@ -4,6 +4,7 @@
   "searchLabel": "Product keyword",
   "searchPlaceholder": "Enter a product keyword to compare",
   "searchButton": "Compare",
+  "searching": "Comparing…",
   "priceMinLabel": "Min price (JPY)",
   "priceMaxLabel": "Max price (JPY)",
   "pricePlaceholderMin": "e.g. 1000",
@@ -18,8 +19,9 @@
   "noSiteSelected": "Please select at least one site.",
   "platform": {
     "mercari": "Mercari",
-    "amazon": "Amazon",
-    "yahoo": "Yahoo Auctions"
+    "yahoo": "Yahoo Auctions",
+    "yahoofrima": "PayPay Frima",
+    "rakuma": "Rakuma"
   },
   "idleTitle": "Start comparing prices",
   "idleHint": "Enter a keyword, pick sites, then tap \"Compare\".",

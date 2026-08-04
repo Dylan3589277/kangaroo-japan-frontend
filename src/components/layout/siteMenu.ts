@@ -13,7 +13,9 @@ export const SITE_MENU: SiteMenuEntry[] = [
   { key: "yahooAuction", href: "/yahoo" },
   { key: "rakuma", href: "/rakuma" },
   { key: "yahooFrima", href: "/yahoofrima" },
-  { key: "cardrush", href: "/cardrush" },
+  // cardrush 暂摘（2026-08-04 花哥拍板）：上游 cardrush-pokemon.jp 反爬 403，
+  // 列表恒空。页面路由保留（直链可达），上游解封或走 M4 无头方案后把这行加回来。
+  // { key: "cardrush", href: "/cardrush" },
   { key: "cardmuseum", href: "/cardmuseum" },
   { key: "torecacamp", href: "/torecacamp" },
   { key: "toretoku", href: "/toretoku" },

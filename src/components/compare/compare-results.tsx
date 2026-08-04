@@ -13,8 +13,9 @@ import {
 
 const PLATFORM_ACCENT: Record<ComparePlatform, string> = {
   mercari: "bg-red-500",
-  amazon: "bg-yellow-500",
   yahoo: "bg-purple-500",
+  yahoofrima: "bg-orange-500",
+  rakuma: "bg-emerald-500",
 };
 
 type CompareResultsProps = {
@@ -23,6 +24,8 @@ type CompareResultsProps = {
   results: ComparePlatformResult[];
   cheapestPlatform?: ComparePlatform | null;
   cheapestPriceJpy?: number;
+  /** 加载中骨架列数，默认按当前选中站点数——避免选 4 站却只出 3 列骨架的视觉错位。 */
+  skeletonCount?: number;
 };
 
 export function CompareResults({
@@ -31,6 +34,7 @@ export function CompareResults({
   results,
   cheapestPlatform,
   cheapestPriceJpy,
+  skeletonCount = 3,
 }: CompareResultsProps) {
   const t = useTranslations("compare");
   const numberFormatter = new Intl.NumberFormat(locale);
@@ -38,10 +42,10 @@ export function CompareResults({
   if (loading) {
     return (
       <div
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         aria-busy="true"
       >
-        {Array.from({ length: 3 }, (_, column) => (
+        {Array.from({ length: Math.max(1, skeletonCount) }, (_, column) => (
           <div key={column} className="space-y-3">
             <Skeleton className="h-8 w-32" />
             {Array.from({ length: 3 }, (_, row) => (
@@ -67,7 +71,7 @@ export function CompareResults({
       <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
         {t("referenceNotice")}
       </p>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {results.map((result) => (
           <section
             key={result.platform}

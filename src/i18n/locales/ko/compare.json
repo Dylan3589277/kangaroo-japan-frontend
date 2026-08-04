@@ -4,6 +4,7 @@
   "searchLabel": "상품 키워드",
   "searchPlaceholder": "비교할 상품 키워드를 입력하세요",
   "searchButton": "비교하기",
+  "searching": "비교 중…",
   "priceMinLabel": "최저가 (JPY)",
   "priceMaxLabel": "최고가 (JPY)",
   "pricePlaceholderMin": "예: 1000",
@@ -18,8 +19,9 @@
   "noSiteSelected": "사이트를 하나 이상 선택하세요.",
   "platform": {
     "mercari": "Mercari",
-    "amazon": "Amazon",
-    "yahoo": "Yahoo 옥션"
+    "yahoo": "Yahoo 옥션",
+    "yahoofrima": "PayPay 프리마",
+    "rakuma": "라쿠마"
   },
   "idleTitle": "가격 비교 시작",
   "idleHint": "키워드를 입력하고 사이트를 선택한 뒤 \"비교하기\"를 누르세요.",

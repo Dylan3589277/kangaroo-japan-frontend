@@ -4,6 +4,7 @@
   "searchLabel": "Kata kunci produk",
   "searchPlaceholder": "Masukkan kata kunci produk untuk dibandingkan",
   "searchButton": "Bandingkan",
+  "searching": "Membandingkan…",
   "priceMinLabel": "Harga min (JPY)",
   "priceMaxLabel": "Harga maks (JPY)",
   "pricePlaceholderMin": "mis. 1000",
@@ -18,8 +19,9 @@
   "noSiteSelected": "Pilih setidaknya satu situs.",
   "platform": {
     "mercari": "Mercari",
-    "amazon": "Amazon",
-    "yahoo": "Yahoo Auctions"
+    "yahoo": "Yahoo Auctions",
+    "yahoofrima": "PayPay Frima",
+    "rakuma": "Rakuma"
   },
   "idleTitle": "Mulai bandingkan harga",
   "idleHint": "Masukkan kata kunci, pilih situs, lalu tekan \"Bandingkan\".",

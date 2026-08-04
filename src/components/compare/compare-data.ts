@@ -1,12 +1,21 @@
 // 价格对比页的数据归一化与类型。
-// 纯前端：消费已有 `/integrations/search/unified` 聚合接口的返回，
-// 容错解析各站透传字段，绝不新增/修改后端。
+// 纯前端：解析各真实列表接口（见 compare-search.ts）透传的原始商品字段，
+// 容错解析各站字段名差异，绝不新增/修改后端。
+//
+// 2026-08-04 改造：不再消费 `/integrations/search/unified`（该接口对任何关键词恒返回
+// 0——现代后台商品库是空的）。改为对每个站点直连列表页在用的真实搜索接口，见
+// compare-search.ts。Amazon 未接通任何可用搜索源，已从站点列表摘除。
 
-export type ComparePlatform = "mercari" | "amazon" | "yahoo";
+export type ComparePlatform = "mercari" | "yahoo" | "yahoofrima" | "rakuma";
 
-// 仅放有搜索接口、可被 unifiedSearch 聚合的站点。
-// yahoo = Yahoo 竞拍/购物（unified 接口里以 yahoo 透传）。
-export const COMPARE_PLATFORMS: ComparePlatform[] = ["mercari", "amazon", "yahoo"];
+// 仅放有真实、能出数据的搜索接口的站点（对齐列表页数据源，见 compare-search.ts）。
+// yahoo = Yahoo 竞拍；yahoofrima = PayPayフリマ；rakuma = ラクマ。
+export const COMPARE_PLATFORMS: ComparePlatform[] = [
+  "mercari",
+  "yahoo",
+  "yahoofrima",
+  "rakuma",
+];
 
 export type CompareSort = "relevance" | "price_asc" | "price_desc";
 
@@ -110,15 +119,17 @@ export function extractUnifiedItems(payload: unknown): unknown[] {
 
 const PLATFORM_NAME_FALLBACK: Record<string, string> = {
   mercari: "Mercari",
-  amazon: "Amazon",
   yahoo: "Yahoo",
+  yahoofrima: "PayPayフリマ",
+  rakuma: "ラクマ",
   rakuten: "Rakuten",
 };
 
 function normalizePlatform(raw: string | undefined, fallback: ComparePlatform): string {
   const value = (raw || "").toLowerCase();
+  if (value.includes("yahoofrima") || value.includes("paypay")) return "yahoofrima";
+  if (value.includes("rakuma")) return "rakuma";
   if (value.includes("mercari")) return "mercari";
-  if (value.includes("amazon")) return "amazon";
   if (value.includes("yahoo")) return "yahoo";
   if (value.includes("rakuten")) return "rakuten";
   return fallback;
@@ -188,35 +199,19 @@ export function normalizeCompareItem(
   };
 }
 
-// 把 unified 返回的混合 items 按 platform 归并到各站分组。
-// 仅保留请求时勾选的站点；用 allSettled 思路标记空/有结果。
-export function groupUnifiedItems(
-  payload: unknown,
-  selected: ComparePlatform[],
-): ComparePlatformResult[] {
-  const raw = extractUnifiedItems(payload);
-  const buckets = new Map<ComparePlatform, CompareItem[]>();
-  for (const platform of selected) buckets.set(platform, []);
-
-  for (const entry of raw) {
-    // 先用任一已选站点占位解析，再按真实 platform 归并。
-    const item = normalizeCompareItem(entry, selected[0] ?? "yahoo");
-    if (!item) continue;
-    const bucketKey = (selected.includes(item.platform as ComparePlatform)
-      ? (item.platform as ComparePlatform)
-      : undefined);
-    if (!bucketKey) continue;
-    buckets.get(bucketKey)?.push(item);
-  }
-
-  return selected.map((platform) => {
-    const items = buckets.get(platform) ?? [];
-    return {
-      platform,
-      status: items.length > 0 ? "ok" : "empty",
-      items,
-    } satisfies ComparePlatformResult;
-  });
+// 给结果补 ≈人民币（各真实列表接口不像旧 unified 那样透传 price_cny，
+// 需要前端按后台公开汇率现算；口径与列表页 formatCnyApprox 一致：JPY × jpyToCny）。
+// 汇率不可用（jpyToCny === null）时原样返回，不显示 ≈元（不猜、不显错值）。
+export function attachCnyApprox(
+  items: CompareItem[],
+  jpyToCny: number | null,
+): CompareItem[] {
+  if (jpyToCny === null) return items;
+  return items.map((item) =>
+    item.priceCny === undefined && typeof item.priceJpy === "number"
+      ? { ...item, priceCny: item.priceJpy * jpyToCny }
+      : item,
+  );
 }
 
 export function sortCompareItems(items: CompareItem[], sort: CompareSort): CompareItem[] {

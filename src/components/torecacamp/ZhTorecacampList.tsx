@@ -17,17 +17,19 @@ import { ImagePlaceholder } from "@/components/ui/image-placeholder";
  */
 
 // torecacamp 是宝可梦卡专营 Shopify 店；关键词在有界的 /products.json 扫描范围内过滤，
-// 故默认词必须是目录里真实存在的词（2026-06-24 实测 PSA/ADV/ex/SAR/VMAX 均有真实卡返回）。
-const DEFAULT_KEYWORD = "PSA";
+// 目录会随进货轮换，故默认词必须是当下目录里真实存在的词——2026-06-24 实测时 PSA/ADV/ex/
+// SAR/VMAX 均有真实卡返回，但 2026-08-04 复测发现仅 ADV 还有货（PSA/ex/SAR/VMAX 已清零，
+// 首屏因此常年空白）。改用 2026-08-04 实测有货的词，后续如再清零需重新实测替换。
+const DEFAULT_KEYWORD = "ポケモン";
 
 type SortKey = "newest" | "priceAsc" | "priceDesc";
 
 const HOT_KEYWORDS: { label: string; keyword: string }[] = [
-  { label: "PSA 鉴定", keyword: "PSA" },
+  { label: "宝可梦", keyword: "ポケモン" },
   { label: "ADV / PCG", keyword: "ADV" },
-  { label: "ex", keyword: "ex" },
-  { label: "SAR", keyword: "SAR" },
-  { label: "VMAX", keyword: "VMAX" },
+  { label: "宝可梦卡", keyword: "ポケモンカード" },
+  { label: "扩充包", keyword: "拡張パック" },
+  { label: "能量卡", keyword: "エネルギー" },
 ];
 
 function sortItems(items: TorecacampCardItem[], sort: SortKey): TorecacampCardItem[] {

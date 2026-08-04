@@ -4,6 +4,7 @@
   "searchLabel": "Từ khóa sản phẩm",
   "searchPlaceholder": "Nhập từ khóa sản phẩm để so sánh",
   "searchButton": "So sánh",
+  "searching": "Đang so sánh…",
   "priceMinLabel": "Giá tối thiểu (JPY)",
   "priceMaxLabel": "Giá tối đa (JPY)",
   "pricePlaceholderMin": "vd: 1000",
@@ -18,8 +19,9 @@
   "noSiteSelected": "Vui lòng chọn ít nhất một trang web.",
   "platform": {
     "mercari": "Mercari",
-    "amazon": "Amazon",
-    "yahoo": "Yahoo Auctions"
+    "yahoo": "Yahoo Auctions",
+    "yahoofrima": "PayPay Frima",
+    "rakuma": "Rakuma"
   },
   "idleTitle": "Bắt đầu so sánh giá",
   "idleHint": "Nhập từ khóa, chọn trang web, rồi nhấn \"So sánh\".",
