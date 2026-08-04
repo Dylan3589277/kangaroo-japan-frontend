@@ -243,7 +243,7 @@ export default async function TermsPage({
           （具体天数根据您的会员等级及当期活动确定，
           <Emphasis>以商品页面、会员规则页面或费用说明页面的实时展示为准</Emphasis>
           ），便于您合并多笔订单一并转运。
-          <RiskClause>超出免费仓储期后，每个包裹每日收取人民币 5 元的仓储费</RiskClause>
+          <RiskClause>超出免费仓储期后，每个包裹每日收取 100 日元的仓储费</RiskClause>
           ，从超期之日起计算，直至您提交转运申请或办理其他处理为止。
         </LegalP>
 
