@@ -288,6 +288,31 @@
 
 ## 变更记录
 
+### 2026-08-04 · 客服能力展示 + FAQ 秒回 + 「亲亲」称呼（`58beaed` / `2e08b41` / `3978b2c`，已上线）
+
+**病根**（花哥反馈）：顾客进客服第一时间点转人工——常见问题全走 LLM 慢路（M4 桥日志实测
+`model_wait` 8.6~13s），且智能客服的真本事（报价、下单、留言、竞拍）没有展示位；称呼用「亲」。
+
+**改法**：M4 bridge 加 FAQ 秒回层（10 条 57 问法，详见 bridge 侧 PROJECT.md）+ KB persona 硬规则
+「称呼一律用亲亲」；前端 greeting 改能力清单、热门问题 chips **答完一条后重新出现**（原实现点一次
+即永久消失，能力等于隐身）、小程序内嵌 `support/h5` 页快捷问题同步对齐 + 气泡 `whitespace-pre-line`。
+chips 文案与 bridge 秒回 pattern **逐字对齐**（改任一侧必须同步核对另一侧）。
+
+**🔴 上线后端到端实测才发现的两个真坑（桥内测试全绿也照样坏）**：
+1. `/api/support/chat` 的 `BUSINESS_KEYWORDS` 前置闸门：消息不含业务词直接回越界拒答、
+   **根本不转发给 bridge**。老 chip「你们有哪些增值服务？」长期中招（改版前就坏，实测
+   `reason=guardrail_out_of_business_scope`）。补入 增值服务/价格/报价/算价/留言/砍价/卖家 七词（`2e08b41`）。
+2. 网站浮窗 `api.sendSupportChat` **不带 uid**（只有 `support/h5` 传签名 uid+ts+sig），所以
+   「帮我查订单物流 / 押金退款怎么申请？」在网站上必然 `selfservice_missing_user_id` → 立刻转人工，
+   **登录用户也一样**。已从网站 chips 撤下（11→9）并在 greeting 引导去小程序（`3978b2c`）；
+   小程序页那 8 条不动（那边真能查）。**后续可选**：给浮窗接签名 uid，届时把两条放回网站。
+
+**验收**：生产 API 9/9 网站 chip 命中 `faq_fast_path` 且回复以「亲亲」开头；en 站文案零改动
+（`en/tcg-chat.json` 0 diff，chips 常驻逻辑为组件级、en 仍 4 条）。
+
+**已知副产品**：`src/i18n/request.ts` 的 `deepMerge` 对与 en 同名的 key 会保留 en 的键序，
+zh 只改 JSON 顺序无效——故 zh 用 `suggestionsOrder` 数组显式定序（数组被整体替换、顺序得以保留）。
+
 ### 2026-08-04 · 标题日译中管线 + 到手价试算器（前端 `86002e1` / 后端 `e3409a9`，已上线）
 
 **标题翻译**：zh 列表满屏日文 → opencode go(DeepSeek) 批量日译中。`translate-zh.ts`
