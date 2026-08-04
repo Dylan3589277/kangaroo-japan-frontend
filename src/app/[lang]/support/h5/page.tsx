@@ -176,11 +176,15 @@ type MiniProgramWindow = Window & {
 };
 
 const QUICK_QUESTIONS = [
-  "代拍流程是什么？",
-  "代拍费用如何计算？",
-  "国际运费怎么查？",
-  "商品多久能到仓库？",
-  "押金怎么退？",
+  // 前 5 个是能力动作位（报价/查单/留言/押金/竞拍），其后是秒回 FAQ；
+  // 文案须与 bridge FAQ 秒回 pattern / 自助线意图逐字对齐，改动前先核对 bridge 侧。
+  "帮我计算价格",
+  "帮我查订单物流",
+  "帮我给卖家留言",
+  "押金退款怎么申请？",
+  "怎么参与雅虎竞拍？",
+  "代拍费用怎么算？",
+  "会产生关税吗？",
   "我要转人工客服",
 ];
 
@@ -221,7 +225,7 @@ const PROXY_BUY_PAY_PAGE_PATH =
 const WELCOME_ITEM: ChatItem = {
   role: "assistant",
   content:
-    "嗨，我是袋鼠酱～你可以直接问我，也可以点下面的快捷问题。代拍流程、费用、国际运费这些我都能先帮你捋一捋；遇到需要人工确认的事，我会马上带你去找客服同事。",
+    "亲亲你好呀～我是袋鼠酱，这些我都能直接帮你办：\n💰 发商品链接，秒算价格、帮你下单/竞拍出价\n📦 查订单状态、物流到哪了\n💬 帮你给卖家留言、砍价\n💳 押金退款申请与查询\n💡 费用、关税、时效等常见问题秒回\n遇到需要人工确认的事，我会马上带你去找客服同事～",
 };
 
 function getRecord(value: unknown): Record<string, unknown> {
@@ -1321,7 +1325,7 @@ export default function MiniProgramSupportH5Page() {
       >
         {showTextBubble ? (
           <div
-            className={`max-w-[82%] rounded-lg px-3 py-2 text-sm leading-6 shadow-sm ${
+            className={`max-w-[82%] whitespace-pre-line rounded-lg px-3 py-2 text-sm leading-6 shadow-sm ${
               item.role === "user"
                 ? "bg-[#4f67ff] text-white"
                 : item.role === "support"
@@ -2067,7 +2071,7 @@ export default function MiniProgramSupportH5Page() {
             <UserRoundCheck className="h-4 w-4" />
             袋鼠酱小提醒
           </div>
-          袋鼠酱可以先回答代拍流程、费用、物流等常见问题；复杂问题可能需要十几秒整理，请稍等一下。如果遇到退款、改地址、投诉、支付异常，或者需要确认订单的事，我会帮你转给人工客服处理。
+          代拍流程、费用、关税这些常见问题袋鼠酱基本秒回；个别复杂问题可能需要十几秒整理，请稍等一下。如果遇到退款、改地址、投诉、支付异常，或者需要确认订单的事，我会帮你转给人工客服处理。
         </div>
       </section>
 

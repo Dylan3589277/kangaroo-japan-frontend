@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { MessageCircle, Send, X, Sparkles, ShoppingBag } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useMessages, useTranslations } from "next-intl";
 import { api } from "@/lib/api";
 import { Link } from "@/i18n/navigation";
 import { spaceGrotesk } from "@/app/fonts";
@@ -32,12 +32,14 @@ interface ChatMessage {
   transfer?: boolean;
 }
 
-const SUGGESTION_KEYS = ["fees", "customs", "condition", "valueAdded"] as const;
+// Max suggestion chips shown in one row at a time (see visibleSuggestionKeys below).
+const MAX_VISIBLE_SUGGESTIONS = 4;
 
 export function TcgChatWidget() {
   const t = useTranslations("tcg-chat");
   const locale = useLocale();
   const isEn = locale === "en";
+  const allMessages = useMessages() as Record<string, unknown> | undefined;
   const { product, open, setOpen, toggleOpen, clearProduct } =
     useChatWidgetContext();
 
@@ -49,6 +51,9 @@ export function TcgChatWidget() {
     { role: "assistant", content: t("greeting") },
   ]);
   const [conversationId, setConversationId] = useState<string | undefined>();
+  // Suggestion keys the visitor already tapped — excluded from future chip rows
+  // so the same question isn't offered twice in one session.
+  const [usedSuggestionKeys, setUsedSuggestionKeys] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Keep the latest message in view as the conversation grows.
@@ -65,8 +70,47 @@ export function TcgChatWidget() {
     [input, loading],
   );
 
-  // Show suggestion chips only before the visitor has asked anything.
-  const showSuggestions = messages.filter((m) => m.role === "user").length === 0;
+  // Suggestion keys come from the locale file itself (t.raw) rather than a
+  // hardcoded list, so zh (11 questions) and en (4 questions) can differ in
+  // count/names without touching this component.
+  const rawSuggestions = t.raw("suggestions");
+  const suggestionMap: Record<string, unknown> =
+    rawSuggestions && typeof rawSuggestions === "object"
+      ? (rawSuggestions as Record<string, unknown>)
+      : {};
+  // Optional explicit priority order (zh only — src/i18n/request.ts deep-merges
+  // every non-en locale onto the en base per-key, which silently keeps en's key
+  // order for any key name that also exists in en; `suggestions` reuses names
+  // like "fees"/"customs" from en, so plain Object.keys(suggestionMap) would NOT
+  // reflect zh's intended priority order for those shared keys. suggestionsOrder
+  // is a zh-only array — arrays are replaced wholesale by deepMerge, not merged
+  // key-by-key, so it survives with its declared order intact. en has no such
+  // key: read via useMessages() (plain object lookup) rather than t.raw(), which
+  // throws/logs MISSING_MESSAGE for a key absent from en's locale file.
+  const tcgChatMessages = (allMessages?.["tcg-chat"] ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const rawOrder = tcgChatMessages["suggestionsOrder"];
+  const explicitOrder = Array.isArray(rawOrder)
+    ? rawOrder.filter(
+        (key): key is string => typeof key === "string" && key in suggestionMap,
+      )
+    : [];
+  const naturalOrder = Object.keys(suggestionMap).filter(
+    (key) => !explicitOrder.includes(key),
+  );
+  const suggestionKeys = [...explicitOrder, ...naturalOrder];
+  const visibleSuggestionKeys = suggestionKeys
+    .filter((key) => !usedSuggestionKeys.includes(key))
+    .slice(0, MAX_VISIBLE_SUGGESTIONS);
+
+  // Chips re-appear after every assistant reply (not just before the first
+  // message): visible whenever the composer is idle (no draft, not loading)
+  // and unused suggestions remain. 花哥 2026-08 feedback: the FAQ capability
+  // was invisible because chips vanished for good after one tap.
+  const showSuggestions =
+    !loading && input.trim().length === 0 && visibleSuggestionKeys.length > 0;
 
   async function sendMessage(raw: string) {
     const content = raw.trim();
@@ -107,6 +151,15 @@ export function TcgChatWidget() {
         transfer: data.action === "transfer_human",
       },
     ]);
+  }
+
+  // Tapping a chip both sends its text and retires that key from future rows
+  // (so it isn't offered again this session).
+  function handleSuggestionClick(key: string) {
+    setUsedSuggestionKeys((current) =>
+      current.includes(key) ? current : [...current, key],
+    );
+    void sendMessage(t(`suggestions.${key}`));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -328,7 +381,7 @@ export function TcgChatWidget() {
               </div>
             ) : null}
 
-            {showSuggestions && !loading ? (
+            {showSuggestions ? (
               <div className="pt-1">
                 <p
                   className={`px-1 text-[11px] font-medium uppercase tracking-wider ${skin.suggLabel}`}
@@ -336,11 +389,11 @@ export function TcgChatWidget() {
                   {t("suggestionsLabel")}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {SUGGESTION_KEYS.map((key) => (
+                  {visibleSuggestionKeys.map((key) => (
                     <button
                       key={key}
                       type="button"
-                      onClick={() => void sendMessage(t(`suggestions.${key}`))}
+                      onClick={() => handleSuggestionClick(key)}
                       className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${skin.suggChip}`}
                     >
                       {t(`suggestions.${key}`)}
