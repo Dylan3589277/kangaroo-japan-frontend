@@ -342,6 +342,68 @@ test("business guardrail still blocks out-of-scope questions (weather / write co
   }
 });
 
+// 2026-08-06 花哥拍板：三个真实故障复现用例。改之前"手续费是多少"/"手续费怎么算"/
+// "现在有什么活动" 被 guardrail_out_of_business_scope 拦掉（旧表没有"手续费"，
+// "费用/服务费"不是它的子串；"活动/优惠"类词一个都没有），"怎么买最便宜"虽不被guard拦
+// 但落 Hermes 兜底 29 秒才转人工——四句都应该放行到 bridge（"怎么买最便宜"含"怎么买"
+// 本就在旧表，这里一并回归固化）。
+test("previously-blocked fee/promo/cheapest-way questions now pass the business guardrail", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED = "false";
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return Response.json({
+      action: "answered",
+      reply: "Bridge fallback",
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const previouslyBlockedMessages = [
+      "手续费是多少",
+      "手续费怎么算",
+      "现在有什么活动",
+      "怎么买最便宜",
+    ];
+
+    for (const message of previouslyBlockedMessages) {
+      const request = new NextRequest("http://localhost/api/support/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, language: "zh" }),
+      });
+
+      const response = await POST(request);
+      const payload = await response.json();
+
+      assert.equal(response.status, 200, `status for ${message}`);
+      assert.notEqual(
+        payload.data.reason,
+        "guardrail_out_of_business_scope",
+        `must not be guarded out of scope: ${message}`,
+      );
+      assert.notEqual(
+        payload.data.answeredBy,
+        "kangaroo-chan-guardrail",
+        `must not be local guardrail reply: ${message}`,
+      );
+    }
+
+    assert.equal(fetchCalls, previouslyBlockedMessages.length);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
 test("personalized status quick questions with userId pass through to Hermes bridge", async () => {
   const { POST } = await import("./route");
   const originalFetch = globalThis.fetch;
@@ -627,7 +689,7 @@ test("general FAQ quick replies stay local even when userId is present", async (
   }
 });
 
-test("Hermes bridge payload includes 2026-06 storage, photo, box, and exchange-rate fee standards", async () => {
+test("Hermes bridge payload carries no knowledge_base (bridge owns the copy locally)", async () => {
   process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
   process.env.KANGAROO_AGENT_TOKEN = "test-token";
   delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
@@ -650,8 +712,11 @@ test("Hermes bridge payload includes 2026-06 storage, photo, box, and exchange-r
       headers: {
         "Content-Type": "application/json",
       },
+      // 别用带「仓库」的问法：会被 getPersonalizedStatusKind 判成 warehouse 状态查询，
+      // 走本地「需登录」兜底直接返回，根本打不到 bridge（这条断言就成了空转——原测试
+      // 就是这么一直红着的）。
       body: JSON.stringify({
-        message: "包裹在仓库可以免费放多久？拍照和纸箱怎么收费？",
+        message: "拍照和纸箱怎么收费？",
         language: "zh",
       }),
     });
@@ -662,43 +727,13 @@ test("Hermes bridge payload includes 2026-06 storage, photo, box, and exchange-r
     assert.equal(response.status, 200);
     assert.equal(payload.data.action, "answered");
 
-    const bridgeBody = capturedBridgeBody as {
-      knowledge_base: Array<{
-        id: string;
-        text: string;
-      }>;
-    } | null;
+    const bridgeBody = capturedBridgeBody as Record<string, unknown> | null;
     assert.ok(bridgeBody);
-    const knowledgeBase = bridgeBody.knowledge_base as Array<{
-      id: string;
-      text: string;
-    }>;
-    const storage = knowledgeBase.find(
-      (entry) => entry.id === "kb-storage-001",
-    );
-    const fee = knowledgeBase.find((entry) => entry.id === "kb-fee-001");
-
-    assert.ok(storage);
-    assert.match(storage.text, /30 days for non-members and Gold members/);
-    assert.match(storage.text, /60 days for Platinum and Diamond members/);
-    assert.match(storage.text, /each item\/package is charged 100 JPY per day/);
-    assert.match(storage.text, /100 JPY per item or 200 JPY per box/);
-    assert.match(storage.text, /300 JPY \(100size\)/);
-    assert.match(storage.text, /400 JPY \(120size\)/);
-    assert.match(storage.text, /400 JPY \(140size\)/);
-    assert.match(storage.text, /1000 JPY \(170size\)/);
-    assert.doesNotMatch(storage.text, /5\s*CNY|5\s*元|350 JPY/);
-
-    assert.ok(fee);
-    assert.match(
-      fee.text,
-      /\+0\.0025 daytime \/ \+0\.0023 nighttime for ALL users/,
-    );
-    assert.match(
-      fee.text,
-      /official Japan EMS fee x \(partner rate \+ 0\.003\)/,
-    );
-    assert.doesNotMatch(fee.text, /\+0\.025|0\.006/);
+    // 话术真源在 bridge 的 knowledge_base/{site}.json（本地优先，见 route.ts 顶部说明）：
+    // 前端不再内联副本，也不再往 payload 里塞。塞了 bridge 也不读，只会悄悄过期——
+    // 原先这里断言的仓储/费率原文就是这么停在 6 月的（测试还一直是绿的）。
+    assert.equal(bridgeBody.knowledge_base, undefined);
+    assert.equal(bridgeBody.site, "kangaroo-japan");
   } finally {
     globalThis.fetch = originalFetch;
     delete process.env.HERMES_BRIDGE_URL;
@@ -755,11 +790,8 @@ test("short storage, photo, and box questions pass business guardrail and reach 
 
     assert.equal(capturedBridgeBodies.length, shortQuestions.length);
     for (const bridgeBody of capturedBridgeBodies) {
-      const knowledgeBase = bridgeBody.knowledge_base as Array<{
-        id: string;
-        text: string;
-      }>;
-      assert.ok(knowledgeBase.some((entry) => entry.id === "kb-storage-001"));
+      // 话术由 bridge 本地文件提供，payload 不带 knowledge_base。
+      assert.equal(bridgeBody.knowledge_base, undefined);
     }
   } finally {
     globalThis.fetch = originalFetch;
@@ -1295,21 +1327,8 @@ test("short auction bid questions pass business guardrail and reach auction bid 
 
     assert.equal(capturedBridgeBodies.length, shortQuestions.length);
     for (const bridgeBody of capturedBridgeBodies) {
-      const knowledgeBase = bridgeBody.knowledge_base as Array<{
-        id: string;
-        text: string;
-      }>;
-      const auctionBid = knowledgeBase.find(
-        (entry) => entry.id === "kb-auction-001",
-      );
-      assert.ok(auctionBid);
-      assert.match(auctionBid.text, /Japan-China time difference/);
-      assert.match(auctionBid.text, /only shows up when a bid is attempted/);
-      assert.match(
-        auctionBid.text,
-        /higher than the user's own previous highest bid/,
-      );
-      assert.match(auctionBid.text, /transfer to human support to verify/);
+      // 竞拍话术原文由 bridge 本地 KB 托管，这里只锁「问题过闸门、确实打到 bridge」。
+      assert.equal(bridgeBody.knowledge_base, undefined);
     }
   } finally {
     globalThis.fetch = originalFetch;
@@ -1319,7 +1338,7 @@ test("short auction bid questions pass business guardrail and reach auction bid 
   }
 });
 
-test("buy-it-now question passes guardrail and auction rules KB locks 即決 and maximum-bid mechanism", async () => {
+test("buy-it-now question passes the business guardrail and reaches the bridge", async () => {
   process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
   process.env.KANGAROO_AGENT_TOKEN = "test-token";
   delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
@@ -1357,28 +1376,10 @@ test("buy-it-now question passes guardrail and auction rules KB locks 即決 and
     assert.deepEqual(payload.data.sourceIds, ["kb-auction-002"]);
     assert.notEqual(payload.data.reason, "guardrail_out_of_business_scope");
 
-    const bridgeBody = capturedBridgeBody as {
-      knowledge_base: Array<{
-        id: string;
-        text: string;
-      }>;
-    } | null;
+    const bridgeBody = capturedBridgeBody as Record<string, unknown> | null;
     assert.ok(bridgeBody);
-    const auctionRules = bridgeBody.knowledge_base.find(
-      (entry) => entry.id === "kb-auction-002",
-    );
-    assert.ok(auctionRules);
-    assert.match(auctionRules.text, /即決価格/);
-    assert.match(auctionRules.text, /現在価格/);
-    assert.match(auctionRules.text, /highest bidder wins/);
-    assert.match(
-      auctionRules.text,
-      /with no competing bidders the price stays unchanged/,
-    );
-    assert.match(
-      auctionRules.text,
-      /greater than or equal to the seller's buy-it-now price/,
-    );
+    // 即決/現在価格 的话术原文归 bridge 本地 KB 管，前端只保证问题送达。
+    assert.equal(bridgeBody.knowledge_base, undefined);
   } finally {
     globalThis.fetch = originalFetch;
     delete process.env.HERMES_BRIDGE_URL;
@@ -1387,7 +1388,7 @@ test("buy-it-now question passes guardrail and auction rules KB locks 即決 and
   }
 });
 
-test("deposit refund question reaches auction deposit KB and locks the 1 CNY = 200 JPY ratio", async () => {
+test("deposit refund question bypasses the quick reply and reaches the bridge", async () => {
   process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
   process.env.KANGAROO_AGENT_TOKEN = "test-token";
   // Disable the exact-match quick reply so "押金怎么退？" exercises the bridge KB path.
@@ -1425,28 +1426,12 @@ test("deposit refund question reaches auction deposit KB and locks the 1 CNY = 2
     assert.equal(payload.data.action, "answered");
     assert.deepEqual(payload.data.sourceIds, ["kb-auction-003"]);
 
-    const bridgeBody = capturedBridgeBody as {
-      knowledge_base: Array<{
-        id: string;
-        text: string;
-      }>;
-    } | null;
+    const bridgeBody = capturedBridgeBody as Record<string, unknown> | null;
     assert.ok(bridgeBody);
-    const knowledgeBase = bridgeBody.knowledge_base;
-    const auctionDeposit = knowledgeBase.find(
-      (entry) => entry.id === "kb-auction-003",
-    );
-    assert.ok(auctionDeposit);
-    assert.match(auctionDeposit.text, /1 CNY = 200 JPY/);
-    assert.match(auctionDeposit.text, /1 元 = 200 日元/);
-    assert.match(auctionDeposit.text, /cannot be used to offset the item cost/);
-    assert.match(auctionDeposit.text, /original payment channel/);
-
-    // Guard against an old/wrong deposit ratio flowing back into any KB entry.
-    for (const entry of knowledgeBase) {
-      assert.doesNotMatch(entry.text, /1 ?元\s*[=：:]\s*(?!200)\d/u);
-      assert.doesNotMatch(entry.text, /1 ?CNY\s*=\s*(?!200)\d/u);
-    }
+    assert.equal(bridgeBody.knowledge_base, undefined);
+    // 注意：原先这里还有一条「押金比例必须是 1 元 = 200 日元」的防回流断言，但它查的是
+    // 前端这份 bridge 根本不读的副本 —— 是假护栏。真护栏该建在 bridge 仓（对
+    // knowledge_base/kangaroo-japan.json 做内容 lint），见交接说明。
   } finally {
     globalThis.fetch = originalFetch;
     delete process.env.HERMES_BRIDGE_URL;
@@ -1626,7 +1611,7 @@ test("forbidden/secret requests remain privacy-fenced even with a link present",
 // jp-buy U.S. TCG site: FAQ-only English assistant (v1, no order lookup).
 // ---------------------------------------------------------------------------
 
-test("TCG FAQ request sends English TCG KB and never forwards order/user context", async () => {
+test("TCG FAQ request routes to the TCG site and never forwards order/user context", async () => {
   process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
   process.env.KANGAROO_AGENT_TOKEN = "test-token";
   delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
@@ -1672,7 +1657,7 @@ test("TCG FAQ request sends English TCG KB and never forwards order/user context
       faq_only: boolean;
       language: string;
       context: Record<string, unknown>;
-      knowledge_base: Array<{ id: string; text: string }>;
+      knowledge_base?: unknown;
     } | null;
     assert.ok(bridgeBody);
     assert.equal(bridgeBody.site, "kangaroo-japan-tcg");
@@ -1683,17 +1668,10 @@ test("TCG FAQ request sends English TCG KB and never forwards order/user context
     assert.equal(bridgeBody.context.user_id, undefined);
     assert.equal(bridgeBody.context.order_lookup_enabled, false);
     assert.equal(JSON.stringify(bridgeBody.context).includes('"4"'), false);
-    // English TCG KB is delivered, not the Chinese mini-program KB.
-    const ids = bridgeBody.knowledge_base.map((entry) => entry.id);
-    assert.ok(ids.includes("tcg-fees-001"));
-    assert.ok(ids.includes("tcg-customs-001"));
-    assert.ok(ids.includes("tcg-value-added-001"));
-    assert.ok(ids.every((id) => id.startsWith("tcg-")));
-    const customs = bridgeBody.knowledge_base.find(
-      (entry) => entry.id === "tcg-customs-001",
-    );
-    assert.ok(customs);
-    assert.match(customs.text, /de minimis exemption/);
+    // The English TCG copy comes from the bridge's own kangaroo-japan-tcg.json
+    // (site-keyed, local-first), so the payload carries no knowledge_base at all.
+    // site is what keeps the English and Chinese knowledge bases apart now.
+    assert.equal(bridgeBody.knowledge_base, undefined);
   } finally {
     globalThis.fetch = originalFetch;
     delete process.env.HERMES_BRIDGE_URL;

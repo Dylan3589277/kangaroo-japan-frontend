@@ -228,6 +228,15 @@ const WELCOME_ITEM: ChatItem = {
     "亲亲你好呀～我是袋鼠酱，这些我都能直接帮你办：\n💰 发商品链接，秒算价格、帮你下单/竞拍出价\n📦 查订单状态、物流到哪了\n💬 帮你给卖家留言、砍价\n💳 押金退款申请与查询\n💡 费用、关税、时效等常见问题秒回\n遇到需要人工确认的事，我会马上带你去找客服同事～",
 };
 
+// 活动内容配置化（P0-1c，2026-08-06）：欢迎语挂载的活动 teaser 改为从 bridge 拉取
+// （见 loadWelcomeTeaser 副作用），不再和客服话术库分裂维护。teaser 拼在固定的
+// WELCOME_ITEM 正文之后；拿不到（未加载/超时/失败/空值）时 extra 传空串，原样
+// 回落纯文本欢迎语，零回归。
+function buildWelcomeItem(extra: string): ChatItem {
+  if (!extra) return WELCOME_ITEM;
+  return { ...WELCOME_ITEM, content: `${WELCOME_ITEM.content}\n${extra}` };
+}
+
 function getRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
@@ -701,6 +710,11 @@ export default function MiniProgramSupportH5Page() {
   // 自动报价那次发出的链接原文。历史轮询拉回时据此把这条 visitor 消息剔除，
   // 避免"零输入无链接气泡"被打破。仅在自动报价路径里写入。
   const autoQuoteMessageRef = useRef<string | undefined>(undefined);
+  // 活动 teaser（P0-1c）：挂载时异步拉取，用 ref 而非 state 存最新值——
+  // loadConversationMessages 在闭包里按需读 .current，不用把它加进依赖数组
+  // 触发额外重订阅；到达时机不确定（可能早于/晚于历史轮询启动），ref 保证
+  // 两条路径（下方 fetch 副作用 / loadConversationMessages）永远读到同一个值。
+  const welcomeTeaserRef = useRef("");
   // 聊天输入框 ref：报价卡"咨询"按钮点了之后聚焦输入框，让买家自己打字提问。
   const inputRef = useRef<HTMLInputElement | null>(null);
   // 报价卡买家选择（纯前端记录，不立即扣费）：
@@ -733,12 +747,50 @@ export default function MiniProgramSupportH5Page() {
         payload,
         autoQuoteMessageRef.current,
       );
-      setItems([WELCOME_ITEM, ...serverItems]);
+      setItems([buildWelcomeItem(welcomeTeaserRef.current), ...serverItems]);
       setPollingError("");
     } catch {
       setPollingError("消息同步暂时失败，请稍后重试或联系人工客服。");
     }
   }, [conversationId]);
+
+  // 活动 teaser 拉取（P0-1c，2026-08-06）：挂载时短超时（3s）请求 bridge 的
+  // /v1/customer-service/welcome（经同源代理 /api/support/welcome，浏览器不能
+  // 直连内网 bridge），成功且非空才把 teaser 拼进欢迎语；失败/超时/空值一律
+  // 静默回落现有纯文本欢迎语（fail-safe，本仓惯例），不弹错误、不阻塞聊天。
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 3000);
+    (async () => {
+      try {
+        const response = await fetch("/api/support/welcome", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => null);
+        const teaser = getString(getRecord(payload).promo_teaser);
+        if (!teaser) return;
+        welcomeTeaserRef.current = teaser;
+        setItems((current) =>
+          current.map((item, index) =>
+            index === 0 && item.role === "assistant"
+              ? buildWelcomeItem(teaser)
+              : item,
+          ),
+        );
+      } catch {
+        // 超时/网络失败：静默回落纯文本欢迎语，零回归。
+      } finally {
+        window.clearTimeout(timer);
+      }
+    })();
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+    // 仅挂载时跑一次（effect 内只用到稳定的 setItems / 局部变量，无需依赖数组）。
+  }, []);
 
   useEffect(() => {
     if (!conversationId) return;
