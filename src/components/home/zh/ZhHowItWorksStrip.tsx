@@ -77,6 +77,13 @@ export function ZhHowItWorksStrip() {
             >
               费用说明 →
             </Link>
+            <span className="text-zinc-200">|</span>
+            <Link
+              href="/fee-calculator"
+              className="text-xs font-medium text-rose-600 hover:text-rose-700"
+            >
+              费用试算 →
+            </Link>
           </div>
         </div>
       </div>

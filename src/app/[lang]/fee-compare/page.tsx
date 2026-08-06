@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Link } from "@/i18n/navigation";
 import {
   buildAlternates,
   isIndexable,
@@ -8,7 +9,6 @@ import {
 } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { FeeCalculator } from "./FeeCalculator";
-import { LandedCostEstimator } from "./LandedCostEstimator";
 import {
   OUR_NAME,
   COMPETITOR_A_NAME,
@@ -256,9 +256,21 @@ export default async function FeeComparePage({
           <FeeCalculator />
         </div>
 
-        {/* 到手价试算（商品价 + 手续费，折合人民币，不含国际运费） */}
-        <div className="mt-6">
-          <LandedCostEstimator />
+        {/* 完整费用试算（商品款+手续费+国际运费+总计）已独立成页 /fee-calculator，
+            避免同一套「按平台+价格算到手价」的计价 UI 两处维护，这里只留引导入口。 */}
+        <div className="mt-6 rounded-2xl border-2 border-rose-200 bg-rose-50/60 p-6 text-center shadow-sm">
+          <h2 className="text-lg font-bold text-zinc-900">
+            想知道这单到底要花多少？
+          </h2>
+          <p className="mt-1.5 text-sm text-zinc-500">
+            商品款、手续费、国际运费（EMS/航空/船运）一起算，直接看总计
+          </p>
+          <Link
+            href="/fee-calculator"
+            className="mt-4 inline-flex items-center justify-center rounded-full bg-rose-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-700"
+          >
+            去费用试算器 →
+          </Link>
         </div>
 
         <p className="mt-8 text-center text-xs leading-relaxed text-zinc-400">

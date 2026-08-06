@@ -106,9 +106,14 @@ export const COMPARE_ROWS: CompareRow[] = [
   },
 ];
 
+/**
+ * 友商数据采集日期，显式字段（YYYY-MM-DD）——花哥 2026-08-06 要求把脚注里的自然语言
+ * 日期拆成独立常量，以后定期复核友商价格只改这一行，不用去改文案字符串本身。
+ */
+export const COMPETITOR_DATA_COLLECTED_DATE = "2026-07-21";
+
 /** 页脚免责说明（友商数据时效） */
-export const FOOTER_DISCLAIMER =
-  "*友商数据采集自其官网公开费用页（2026年7月），活动价以各家页面为准。";
+export const FOOTER_DISCLAIMER = `*友商数据采集自其官网公开费用页（采集日期 ${COMPETITOR_DATA_COLLECTED_DATE}），活动价以各家页面为准。`;
 
 /**
  * 代购手续费试算器 —— 纯前端计算，按输入的商品价（JPY 整数）算出三家的手续费。
