@@ -204,7 +204,26 @@ const QUICK_QUESTIONS = [
   "我要转人工客服",
 ];
 
-const SUPPORTED_PLATFORMS = new Set(["mercari", "amazon", "yahoo", "rakuten"]);
+// 2026-08-08 加入 rakuma / yahoofrima：小程序站点详情页点「客服」会带 shop=rakuma 等进来，
+// 此前不在集合里 → 下面 sourcePlatform 被强制打回 "mercari" → 拿 rakuma 的商品号去拼煤炉
+// 链接，客服识别不出商品，建卡/报价/支付整条链都出不来（花哥真机反馈）。
+// 这两个平台的辅助购买链路后端本就支持（ASSISTED_PURCHASE_PLATFORMS）。
+const SUPPORTED_PLATFORMS = new Set([
+  "mercari",
+  "amazon",
+  "yahoo",
+  "rakuten",
+  "rakuma",
+  "yahoofrima",
+]);
+
+/** 平台 → 商品页 URL 模板（自动报价时交后端桥识别）。 */
+const ITEM_URL_BUILDERS: Record<string, (id: string) => string> = {
+  yahoo: (id) => `https://auctions.yahoo.co.jp/jp/auction/${id}`,
+  rakuma: (id) => `https://item.fril.jp/${id}`,
+  yahoofrima: (id) => `https://paypayfleamarket.yahoo.co.jp/item/${id}`,
+  mercari: (id) => `https://jp.mercari.com/item/${id}`,
+};
 
 // 辅助购买（zh 灰度）平台：rakuma / yahoofrima。这两个平台的报价卡来自 bridge
 // _emit_assisted_quote_card（链接→internal/quote），报价时已 _stash_consult_pending
@@ -872,20 +891,18 @@ export default function MiniProgramSupportH5Page() {
   useEffect(() => {
     if (autoQuoteTriggeredRef.current) return;
     // mercari 与 yahoo（即決+竞拍）从商品页进客服都自动弹卡；其它平台仍不触发。
-    if (
-      !sourceGoodsId ||
-      (sourcePlatform !== "mercari" && sourcePlatform !== "yahoo")
-    )
-      return;
+    // 2026-08-08 放开 rakuma/yahoofrima：这两个平台的报价卡由 bridge 的
+    // _emit_assisted_quote_card 走 internal/quote 出卡，链路本就支持，此前被这道门挡住
+    // 导致从站点商品页进客服拿不到报价卡/建单/支付（花哥真机反馈）。
+    if (!sourceGoodsId || !ITEM_URL_BUILDERS[sourcePlatform]) return;
     // 已有会话历史（如刷新带 conversation_id）时不重复自动报价。
     if (conversationId) return;
     autoQuoteTriggeredRef.current = true;
 
     // 按平台拼商品 URL，交后端桥识别出卡（yahoo 即決+竞拍都支持）。
-    const itemUrl =
-      sourcePlatform === "yahoo"
-        ? `https://auctions.yahoo.co.jp/jp/auction/${sourceGoodsId}`
-        : `https://jp.mercari.com/item/${sourceGoodsId}`;
+    const itemUrl = (
+      ITEM_URL_BUILDERS[sourcePlatform] || ITEM_URL_BUILDERS.mercari
+    )(sourceGoodsId);
     // 记下自动报价发出的链接原文，供历史轮询剔除这条 visitor 消息（防止它被补成 user 气泡）。
     autoQuoteMessageRef.current = itemUrl;
     let cancelled = false;
