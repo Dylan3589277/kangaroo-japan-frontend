@@ -6,7 +6,9 @@
 FROM node:20-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# husky 的 prepare 钩子在无 .git 的构建环境会失败,容器里不需要 git hooks
+ENV HUSKY=0
+RUN npm ci --ignore-scripts
 COPY . .
 ARG KANGAROO_JAPAN_BACKEND_ORIGIN
 ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
