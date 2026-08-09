@@ -128,6 +128,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // 2026-08-09 迁移阿里云：容器部署用 standalone 产物（最小运行时+server.js）。
+  // Vercel 构建器忽略此选项，现有 Vercel 部署零影响。
+  output: "standalone",
   async headers() {
     return [
       {
