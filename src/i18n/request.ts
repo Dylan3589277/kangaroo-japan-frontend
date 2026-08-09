@@ -8,6 +8,7 @@ const namespaces = [
   "amazon",
   "compare",
   "bids",
+  "mercariAuction",
   "deposit",
   "vip",
   "shop",

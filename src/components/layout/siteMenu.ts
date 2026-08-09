@@ -10,6 +10,9 @@ export interface SiteMenuEntry {
 
 export const SITE_MENU: SiteMenuEntry[] = [
   { key: "mercari", href: "/mercari" },
+  // 煤炉竞拍：功能开关灰度中暂不露菜单入口（点进去只会看到「暂未开放」，
+  // 负面体验）；白名单灰度期用直链 /mercari-auction 访问，验证过再放开这行。
+  // { key: "mercariAuction", href: "/mercari-auction" },
   { key: "yahooAuction", href: "/yahoo" },
   { key: "rakuma", href: "/rakuma" },
   { key: "yahooFrima", href: "/yahoofrima" },
