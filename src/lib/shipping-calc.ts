@@ -75,6 +75,78 @@ export function lookupShippingCost(
   return best ? best.shipAmountJpy : null;
 }
 
+/**
+ * 预计时效（天）——口径与小程序费用试算页/底部「国际物流介绍」运营图一致
+ * （EMS 3~14日／航空便 7~20日／船运 30~60日，2026-08-09 对齐）。评分用中值。
+ * 老后台 method_code：1=EMS 2=標準航空 4=船运；未知 code 不参与最优评分。
+ */
+export const SHIP_DAYS_BY_CODE: Record<string, { lo: number; hi: number }> = {
+  "1": { lo: 3, hi: 14 },
+  "2": { lo: 7, hi: 20 },
+  "4": { lo: 30, hi: 60 },
+};
+
+export interface MethodQuote {
+  code: string;
+  /** 展示名（来自老后台 ships，调用方可再做别名映射）。 */
+  name: string;
+  /** 该重量下运费（JPY 整数）；超重为 null。 */
+  amountJpy: number | null;
+  /** 时效文案，如 "3~14"；未知 code 为空串。 */
+  daysText: string;
+  /** 综合最优。全部超重时无最优。 */
+  isBest: boolean;
+}
+
+/**
+ * 对全部运输方式按重量出报价，并标「综合最优」——花哥 2026-08-09 拍板的标准：
+ * 运费归一 ×50% + 时效中值归一 ×50%，可报价方式里得分最低者最优。
+ * （2026-08-09 用生产费率表实测 area=1：全重量段最优均为 EMS——比航空快且大多更便宜，
+ * 船运赢在绝对价格但时效惩罚大。权重若要向重货倾斜由花哥另行拍板。）
+ */
+export function quoteAllMethods(
+  tiers: ShippingTier[],
+  methods: ShippingMethod[],
+  area: number,
+  weightGrams: number,
+): MethodQuote[] {
+  const quotes: MethodQuote[] = methods.map((m) => {
+    const d = SHIP_DAYS_BY_CODE[m.code];
+    return {
+      code: m.code,
+      name: m.name,
+      amountJpy: lookupShippingCost(tiers, m.code, area, weightGrams),
+      daysText: d ? `${d.lo}~${d.hi}` : "",
+      isBest: false,
+    };
+  });
+  const scorable = quotes.filter(
+    (q) => q.amountJpy != null && SHIP_DAYS_BY_CODE[q.code],
+  );
+  if (scorable.length > 0) {
+    const minJ = Math.min(...scorable.map((q) => q.amountJpy as number));
+    const minD = Math.min(
+      ...scorable.map((q) => {
+        const d = SHIP_DAYS_BY_CODE[q.code];
+        return (d.lo + d.hi) / 2;
+      }),
+    );
+    let best: MethodQuote | null = null;
+    let bestScore = Infinity;
+    for (const q of scorable) {
+      const d = SHIP_DAYS_BY_CODE[q.code];
+      const score =
+        0.5 * ((q.amountJpy as number) / minJ) + 0.5 * ((d.lo + d.hi) / 2 / minD);
+      if (score < bestScore) {
+        bestScore = score;
+        best = q;
+      }
+    }
+    if (best) best.isBest = true;
+  }
+  return quotes;
+}
+
 /** 该方式 + 地区组合下，表里能报价的最大重量（克）；查不到组合时返回 null。 */
 export function maxShippableGrams(
   tiers: ShippingTier[],

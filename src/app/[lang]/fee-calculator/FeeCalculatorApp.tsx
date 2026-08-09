@@ -35,6 +35,7 @@ import {
   DEFAULT_SHIPPING_AREA,
   lookupShippingCost,
   maxShippableGrams,
+  quoteAllMethods,
   type ShippingMethod,
   type ShippingRatesData,
 } from "@/lib/shipping-calc";
@@ -106,6 +107,10 @@ export function FeeCalculatorApp({
   const [methodCode, setMethodCode] = useState(
     () => initialShippingRates?.methods[0]?.code ?? "",
   );
+  // 用户是否手选过运输方式：没手选就自动跟随「综合最优」（重量变化时最优可能变），
+  // 手选过则尊重手选（除非该方式超重不可报价，见 effectiveMethodCode 派生逻辑）——
+  // 与小程序费用试算页同行为。
+  const [methodPicked, setMethodPicked] = useState(false);
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<number>>(() => new Set());
   const [feeState, setFeeState] = useState<FeeState>({ status: "idle" });
 
@@ -181,20 +186,46 @@ export function FeeCalculatorApp({
 
   const fee: FeeState = priceJpy <= 0 ? { status: "idle" } : feeState;
 
-  const shippingJpy = useMemo(() => {
-    if (!initialShippingRates || !methodCode || weightGrams <= 0) return null;
-    return lookupShippingCost(
+  // 三线路同屏报价 + 「综合最优」标记（运费×50% + 时效×50% 归一评分，
+  // 见 quoteAllMethods 头注；花哥 2026-08-09 拍板与小程序费用试算页对齐）。
+  const methodQuotes = useMemo(() => {
+    if (!initialShippingRates || weightGrams <= 0) return [];
+    return quoteAllMethods(
       initialShippingRates.tiers,
-      methodCode,
+      initialShippingRates.methods,
       DEFAULT_SHIPPING_AREA,
       weightGrams,
     );
-  }, [initialShippingRates, methodCode, weightGrams]);
+  }, [initialShippingRates, weightGrams]);
+
+  // 生效方式=派生值（不用 effect 同步 state，过本仓 react-hooks/set-state-in-effect 规则）：
+  // 未手选 → 跟随「综合最优」；手选过且该方式当前可报价 → 尊重手选；
+  // 手选方式在当前重量下超重 → 回落最优（不能停在报不了价的选项上）。
+  const effectiveMethodCode = useMemo(() => {
+    if (methodQuotes.length === 0) return methodCode;
+    const current = methodQuotes.find((q) => q.code === methodCode);
+    if (methodPicked && current && current.amountJpy != null) return methodCode;
+    return methodQuotes.find((q) => q.isBest)?.code ?? methodCode;
+  }, [methodQuotes, methodCode, methodPicked]);
+
+  const shippingJpy = useMemo(() => {
+    if (!initialShippingRates || !effectiveMethodCode || weightGrams <= 0) return null;
+    return lookupShippingCost(
+      initialShippingRates.tiers,
+      effectiveMethodCode,
+      DEFAULT_SHIPPING_AREA,
+      weightGrams,
+    );
+  }, [initialShippingRates, effectiveMethodCode, weightGrams]);
 
   const shippingMaxGrams = useMemo(() => {
-    if (!initialShippingRates || !methodCode) return null;
-    return maxShippableGrams(initialShippingRates.tiers, methodCode, DEFAULT_SHIPPING_AREA);
-  }, [initialShippingRates, methodCode]);
+    if (!initialShippingRates || !effectiveMethodCode) return null;
+    return maxShippableGrams(
+      initialShippingRates.tiers,
+      effectiveMethodCode,
+      DEFAULT_SHIPPING_AREA,
+    );
+  }, [initialShippingRates, effectiveMethodCode]);
 
   const shippingRmb = useMemo(() => {
     if (shippingJpy == null || !initialShippingRates) return null;
@@ -320,42 +351,89 @@ export function FeeCalculatorApp({
           </p>
         ) : (
           <>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="fc-weight" className="text-sm text-zinc-600">
-                  重量（g）
-                </Label>
-                <Input
-                  id="fc-weight"
-                  inputMode="numeric"
-                  value={weightInput}
-                  onChange={(e) => setWeightInput(e.target.value)}
-                  placeholder="1000"
-                  className="mt-1.5 h-11 text-base"
-                />
-              </div>
-              <div>
-                <Label className="text-sm text-zinc-600">运输方式</Label>
-                <div className="mt-1.5 flex gap-2">
-                  {initialShippingRates.methods.map((m) => (
-                    <button
-                      key={m.code}
-                      type="button"
-                      onClick={() => setMethodCode(m.code)}
-                      className={
-                        methodCode === m.code
-                          ? "flex-1 rounded-xl border-2 border-rose-500 bg-rose-50 px-2 py-2.5 text-sm font-semibold text-rose-700"
-                          : "flex-1 rounded-xl border px-2 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
-                      }
-                    >
-                      {methodLabel(m)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="mt-4">
+              <Label htmlFor="fc-weight" className="text-sm text-zinc-600">
+                重量（g）
+              </Label>
+              <Input
+                id="fc-weight"
+                inputMode="numeric"
+                value={weightInput}
+                onChange={(e) => setWeightInput(e.target.value)}
+                placeholder="1000"
+                className="mt-1.5 h-11 text-base sm:max-w-xs"
+              />
             </div>
 
+            {/* 三线路同屏对比：最优标色，点卡切换（花哥 2026-08-09 拍板，与小程序费用试算页对齐） */}
+            {methodQuotes.length > 0 ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {methodQuotes.map((q) => {
+                  const selected = effectiveMethodCode === q.code;
+                  const disabled = q.amountJpy == null;
+                  const rmb =
+                    q.amountJpy != null
+                      ? round2(q.amountJpy * initialShippingRates.rate)
+                      : null;
+                  return (
+                    <button
+                      key={q.code}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => {
+                        setMethodCode(q.code);
+                        setMethodPicked(true);
+                      }}
+                      className={[
+                        "rounded-xl border-2 p-3.5 text-left transition",
+                        disabled
+                          ? "cursor-not-allowed border-zinc-100 bg-zinc-50 opacity-60"
+                          : selected
+                            ? "border-rose-500 bg-rose-50"
+                            : q.isBest
+                              ? "border-rose-300 bg-rose-50/50 hover:border-rose-400"
+                              : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50",
+                      ].join(" ")}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-sm font-semibold text-zinc-800">
+                          {methodLabel({ code: q.code, name: q.name })}
+                        </span>
+                        {q.isBest && (
+                          <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                            ⚡ 综合最优
+                          </span>
+                        )}
+                      </div>
+                      {q.daysText && (
+                        <p className="mt-0.5 text-xs text-zinc-400">约{q.daysText}天</p>
+                      )}
+                      {q.amountJpy != null ? (
+                        <p className="mt-1.5 text-lg font-bold text-rose-600">
+                          {formatJpy(q.amountJpy)}
+                          {rmb != null && (
+                            <span className="ml-1.5 text-xs font-normal text-zinc-400">
+                              ≈{formatRmb(rmb)}
+                            </span>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-amber-600">
+                          超出该线路最大重量，请联系客服人工报价
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-xl bg-zinc-50 px-4 py-4 text-center text-xs text-zinc-400">
+                填写重量后显示三条线路的运费对比
+              </p>
+            )}
+
             <p className="mt-3 text-xs text-zinc-400">
+              「综合最优」按运费与预计时效各占 50% 自动评分；时效为日本邮政参考区间。
               默认按发往中国大陆计算（含台湾/韩国同价）；实际运费以入仓称重结果为准。
             </p>
 
@@ -439,9 +517,11 @@ export function FeeCalculatorApp({
               <span className="text-zinc-500">
                 国际运费
                 <span className="ml-1.5 text-xs text-zinc-400">
-                  {methodCode &&
+                  {effectiveMethodCode &&
                     methodLabel(
-                      initialShippingRates.methods.find((m) => m.code === methodCode)!,
+                      initialShippingRates.methods.find(
+                        (m) => m.code === effectiveMethodCode,
+                      )!,
                     )}
                 </span>
               </span>
