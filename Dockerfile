@@ -8,7 +8,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 # husky 的 prepare 钩子在无 .git 的构建环境会失败,容器里不需要 git hooks
 ENV HUSKY=0
-RUN npm ci --ignore-scripts
+# --legacy-peer-deps: next-intl 内嵌的 @swc/core 要求 @swc/helpers>=0.5.17,
+# 而 next 16.2.4 锁的是 0.5.15,peer 冲突让 npm ci 严格模式直接失败
+# (Vercel 用宽松安装绕过了所以一直没暴露)。按 lock 装保持可复现,不改依赖版本。
+RUN npm ci --ignore-scripts --legacy-peer-deps
 COPY . .
 ARG KANGAROO_JAPAN_BACKEND_ORIGIN
 ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
