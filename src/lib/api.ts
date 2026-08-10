@@ -1159,6 +1159,78 @@ export interface AdminRefundApprovalItem {
   createdAt: string;
 }
 
+// 客服/仓库操作台 · 押金退款审批（老后台迁移）。
+// 与后端 src/deposit/deposit-refund.admin.controller.ts 的真实返回形状对齐——
+// 该 controller 与 M4 客服监听器走的 internal 版共用同一个
+// DepositRefundApprovalService，**不是**标准 REST 资源接口：approve/reject
+// 成功也可能只有 {code:0}、没有 data，字段用 code/errcode 判成败，没有
+// status/userName 这类字段。前端一律不要脑补更"规整"的形状。
+// amountCny 为人民币金额（押金退款走人民币口径，与全站 JPY 整数惯例不同的这一个例外）。
+export interface AdminDepositRefundPendingItem {
+  orderNo: string;
+  userId: string;
+  amountCny: number;
+  appliedAt: string;
+  remark: string;
+}
+
+export interface AdminDepositRefundListData {
+  list: AdminDepositRefundPendingItem[];
+  // 只有调用方传了 page/limit 才会附带；不传时 pending() 原样透传
+  // service.listPending() 的 {code:0,data:{list}}，没有这个字段。
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
+}
+
+export interface AdminDepositRefundDetail {
+  orderNo: string;
+  userId: string;
+  amountCny: number;
+  appliedAt: string;
+  status: string;
+  remark: string;
+  execState: {
+    started: boolean;
+    paidOutCny: number | null;
+    legsCount: number | null;
+    uncertainLegs: Array<{
+      idempotency_key: string | null;
+      chargeId_masked: string | null;
+      amount: number | null;
+      reason: string | null;
+      at: string | null;
+    }>;
+    lease: { holder: string | null; at: string | null } | null;
+  };
+}
+
+export interface AdminDepositRefundApproveSuccess {
+  orderNo: string;
+  refunded_cny: number;
+  legs: unknown[];
+}
+
+// 押金审批 approve/reject/detail/pending 的失败信封（{code:1, errcode, errmsg, ...}）。
+// 🔴 errmsg 里可能写着「钱已出/请勿重复退款」这类救命信息，refunded_cny/remaining_cny/
+// detail 也是资金安全相关的真实进度，前端必须原文展示、绝不能吞成通用"操作失败"
+// （见施工单要求；errcode 取值见 controller 注释：refund_execution_error/
+// refund_gate_error/refund_finalize_failed/has_open_bids/partial_refund_failure/
+// not_found_or_not_refunding/reject_error 等）。
+export interface AdminDepositRefundFailurePayload {
+  code?: number;
+  errcode?: string;
+  errmsg?: string;
+  refunded_cny?: number | null;
+  remaining_cny?: number | null;
+  detail?: string;
+}
+
 export interface SupportTicketLifecycleResponse {
   ticket: SupportTicket;
   lifecycle: {
@@ -2680,6 +2752,47 @@ class ApiClient {
         method: "POST",
         body: data,
       },
+    );
+  }
+
+  // 客服/仓库操作台 · 押金退款审批（对应老后台"会员押金退款"审核）。
+  // 端点固定是 /pending（不是 ?status= 查询参数），与 controller 的
+  // @Get('pending') 对齐。
+  async listAdminDepositRefunds(params?: { page?: number; limit?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const query = searchParams.toString();
+    return this.request<AdminDepositRefundListData | AdminDepositRefundFailurePayload>(
+      `/admin/deposit-refunds/pending${query ? `?${query}` : ""}`,
+    );
+  }
+
+  async getAdminDepositRefund(orderNo: string) {
+    return this.request<AdminDepositRefundDetail | AdminDepositRefundFailurePayload>(
+      `/admin/deposit-refunds/${orderNo}`,
+    );
+  }
+
+  // resolution 仅用于「人工核实结果未知的一腿」续跑场景，本操作台基础审批
+  // 流程不填；body 必须是对象（哪怕空 {}）——AdminApproveDepositRefundDto
+  // 全字段可选但走 class-validator，不传 body 也能过，这里显式传 {} 更清楚。
+  async approveAdminDepositRefund(
+    orderNo: string,
+    resolution?: { resolveLegKey: string; resolveLegOutcome: "refunded" | "not_refunded" },
+  ) {
+    return this.request<
+      AdminDepositRefundApproveSuccess | AdminDepositRefundFailurePayload
+    >(`/admin/deposit-refunds/${orderNo}/approve`, {
+      method: "POST",
+      body: resolution || {},
+    });
+  }
+
+  async rejectAdminDepositRefund(orderNo: string, reason?: string) {
+    return this.request<{ code?: number } | AdminDepositRefundFailurePayload>(
+      `/admin/deposit-refunds/${orderNo}/reject`,
+      { method: "POST", body: reason ? { reason } : {} },
     );
   }
 
