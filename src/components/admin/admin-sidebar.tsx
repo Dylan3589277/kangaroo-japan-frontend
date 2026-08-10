@@ -101,6 +101,13 @@ const menuItems = [
     href: "/admin/payments",
   },
   {
+    // 客服/仓库操作台（照抄老后台的业务操作界面，与本监控台并存；花哥 2026-08-10 找不到入口，补链）
+    key: "/admin/console",
+    icon: <PartitionOutlined />,
+    label: "客服操作台",
+    href: "/admin/console",
+  },
+  {
     key: "/admin/support",
     icon: <InboxOutlined />,
     label: "客服工作台",
