@@ -35,6 +35,27 @@ const GUIDES = [
     description:
       "Japanese search terms that work, condition terms decoded, scam red flags, and the all-in cost.",
   },
+  {
+    slug: "is-buyee-legit-2026",
+    tag: "Review",
+    title: "Is Buyee Legit? An Honest 2026 Review for TCG Buyers",
+    description:
+      "Yes, it's legit — an official Mercari partner. When it fits, where its fees and packing defaults pinch card buyers, and when a TCG specialist is the better call.",
+  },
+  {
+    slug: "japan-proxy-hidden-fees-2026",
+    tag: "Fees",
+    title: "Japan Proxy Shopping Hidden Fees Explained (2026)",
+    description:
+      "All seven charges between a Japanese listing and your door — service fees, FX markup, storage, volumetric weight, import duty — with a self-audit checklist.",
+  },
+  {
+    slug: "psa-graded-cards-from-japan-2026",
+    tag: "Graded cards",
+    title: "Buying PSA Graded Cards from Japan (2026)",
+    description:
+      "Why slabs are often cheaper in Japan, cert-number verification, crack-proof shipping, and the full landed cost with a worked ¥30,000 example.",
+  },
 ] as const;
 
 export async function generateMetadata({

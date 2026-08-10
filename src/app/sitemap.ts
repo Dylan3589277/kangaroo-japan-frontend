@@ -51,6 +51,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/guides/japan-card-import-tax-us-2026", priority: 0.8, changeFrequency: "weekly" },
     { path: "/guides/kangaroo-japan-vs-buyee-vs-zenmarket", priority: 0.8, changeFrequency: "monthly" },
     { path: "/guides/how-to-buy-pokemon-cards-from-mercari-japan", priority: 0.8, changeFrequency: "monthly" },
+    { path: "/guides/is-buyee-legit-2026", priority: 0.8, changeFrequency: "monthly" },
+    { path: "/guides/japan-proxy-hidden-fees-2026", priority: 0.8, changeFrequency: "monthly" },
+    { path: "/guides/psa-graded-cards-from-japan-2026", priority: 0.8, changeFrequency: "monthly" },
   ];
 
   const entries: MetadataRoute.Sitemap = [];
