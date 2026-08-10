@@ -27,7 +27,9 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # next-intl 内嵌 @swc/core 的 peer 与 next 16.2.4 锁定版本冲突,npm ci 严格模式会报
+        # Missing: @swc/helpers 失败;与 Dockerfile(1f6a185)同法用 --legacy-peer-deps 按 lock 安装
+        run: npm ci --legacy-peer-deps
 
       - name: Build
         run: npm run build
