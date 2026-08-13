@@ -30,6 +30,9 @@ type ChatItem = {
   content: string;
   orderRef?: OrderRef;
   quoteRef?: QuoteRef;
+  // 批量报价卡（P1：bridge 攒清单回复一次带多件商品）。字段契约 quote_refs（数组），
+  // 与单件 quoteRef 互斥优先级：quoteRefs 非空时渲染一组卡，否则回退单卡 quoteRef，零回归。
+  quoteRefs?: QuoteRef[];
   choiceRef?: ChoiceRef;
   listRef?: ListRef;
   proxyBuyPayRef?: ProxyBuyPay;
@@ -162,6 +165,7 @@ type SupportParsedResponse = {
   queuedForHuman?: boolean;
   orderRef?: OrderRef;
   quoteRef?: QuoteRef;
+  quoteRefs?: QuoteRef[];
   choiceRef?: ChoiceRef;
   listRef?: ListRef;
   proxyBuyPayRef?: ProxyBuyPay;
@@ -406,6 +410,18 @@ function getQuoteRef(value: unknown): QuoteRef | undefined {
   };
 }
 
+// 批量报价卡：解析 quote_refs 数组（每项与单件 quote_ref 同构）。空数组/非数组/全部
+// 解析失败时返回 undefined，让上层回退到单件 quoteRef 分支，零回归。
+function getQuoteRefs(value: unknown): QuoteRef[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: QuoteRef[] = [];
+  for (const raw of value) {
+    const q = getQuoteRef(raw);
+    if (q) out.push(q);
+  }
+  return out.length ? out : undefined;
+}
+
 function getChoiceRef(value: unknown): ChoiceRef | undefined {
   const record = getRecord(value);
   if (!Array.isArray(record.options)) return undefined;
@@ -492,6 +508,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
     fallback === "53kf";
   const orderRef = getOrderRef(data.order_ref || root.order_ref);
   const quoteRef = getQuoteRef(data.quote_ref || root.quote_ref);
+  const quoteRefs = getQuoteRefs(data.quote_refs || root.quote_refs);
   const choiceRef = getChoiceRef(data.choice || root.choice);
   const listRef = getListRef(data.list || root.list);
   const proxyBuyPayRef = getProxyBuyPay(
@@ -514,6 +531,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
     queuedForHuman: Boolean(data.queuedForHuman),
     orderRef,
     quoteRef,
+    quoteRefs,
     choiceRef,
     listRef,
     proxyBuyPayRef,
@@ -752,6 +770,11 @@ export default function MiniProgramSupportH5Page() {
   const welcomeTeaserRef = useRef("");
   // 聊天输入框 ref：报价卡"咨询"按钮点了之后聚焦输入框，让买家自己打字提问。
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // 消息列表滚动容器 + 底部锚点：新消息到达时若买家本就贴着底部，则平滑滚到底部；
+  // 若买家正往上翻看历史消息，则不打扰（不做"推顶"式强制滚动）。
+  const messagesSectionRef = useRef<HTMLElement | null>(null);
+  const messagesBottomAnchorRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
   // 报价卡买家选择（纯前端记录，不立即扣费）：
   // - quoteServiceSelections：{cardKey -> {serviceCode -> checked}}，记录可选服务勾选。
   // - quoteRiskConfirmed：已点「我已知风险确认」的 cardKey 集合。
@@ -860,16 +883,39 @@ export default function MiniProgramSupportH5Page() {
     // iOS 微信 webview：键盘弹出时 visualViewport 会缩小并带 offsetTop（页面被顶上去）。
     // 把容器 position:fixed 钉到"当前可视区"（top=offsetTop, height=可视高度），
     // 这样 body 怎么滚，聊天容器始终贴着可见区域，输入条永远浮在键盘上方、不再空白。
+    //
+    // 🔴2026-08-13 修复「新消息到达时聊天列表被剧烈推顶、标题顶到屏幕中部、大片空白且持续
+    // 很久」（客服真机反馈）：根因不是 scrollIntoView/scrollTop（本文件压根没有），而是这个
+    // 钉位效果本身——它不加区分地信任每一次 visualViewport resize/scroll 事件的 offsetTop。
+    // 新消息到达时若正巧键盘还开着，浏览器为把聚焦的输入框保持可见会做原生滚动调整，期间
+    // visualViewport 会连续触发多次带噪声/过渡态 offsetTop 的事件；旧代码把每一次都当真、
+    // 立即整体挪动含标题在内的 fixed 容器，于是观感就是标题被顶飞、露出大片空白，且要等这串
+    // 事件抖动完才安定下来（"持续很久"）。
+    // 修法：① 只有 viewport.height 明显小于 window.innerHeight（判定键盘确实弹出）时才钉位，
+    // 否则一律回退默认布局（height:100dvh，见 viewportStyle），不被无关的 resize/scroll 噪声
+    // 牵着走；② 用 rAF 合并同一帧内的多次事件，避免连续触发多次 setState 造成画面抖动。
+    const KEYBOARD_HEIGHT_THRESHOLD = 120; // px，明显小于常见地址栏高度变化，避免误判
+    let rafId = 0;
     const updateRect = () => {
-      if (!viewport) {
-        setVpRect(null);
-        return;
-      }
-      setVpRect({
-        top: Math.round(viewport.offsetTop),
-        left: Math.round(viewport.offsetLeft),
-        width: Math.round(viewport.width),
-        height: Math.round(viewport.height),
+      if (rafId) window.cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        if (!viewport) {
+          setVpRect(null);
+          return;
+        }
+        const keyboardLikelyOpen =
+          window.innerHeight - viewport.height > KEYBOARD_HEIGHT_THRESHOLD;
+        if (!keyboardLikelyOpen) {
+          setVpRect(null);
+          return;
+        }
+        setVpRect({
+          top: Math.round(viewport.offsetTop),
+          left: Math.round(viewport.offsetLeft),
+          width: Math.round(viewport.width),
+          height: Math.round(viewport.height),
+        });
       });
     };
 
@@ -879,11 +925,39 @@ export default function MiniProgramSupportH5Page() {
     window.addEventListener("resize", updateRect);
 
     return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
       viewport?.removeEventListener("resize", updateRect);
       viewport?.removeEventListener("scroll", updateRect);
       window.removeEventListener("resize", updateRect);
     };
   }, []);
+
+  // 追踪买家是否本就贴着消息列表底部（阈值 80px，容忍 iOS 惯性滚动的抖动）。
+  // 只用来决定"新消息到达要不要跟着滚"，不主动触发任何滚动。
+  useEffect(() => {
+    const section = messagesSectionRef.current;
+    if (!section) return;
+    const handleScroll = () => {
+      const distanceFromBottom =
+        section.scrollHeight - section.scrollTop - section.clientHeight;
+      stickToBottomRef.current = distanceFromBottom < 80;
+    };
+    section.addEventListener("scroll", handleScroll, { passive: true });
+    return () => section.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // 新消息到达（items / 自动报价卡 / loading 提示变化）时，仅当买家本就贴着底部才平滑
+  // 滚到最新一条；买家正翻看历史消息时不打扰。这是本文件唯一的"跟随新消息滚动"逻辑——
+  // 之前没有任何 scrollIntoView/scrollTop，聊天列表完全依赖浏览器原生行为，新消息到达时
+  // 不会自动跟到底部；加上这段后新消息平滑置底、不再需要靠"钉住可视区"的副作用间接顶动
+  // 整个容器（那正是"剧烈推顶/大片空白"的根因，见上方 visualViewport effect 里的说明）。
+  useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    messagesBottomAnchorRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [items, autoQuoteOpening, loading, autoQuoteLoading]);
 
   // 自动报价：仅挂载时执行一次。从 mercari/yahoo 商品页（带 ?gid=xxx&shop=yyy）进客服时，
   // 零输入地用商品链接拉一次报价，把 assistant 回复 + 报价卡作为开场消息渲染，
@@ -895,9 +969,35 @@ export default function MiniProgramSupportH5Page() {
     // _emit_assisted_quote_card 走 internal/quote 出卡，链路本就支持，此前被这道门挡住
     // 导致从站点商品页进客服拿不到报价卡/建单/支付（花哥真机反馈）。
     if (!sourceGoodsId || !ITEM_URL_BUILDERS[sourcePlatform]) return;
-    // 已有会话历史（如刷新带 conversation_id）时不重复自动报价。
-    if (conversationId) return;
+    // 🔴2026-08-13 修复「从商品页进客服，不自动出现该商品的报价卡」（客服实测①-1；bridge
+    // 侧确认全程从未收到过带 gid 的商品链接消息，排除是 bridge 没处理——问题在这道门本身）。
+    // 旧逻辑「已有 conversationId 就不再自动报价」的本意是防「同一商品页刷新」重复发送，
+    // 但小程序 webview 在同一次客服会话里连续从多个商品页进来时会带着同一个 conversationId
+    // （会话是延续的，不是每个商品一个新会话），于是买家换了商品、带着新的 gid 进来，也会被
+    // 这道门直接拦下——请求压根没发出去，报价卡自然不会出现。
+    // 改为按「平台+商品号」维度去重（sessionStorage，跨整页导航持久、关标签页即失效）：
+    // 同一件商品在本次浏览器会话里只自动报价一次，换成不同商品则正常触发，不再被
+    // conversationId 是否存在这个无关信号挡住。
+    const autoQuoteDedupeKey = `kj_h5_autoquoted_${sourcePlatform}_${sourceGoodsId}`;
+    try {
+      if (
+        typeof window !== "undefined" &&
+        window.sessionStorage.getItem(autoQuoteDedupeKey)
+      ) {
+        return;
+      }
+    } catch {
+      // sessionStorage 不可用（隐私模式/小程序 webview 限制等）：退化为不去重，
+      // 宁可偶尔对同一商品重复报价，也不能因此完全失去自动报价能力。
+    }
     autoQuoteTriggeredRef.current = true;
+    try {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(autoQuoteDedupeKey, "1");
+      }
+    } catch {
+      // 写入失败不影响本次请求正常发出，仅去重退化。
+    }
 
     // 按平台拼商品 URL，交后端桥识别出卡（yahoo 即決+竞拍都支持）。
     const itemUrl = (
@@ -943,11 +1043,12 @@ export default function MiniProgramSupportH5Page() {
         // 只有真的拿到报价卡才渲染开场卡；否则静默（避免无意义气泡/误转人工）。
         // 写进独立的 autoQuoteOpening state（不进 items），渲染在列表最上方，
         // 这样后续历史轮询的 setItems 整体替换永远冲不掉它。
-        if (parsed.quoteRef) {
+        if (parsed.quoteRef || parsed.quoteRefs) {
           setAutoQuoteOpening({
             role: "assistant",
             content: parsed.text || "已为您调取该商品信息：",
             quoteRef: parsed.quoteRef,
+            quoteRefs: parsed.quoteRefs,
           });
         }
       } catch {
@@ -1033,6 +1134,7 @@ export default function MiniProgramSupportH5Page() {
             content: parsed.text,
             orderRef: parsed.orderRef,
             quoteRef: parsed.quoteRef,
+            quoteRefs: parsed.quoteRefs,
             choiceRef: parsed.choiceRef,
             listRef: parsed.listRef,
             proxyBuyPayRef: parsed.proxyBuyPayRef,
@@ -1349,6 +1451,396 @@ export default function MiniProgramSupportH5Page() {
     );
   }
 
+  // 单张报价卡渲染（从 renderChatItem 抽出，供单件 quoteRef 与批量 quoteRefs 共用）。
+  // cardKey 是该卡在 quoteServiceSelections/quoteRiskConfirmed 等按卡状态 map 里的主键：
+  // 单件时沿用消息 key（与改造前行为一致，零回归）；批量时用 `${messageKey}-quote-${idx}`，
+  // 保证同一条回复里多张卡的勾选/风险确认互不串。
+  const renderQuoteCard = (quote: QuoteRef, cardKey: string) => {
+    // 雅虎分流：platform==='yahoo' 且 sale_type 决定模板。非雅虎（mercari 等）一律走老逻辑。
+    const isYahoo = quote.platform === "yahoo";
+    const isYahooAuction = isYahoo && quote.sale_type === "auction";
+    const isYahooSokketsu = isYahoo && quote.sale_type === "sokketsu";
+    // 「去充押金」入口是否可用：仅当配置了充值页 path 才可点。
+    const depositRechargeEnabled = Boolean(YAHOO_DEPOSIT_RECHARGE_PAGE_PATH);
+
+    return (
+      <div
+        key={cardKey}
+        className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+        data-testid="support-quote-card"
+      >
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <Tag className="h-4 w-4 text-orange-500" />
+          报价确认
+        </div>
+        {quote.cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={quote.cover}
+            alt={quote.goods_name || "商品图片"}
+            className="mb-2 h-32 w-full rounded-md object-cover"
+            loading="lazy"
+          />
+        ) : null}
+        {quote.goods_name ? (
+          <div className="line-clamp-2 text-sm leading-5 text-slate-700">
+            {quote.goods_name}
+          </div>
+        ) : null}
+        {quote.price_jpy !== undefined ? (
+          <div className="mt-2 text-sm font-medium text-slate-900">
+            现价 ¥{quote.price_jpy.toLocaleString("ja-JP")} 日元
+          </div>
+        ) : null}
+        {quote.fee_service_jpy !== undefined ? (
+          <div className="mt-1 text-xs leading-5 text-slate-500">
+            支付手续费：¥
+            {quote.fee_service_jpy.toLocaleString("ja-JP")} 日元
+          </div>
+        ) : null}
+        {quote.fee_agent_jpy !== undefined ? (
+          <div className="mt-1 text-xs leading-5 text-slate-500">
+            代拍手续费：¥
+            {quote.fee_agent_jpy.toLocaleString("ja-JP")} 日元
+          </div>
+        ) : null}
+        {quote.domestic_shipping_note ? (
+          <div className="mt-1 text-xs leading-5 text-slate-500">
+            {quote.domestic_shipping_note}
+          </div>
+        ) : null}
+        {quote.est_goods_rmb ? (
+          <div className="mt-2 text-sm font-medium text-slate-900">
+            约 ¥{quote.est_goods_rmb}
+            <span className="font-normal text-slate-500">
+              （不含运费）
+            </span>
+          </div>
+        ) : null}
+        {quote.rate_note ? (
+          <p className="mt-1 text-[11px] leading-4 text-slate-400">
+            {quote.rate_note}
+          </p>
+        ) : null}
+
+        {/* ── 可选增值服务区（仅录单流：mercari / 雅虎即決；雅虎竞拍走出价不展示）。
+             买家勾选只前端记录，实际计费在录单环节由 L1/L2/客服处理。 */}
+        {!isYahooAuction &&
+        quote.optional_services &&
+        quote.optional_services.length > 0 ? (
+          <div
+            className="mt-3 rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2"
+            data-testid="support-quote-optional-services"
+          >
+            <div className="mb-1.5 text-xs font-medium text-slate-700">
+              可选增值服务（勾选后由客服为您核对计费，现在不扣费）
+            </div>
+            <div className="space-y-1.5">
+              {quote.optional_services.map((svc, svcIndex) => {
+                const svcCode = svc.code || svc.label || `svc-${svcIndex}`;
+                const checked = Boolean(
+                  quoteServiceSelections[cardKey]?.[svcCode],
+                );
+                return (
+                  <div key={svcCode}>
+                    <label className="flex items-start gap-2 text-xs leading-5 text-slate-700">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-orange-500"
+                        checked={checked}
+                        disabled={Boolean(svc.disabled)}
+                        onChange={() => toggleQuoteService(cardKey, svcCode)}
+                        data-testid={`support-quote-service-${svcCode}`}
+                      />
+                      <span className="flex-1">
+                        {svc.label || svcCode}
+                        {svc.fee_jpy !== undefined ? (
+                          <span className="text-slate-500">
+                            {" "}
+                            ¥{svc.fee_jpy.toLocaleString("ja-JP")} 日元
+                          </span>
+                        ) : null}
+                        {svc.note ? (
+                          <span className="block text-[11px] leading-4 text-amber-600">
+                            {svc.note}
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── 预估合计（日元整数）：现价+支付手续费+代拍手续费+已勾选可选服务费。
+             随买家勾选实时重算（computeQuoteTotalJpy 依赖 quoteServiceSelections re-render），
+             让买家看见勾选增值服务后的价格变化、避免价格歧义。竞拍卡不出（走出价/押金）。
+             仅前端展示，权威金额仍以建单时服务端按勾选项重算为准。 */}
+        {!isYahooAuction && quote.price_jpy !== undefined ? (
+          <div
+            className="mt-3 border-t border-slate-100 pt-2"
+            data-testid="support-quote-total"
+          >
+            <div className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-900">
+              <span>预估合计</span>
+              <span data-testid="support-quote-total-jpy">
+                ¥
+                {(
+                  computeQuoteTotalJpy(cardKey, quote) ?? 0
+                ).toLocaleString("ja-JP")}{" "}
+                日元
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] leading-4 text-slate-400">
+              合计为估算（不含国内运费），最终以客服核对或小程序下单当日为准。
+            </p>
+          </div>
+        ) : null}
+
+        {/* ── >5万风险确认卡（卖家核验不达标时显著展示）。
+             仅录单流出卡；买家点确认只前端记录，不录入/不付款/不下单。 */}
+        {!isYahooAuction && quote.seller_risk?.needs_confirm ? (
+          <div
+            className="mt-3 rounded-md border border-red-300 bg-red-50 px-2.5 py-2"
+            data-testid="support-quote-risk-card"
+          >
+            <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              高额订单风险确认
+            </div>
+            {(() => {
+              const risk = quote.seller_risk!;
+              const points: string[] =
+                risk.risk_points && risk.risk_points.length > 0
+                  ? risk.risk_points
+                  : [
+                      `卖家本人认证：${
+                        risk.identity_verified === true
+                          ? "已完成"
+                          : risk.identity_verified === false
+                            ? "未完成"
+                            : "未确认"
+                      }`,
+                      `卖家评价：${
+                        risk.rating_count !== undefined
+                          ? `${risk.rating_count} 条`
+                          : "未确认"
+                      }${
+                        risk.rating_percent
+                          ? `，好评率 ${risk.rating_percent}`
+                          : ""
+                      }`,
+                    ];
+              return (
+                <ul className="mb-1.5 list-disc space-y-0.5 pl-4 text-[11px] leading-4 text-red-700">
+                  {points.map((p, i) => (
+                    <li key={i}>{p}</li>
+                  ))}
+                </ul>
+              );
+            })()}
+            <p className="mb-2 text-[11px] leading-4 text-red-700">
+              {quote.seller_risk.disclaimer ||
+                "请确认：一旦平台购买成功，通常不支持因卖家描述、成色差异、个人判断变化等原因退换。若平台或卖家拒绝交易，我们按平台结果处理。"}
+            </p>
+            {quoteRiskConfirmed[cardKey] ? (
+              <div
+                className="flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] font-medium leading-4 text-emerald-700"
+                data-testid="support-quote-risk-confirmed"
+              >
+                已确认知悉风险，可继续点「我要购买」转人工录入。
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="flex w-full items-center justify-center gap-1 rounded-md bg-red-500 px-3 py-2 text-xs font-medium text-white shadow-sm"
+                onClick={() => confirmQuoteRisk(cardKey)}
+                data-testid="support-quote-risk-confirm-btn"
+              >
+                我已了解风险，继续录入订单
+              </button>
+            )}
+            {!quoteRiskConfirmed[cardKey] ? (
+              <p className="mt-1.5 text-[11px] leading-4 text-red-400">
+                确认前不会录入订单、不会付款、不会自动下单。
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* 雅虎竞拍：现价/一口价/剩余时间/出价数（缺字段不显示对应行） */}
+        {isYahooAuction ? (
+          <div
+            className="mt-2 space-y-1 rounded-md bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-600"
+            data-testid="support-quote-auction-info"
+          >
+            {quote.current_bid !== undefined ? (
+              <div className="text-sm font-medium text-slate-900">
+                当前出价 ¥
+                {quote.current_bid.toLocaleString("ja-JP")} 日元
+              </div>
+            ) : null}
+            {quote.buyout_jpy !== undefined &&
+            quote.buyout_jpy > 0 ? (
+              <div>
+                一口价 ¥
+                {quote.buyout_jpy.toLocaleString("ja-JP")} 日元
+              </div>
+            ) : null}
+            {quote.left_time ? (
+              <div>剩余时间：{quote.left_time}</div>
+            ) : null}
+            {quote.bid_num !== undefined ? (
+              <div>出价数：{quote.bid_num}</div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {isYahooAuction ? (
+          // 竞拍卡：押金区，不放「立即出价/我要购买/确认录入」（出价走小程序竞拍流程）
+          <div className="mt-3" data-testid="support-quote-auction-deposit">
+            {quote.deposit_state === "ok" ? (
+              <div
+                className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs leading-5 text-emerald-700"
+                data-testid="support-quote-deposit-ok"
+              >
+                押金余额
+                {quote.deposit_balance_rmb !== undefined
+                  ? `≈¥${quote.deposit_balance_rmb.toLocaleString(
+                      "zh-CN",
+                    )}`
+                  : ""}
+                ，本商品可出价上限
+                {quote.max_bid_allowed_jpy !== undefined
+                  ? `≈¥${quote.max_bid_allowed_jpy.toLocaleString(
+                      "ja-JP",
+                    )}（日元）`
+                  : "请回小程序查看"}
+                。
+              </div>
+            ) : quote.deposit_state === "insufficient" ? (
+              <div
+                className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs leading-5 text-amber-800"
+                data-testid="support-quote-deposit-insufficient"
+              >
+                您暂无足够押金，建议充值
+                {quote.suggest_recharge_rmb !== undefined
+                  ? `≈¥${quote.suggest_recharge_rmb.toLocaleString(
+                      "zh-CN",
+                    )}`
+                  : ""}
+                后参与竞拍。
+                <button
+                  type="button"
+                  className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-amber-200"
+                  onClick={goRechargeDeposit}
+                  disabled={!depositRechargeEnabled}
+                  data-testid="support-quote-btn-recharge"
+                >
+                  {depositRechargeEnabled ? "去充押金" : "充值入口待配置"}
+                </button>
+              </div>
+            ) : (
+              <div
+                className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-500"
+                data-testid="support-quote-deposit-unknown"
+              >
+                登录后可查看你的押金额度。
+              </div>
+            )}
+            {/* 竞拍卡动作：咨询(雅虎竞拍仍预填输入框) + 去出价(跳小程序竞拍详情页,出价/押金小程序专属) */}
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                onClick={() => consultQuote(quote)}
+                disabled={loading}
+                data-testid="support-quote-auction-btn-consult"
+              >
+                <MessageCircle className="h-4 w-4" />
+                咨询
+              </button>
+              <button
+                type="button"
+                className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                onClick={() => goYahooBid(quote.item_id)}
+                disabled={loading}
+                data-testid="support-quote-auction-btn-bid"
+              >
+                <ShoppingBag className="h-4 w-4" />
+                去出价
+              </button>
+            </div>
+          </div>
+        ) : isYahooSokketsu && quote.purchasable !== false ? (
+          // 雅虎即決：联系客服下单，不显示自动下单/购买按钮
+          <div
+            className="mt-3 rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700"
+            data-testid="support-quote-sokketsu-cta"
+          >
+            {quote.action_hint === "contact_kefu" ||
+            !quote.action_hint
+              ? quote.action_text ||
+                "此商品为即決，请联系客服为您下单。"
+              : quote.action_text || "此商品请联系客服处理。"}
+          </div>
+        ) : quote.purchasable === false ? (
+          <div
+            className="mt-3 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium leading-5 text-red-700"
+            data-testid="support-quote-unpurchasable"
+          >
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {quote.unpurchasable_reason || "该商品暂时无法购买"}
+          </div>
+        ) : (
+          (() => {
+            // 风险闸：>5万需确认且买家尚未点确认时，禁用「我要购买」，逼买家先确认风险。
+            const riskBlocksBuy = Boolean(
+              quote.seller_risk?.needs_confirm &&
+                !quoteRiskConfirmed[cardKey],
+            );
+            return (
+              <div className="mt-3" data-testid="support-quote-cta">
+                <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
+                  核对无误后可点下方按钮，或回复『确认』，我为您录入订单。
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                    onClick={() => consultQuote(quote)}
+                    disabled={loading}
+                    data-testid="support-quote-btn-consult"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    咨询
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                    onClick={() => buyQuote(cardKey, quote)}
+                    disabled={loading || riskBlocksBuy}
+                    data-testid="support-quote-btn-buy"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    我要购买
+                  </button>
+                </div>
+                {riskBlocksBuy ? (
+                  <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
+                    请先在上方完成『高额订单风险确认』，再点『我要购买』。
+                  </p>
+                ) : null}
+              </div>
+            );
+          })()
+        )}
+      </div>
+    );
+  };
+
   const renderChatItem = (item: ChatItem, key: string) => {
     // 待支付/订单卡金额：优先人民币；缺 amount_rmb 时回退显示日元 amount，
     // 别让买家看不到金额（曾因 amount_rmb 缺失整行消失）。
@@ -1367,14 +1859,8 @@ export default function MiniProgramSupportH5Page() {
       item.orderRef?.order_id && wxReady && isMiniProgramWebview(),
     );
 
-    // 雅虎分流：platform==='yahoo' 且 sale_type 决定模板。
-    // 非雅虎（mercari 等）一律走老逻辑，零回归。
+    // 单件报价卡判定（批量报价卡 quoteRefs 走 renderQuoteCard 内部各卡自算 isYahoo 等，互不影响）。
     const quote = item.quoteRef;
-    const isYahoo = quote?.platform === "yahoo";
-    const isYahooAuction = isYahoo && quote?.sale_type === "auction";
-    const isYahooSokketsu = isYahoo && quote?.sale_type === "sokketsu";
-    // 「去充押金」入口是否可用：仅当配置了充值页 path 才可点。
-    const depositRechargeEnabled = Boolean(YAHOO_DEPOSIT_RECHARGE_PAGE_PATH);
 
     // 已售/不可购报价卡：卡片内底部已有一条「不可购买原因」提示（含「已售」），
     // 文字气泡里的同义开场白会与之重复。此时隐藏上方文字气泡，只留卡片内那一条。
@@ -1530,33 +2016,6 @@ export default function MiniProgramSupportH5Page() {
               );
             })()
           : null}
-        {item.choiceRef?.options?.length ? (
-          <div
-            className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
-            data-testid="support-choice-card"
-          >
-            {item.choiceRef.prompt ? (
-              <div className="mb-2 text-sm font-medium text-slate-700">
-                {item.choiceRef.prompt}
-              </div>
-            ) : null}
-            <div className="flex flex-col gap-2">
-              {item.choiceRef.options.map((option) =>
-                option.label && option.send_text ? (
-                  <button
-                    key={option.send_text}
-                    type="button"
-                    className="rounded-md border border-orange-100 bg-orange-50 px-3 py-2 text-left text-sm text-orange-700 disabled:opacity-60"
-                    onClick={() => void sendMessage(option.send_text as string)}
-                    disabled={loading}
-                  >
-                    {option.label}
-                  </button>
-                ) : null,
-              )}
-            </div>
-          </div>
-        ) : null}
         {item.listRef?.items?.length ? (
           <div
             className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
@@ -1656,379 +2115,46 @@ export default function MiniProgramSupportH5Page() {
             ) : null}
           </div>
         ) : null}
-        {item.quoteRef ? (
+        {/* 批量报价卡（quoteRefs 非空）：bridge 攒清单回复一次带多件商品，每张卡渲染同款
+             单件报价卡组件，按钮行为（consultQuote/buyQuote/goYahooBid）与单件一致。
+             quoteRefs 缺省时回退单件 quoteRef，零回归。 */}
+        {item.quoteRefs && item.quoteRefs.length > 0
+          ? item.quoteRefs.map((q, qIdx) =>
+              renderQuoteCard(q, `${key}-quote-${qIdx}`),
+            )
+          : item.quoteRef
+            ? renderQuoteCard(item.quoteRef, key)
+            : null}
+        {/* 选择卡（choiceRef）挪到报价卡之后渲染（原先在报价卡之前）：
+             攒单场景 bridge 同一条回复会带 quote_ref（刚加入的这件商品）+ choice（继续购买/
+             去支付/咨询本批商品三按钮），先看到卡片内容、按钮作为紧跟其后的行动点更符合阅读
+             顺序，也与本文件其它卡片"先内容后操作按钮"的一贯布局一致。原有的纯 choiceRef
+             场景（不带 quoteRef）视觉上只是从"卡片列表最前"挪到"最后"，交互不变、零回归。 */}
+        {item.choiceRef?.options?.length ? (
           <div
             className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
-            data-testid="support-quote-card"
+            data-testid="support-choice-card"
           >
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <Tag className="h-4 w-4 text-orange-500" />
-              报价确认
+            {item.choiceRef.prompt ? (
+              <div className="mb-2 text-sm font-medium text-slate-700">
+                {item.choiceRef.prompt}
+              </div>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              {item.choiceRef.options.map((option) =>
+                option.label && option.send_text ? (
+                  <button
+                    key={option.send_text}
+                    type="button"
+                    className="rounded-md border border-orange-100 bg-orange-50 px-3 py-2 text-left text-sm text-orange-700 disabled:opacity-60"
+                    onClick={() => void sendMessage(option.send_text as string)}
+                    disabled={loading}
+                  >
+                    {option.label}
+                  </button>
+                ) : null,
+              )}
             </div>
-            {item.quoteRef.cover ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={item.quoteRef.cover}
-                alt={item.quoteRef.goods_name || "商品图片"}
-                className="mb-2 h-32 w-full rounded-md object-cover"
-                loading="lazy"
-              />
-            ) : null}
-            {item.quoteRef.goods_name ? (
-              <div className="line-clamp-2 text-sm leading-5 text-slate-700">
-                {item.quoteRef.goods_name}
-              </div>
-            ) : null}
-            {item.quoteRef.price_jpy !== undefined ? (
-              <div className="mt-2 text-sm font-medium text-slate-900">
-                现价 ¥{item.quoteRef.price_jpy.toLocaleString("ja-JP")} 日元
-              </div>
-            ) : null}
-            {item.quoteRef.fee_service_jpy !== undefined ? (
-              <div className="mt-1 text-xs leading-5 text-slate-500">
-                支付手续费：¥
-                {item.quoteRef.fee_service_jpy.toLocaleString("ja-JP")} 日元
-              </div>
-            ) : null}
-            {item.quoteRef.fee_agent_jpy !== undefined ? (
-              <div className="mt-1 text-xs leading-5 text-slate-500">
-                代拍手续费：¥
-                {item.quoteRef.fee_agent_jpy.toLocaleString("ja-JP")} 日元
-              </div>
-            ) : null}
-            {item.quoteRef.domestic_shipping_note ? (
-              <div className="mt-1 text-xs leading-5 text-slate-500">
-                {item.quoteRef.domestic_shipping_note}
-              </div>
-            ) : null}
-            {item.quoteRef.est_goods_rmb ? (
-              <div className="mt-2 text-sm font-medium text-slate-900">
-                约 ¥{item.quoteRef.est_goods_rmb}
-                <span className="font-normal text-slate-500">
-                  （不含运费）
-                </span>
-              </div>
-            ) : null}
-            {item.quoteRef.rate_note ? (
-              <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                {item.quoteRef.rate_note}
-              </p>
-            ) : null}
-
-            {/* ── 可选增值服务区（仅录单流：mercari / 雅虎即決；雅虎竞拍走出价不展示）。
-                 买家勾选只前端记录，实际计费在录单环节由 L1/L2/客服处理。 */}
-            {!isYahooAuction &&
-            item.quoteRef.optional_services &&
-            item.quoteRef.optional_services.length > 0 ? (
-              <div
-                className="mt-3 rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2"
-                data-testid="support-quote-optional-services"
-              >
-                <div className="mb-1.5 text-xs font-medium text-slate-700">
-                  可选增值服务（勾选后由客服为您核对计费，现在不扣费）
-                </div>
-                <div className="space-y-1.5">
-                  {item.quoteRef.optional_services.map((svc, svcIndex) => {
-                    const svcCode = svc.code || svc.label || `svc-${svcIndex}`;
-                    const checked = Boolean(
-                      quoteServiceSelections[key]?.[svcCode],
-                    );
-                    return (
-                      <div key={svcCode}>
-                        <label className="flex items-start gap-2 text-xs leading-5 text-slate-700">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-orange-500"
-                            checked={checked}
-                            disabled={Boolean(svc.disabled)}
-                            onChange={() => toggleQuoteService(key, svcCode)}
-                            data-testid={`support-quote-service-${svcCode}`}
-                          />
-                          <span className="flex-1">
-                            {svc.label || svcCode}
-                            {svc.fee_jpy !== undefined ? (
-                              <span className="text-slate-500">
-                                {" "}
-                                ¥{svc.fee_jpy.toLocaleString("ja-JP")} 日元
-                              </span>
-                            ) : null}
-                            {svc.note ? (
-                              <span className="block text-[11px] leading-4 text-amber-600">
-                                {svc.note}
-                              </span>
-                            ) : null}
-                          </span>
-                        </label>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-
-            {/* ── 预估合计（日元整数）：现价+支付手续费+代拍手续费+已勾选可选服务费。
-                 随买家勾选实时重算（computeQuoteTotalJpy 依赖 quoteServiceSelections re-render），
-                 让买家看见勾选增值服务后的价格变化、避免价格歧义。竞拍卡不出（走出价/押金）。
-                 仅前端展示，权威金额仍以建单时服务端按勾选项重算为准。 */}
-            {!isYahooAuction && item.quoteRef.price_jpy !== undefined ? (
-              <div
-                className="mt-3 border-t border-slate-100 pt-2"
-                data-testid="support-quote-total"
-              >
-                <div className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-900">
-                  <span>预估合计</span>
-                  <span data-testid="support-quote-total-jpy">
-                    ¥
-                    {(
-                      computeQuoteTotalJpy(key, item.quoteRef) ?? 0
-                    ).toLocaleString("ja-JP")}{" "}
-                    日元
-                  </span>
-                </div>
-                <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                  合计为估算（不含国内运费），最终以客服核对或小程序下单当日为准。
-                </p>
-              </div>
-            ) : null}
-
-            {/* ── >5万风险确认卡（卖家核验不达标时显著展示）。
-                 仅录单流出卡；买家点确认只前端记录，不录入/不付款/不下单。 */}
-            {!isYahooAuction && item.quoteRef.seller_risk?.needs_confirm ? (
-              <div
-                className="mt-3 rounded-md border border-red-300 bg-red-50 px-2.5 py-2"
-                data-testid="support-quote-risk-card"
-              >
-                <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-red-700">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  高额订单风险确认
-                </div>
-                {(() => {
-                  const risk = item.quoteRef!.seller_risk!;
-                  const points: string[] =
-                    risk.risk_points && risk.risk_points.length > 0
-                      ? risk.risk_points
-                      : [
-                          `卖家本人认证：${
-                            risk.identity_verified === true
-                              ? "已完成"
-                              : risk.identity_verified === false
-                                ? "未完成"
-                                : "未确认"
-                          }`,
-                          `卖家评价：${
-                            risk.rating_count !== undefined
-                              ? `${risk.rating_count} 条`
-                              : "未确认"
-                          }${
-                            risk.rating_percent
-                              ? `，好评率 ${risk.rating_percent}`
-                              : ""
-                          }`,
-                        ];
-                  return (
-                    <ul className="mb-1.5 list-disc space-y-0.5 pl-4 text-[11px] leading-4 text-red-700">
-                      {points.map((p, i) => (
-                        <li key={i}>{p}</li>
-                      ))}
-                    </ul>
-                  );
-                })()}
-                <p className="mb-2 text-[11px] leading-4 text-red-700">
-                  {item.quoteRef.seller_risk.disclaimer ||
-                    "请确认：一旦平台购买成功，通常不支持因卖家描述、成色差异、个人判断变化等原因退换。若平台或卖家拒绝交易，我们按平台结果处理。"}
-                </p>
-                {quoteRiskConfirmed[key] ? (
-                  <div
-                    className="flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] font-medium leading-4 text-emerald-700"
-                    data-testid="support-quote-risk-confirmed"
-                  >
-                    已确认知悉风险，可继续点「我要购买」转人工录入。
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-center gap-1 rounded-md bg-red-500 px-3 py-2 text-xs font-medium text-white shadow-sm"
-                    onClick={() => confirmQuoteRisk(key)}
-                    data-testid="support-quote-risk-confirm-btn"
-                  >
-                    我已了解风险，继续录入订单
-                  </button>
-                )}
-                {!quoteRiskConfirmed[key] ? (
-                  <p className="mt-1.5 text-[11px] leading-4 text-red-400">
-                    确认前不会录入订单、不会付款、不会自动下单。
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {/* 雅虎竞拍：现价/一口价/剩余时间/出价数（缺字段不显示对应行） */}
-            {isYahooAuction ? (
-              <div
-                className="mt-2 space-y-1 rounded-md bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-600"
-                data-testid="support-quote-auction-info"
-              >
-                {item.quoteRef.current_bid !== undefined ? (
-                  <div className="text-sm font-medium text-slate-900">
-                    当前出价 ¥
-                    {item.quoteRef.current_bid.toLocaleString("ja-JP")} 日元
-                  </div>
-                ) : null}
-                {item.quoteRef.buyout_jpy !== undefined &&
-                item.quoteRef.buyout_jpy > 0 ? (
-                  <div>
-                    一口价 ¥
-                    {item.quoteRef.buyout_jpy.toLocaleString("ja-JP")} 日元
-                  </div>
-                ) : null}
-                {item.quoteRef.left_time ? (
-                  <div>剩余时间：{item.quoteRef.left_time}</div>
-                ) : null}
-                {item.quoteRef.bid_num !== undefined ? (
-                  <div>出价数：{item.quoteRef.bid_num}</div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {isYahooAuction ? (
-              // 竞拍卡：押金区，不放「立即出价/我要购买/确认录入」（出价走小程序竞拍流程）
-              <div className="mt-3" data-testid="support-quote-auction-deposit">
-                {item.quoteRef.deposit_state === "ok" ? (
-                  <div
-                    className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs leading-5 text-emerald-700"
-                    data-testid="support-quote-deposit-ok"
-                  >
-                    押金余额
-                    {item.quoteRef.deposit_balance_rmb !== undefined
-                      ? `≈¥${item.quoteRef.deposit_balance_rmb.toLocaleString(
-                          "zh-CN",
-                        )}`
-                      : ""}
-                    ，本商品可出价上限
-                    {item.quoteRef.max_bid_allowed_jpy !== undefined
-                      ? `≈¥${item.quoteRef.max_bid_allowed_jpy.toLocaleString(
-                          "ja-JP",
-                        )}（日元）`
-                      : "请回小程序查看"}
-                    。
-                  </div>
-                ) : item.quoteRef.deposit_state === "insufficient" ? (
-                  <div
-                    className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs leading-5 text-amber-800"
-                    data-testid="support-quote-deposit-insufficient"
-                  >
-                    您暂无足够押金，建议充值
-                    {item.quoteRef.suggest_recharge_rmb !== undefined
-                      ? `≈¥${item.quoteRef.suggest_recharge_rmb.toLocaleString(
-                          "zh-CN",
-                        )}`
-                      : ""}
-                    后参与竞拍。
-                    <button
-                      type="button"
-                      className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-amber-200"
-                      onClick={goRechargeDeposit}
-                      disabled={!depositRechargeEnabled}
-                      data-testid="support-quote-btn-recharge"
-                    >
-                      {depositRechargeEnabled ? "去充押金" : "充值入口待配置"}
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-500"
-                    data-testid="support-quote-deposit-unknown"
-                  >
-                    登录后可查看你的押金额度。
-                  </div>
-                )}
-                {/* 竞拍卡动作：咨询(雅虎竞拍仍预填输入框) + 去出价(跳小程序竞拍详情页,出价/押金小程序专属) */}
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
-                    onClick={() => consultQuote(item.quoteRef)}
-                    disabled={loading}
-                    data-testid="support-quote-auction-btn-consult"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    咨询
-                  </button>
-                  <button
-                    type="button"
-                    className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
-                    onClick={() => goYahooBid(item.quoteRef?.item_id)}
-                    disabled={loading}
-                    data-testid="support-quote-auction-btn-bid"
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    去出价
-                  </button>
-                </div>
-              </div>
-            ) : isYahooSokketsu && item.quoteRef.purchasable !== false ? (
-              // 雅虎即決：联系客服下单，不显示自动下单/购买按钮
-              <div
-                className="mt-3 rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700"
-                data-testid="support-quote-sokketsu-cta"
-              >
-                {item.quoteRef.action_hint === "contact_kefu" ||
-                !item.quoteRef.action_hint
-                  ? item.quoteRef.action_text ||
-                    "此商品为即決，请联系客服为您下单。"
-                  : item.quoteRef.action_text || "此商品请联系客服处理。"}
-              </div>
-            ) : item.quoteRef.purchasable === false ? (
-              <div
-                className="mt-3 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium leading-5 text-red-700"
-                data-testid="support-quote-unpurchasable"
-              >
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {item.quoteRef.unpurchasable_reason || "该商品暂时无法购买"}
-              </div>
-            ) : (
-              (() => {
-                // 风险闸：>5万需确认且买家尚未点确认时，禁用「我要购买」，逼买家先确认风险。
-                const riskBlocksBuy = Boolean(
-                  item.quoteRef!.seller_risk?.needs_confirm &&
-                    !quoteRiskConfirmed[key],
-                );
-                return (
-                  <div className="mt-3" data-testid="support-quote-cta">
-                    <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
-                      核对无误后可点下方按钮，或回复『确认』，我为您录入订单。
-                    </p>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
-                        onClick={() => consultQuote(item.quoteRef)}
-                        disabled={loading}
-                        data-testid="support-quote-btn-consult"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        咨询
-                      </button>
-                      <button
-                        type="button"
-                        className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
-                        onClick={() => buyQuote(key, item.quoteRef as QuoteRef)}
-                        disabled={loading || riskBlocksBuy}
-                        data-testid="support-quote-btn-buy"
-                      >
-                        <ShoppingBag className="h-4 w-4" />
-                        我要购买
-                      </button>
-                    </div>
-                    {riskBlocksBuy ? (
-                      <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
-                        请先在上方完成『高额订单风险确认』，再点『我要购买』。
-                      </p>
-                    ) : null}
-                  </div>
-                );
-              })()
-            )}
           </div>
         ) : null}
       </div>
@@ -2059,7 +2185,10 @@ export default function MiniProgramSupportH5Page() {
         </div>
       </header>
 
-      <section className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-4">
+      <section
+        ref={messagesSectionRef}
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-4"
+      >
         {items.map((item, index) => {
           const node = renderChatItem(
             item,
@@ -2158,6 +2287,7 @@ export default function MiniProgramSupportH5Page() {
           </div>
           代拍流程、费用、关税这些常见问题袋鼠酱基本秒回；个别复杂问题可能需要十几秒整理，请稍等一下。如果遇到退款、改地址、投诉、支付异常，或者需要确认订单的事，我会帮你转给人工客服处理。
         </div>
+        <div ref={messagesBottomAnchorRef} />
       </section>
 
       <form
