@@ -940,14 +940,20 @@ export default function MiniProgramSupportH5Page() {
         if (parsed.conversationId) {
           setConversationId(parsed.conversationId);
         }
-        // 只有真的拿到报价卡才渲染开场卡；否则静默（避免无意义气泡/误转人工）。
+        // 拿到报价卡，或批量购买流的结构化回复（核价文本+choice 按钮，bridge
+        // batch_purchase_item_added 不带 quote_ref），都算有效开场卡；转人工/纯兜底
+        // 文案仍静默（parsed.text 有默认值永不为空，不能单独作条件，防误转人工）。
         // 写进独立的 autoQuoteOpening state（不进 items），渲染在列表最上方，
         // 这样后续历史轮询的 setItems 整体替换永远冲不掉它。
-        if (parsed.quoteRef) {
+        if (
+          parsed.quoteRef ||
+          (!parsed.transferHuman && parsed.choiceRef?.options?.length)
+        ) {
           setAutoQuoteOpening({
             role: "assistant",
             content: parsed.text || "已为您调取该商品信息：",
             quoteRef: parsed.quoteRef,
+            choiceRef: parsed.choiceRef,
           });
         }
       } catch {
