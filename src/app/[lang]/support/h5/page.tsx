@@ -719,19 +719,25 @@ const SITES_CONFIRM_PNAME: Record<string, string> = {
   rakuma: "拉库玛",
   yahoofrima: "Yahoo!フリマ",
 };
-function navigateToMiniProgramSitesConfirm(platform: string, goodsNo: string) {
+function navigateToMiniProgramSitesConfirm(
+  platform: string,
+  goodsNo: string,
+  valueAddedIds?: string,
+) {
   if (typeof window === "undefined") return false;
   const win = window as MiniProgramWindow;
   if (!win.wx?.miniProgram?.navigateTo) return false;
-  win.wx.miniProgram.navigateTo({
-    url:
-      "/pages/bundle/sites/confirm?platform=" +
-      encodeURIComponent(platform) +
-      "&goods_no=" +
-      encodeURIComponent(goodsNo) +
-      "&pname=" +
-      encodeURIComponent(SITES_CONFIRM_PNAME[platform] || platform),
-  });
+  let url =
+    "/pages/bundle/sites/confirm?platform=" +
+    encodeURIComponent(platform) +
+    "&goods_no=" +
+    encodeURIComponent(goodsNo) +
+    "&pname=" +
+    encodeURIComponent(SITES_CONFIRM_PNAME[platform] || platform);
+  if (valueAddedIds) {
+    url += "&values=" + encodeURIComponent(valueAddedIds);
+  }
+  win.wx.miniProgram.navigateTo({ url });
   return true;
 }
 
@@ -850,6 +856,11 @@ export default function MiniProgramSupportH5Page() {
   const messagesSectionRef = useRef<HTMLElement | null>(null);
   const messagesBottomAnchorRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
+  // 点过报价卡【咨询商品】后的追问窗口期（毫秒时间戳，未来则窗口期内）。
+  // 与 bridge 侧 ASSISTED_CONSULT_TTL（600s _consult_pending 会话态）对齐：
+  // 窗口期内的下一条消息（不管按钮点的还是买家手打）都在请求体带 consult_active:true，
+  // 放行 BFF 闸门直达 bridge，避免"是否包邮"这类追问因不含 BUSINESS_KEYWORDS 被兜底话术顶回。
+  const consultActiveUntilRef = useRef(0);
   // 报价卡买家选择（纯前端记录，不立即扣费）：
   // - quoteServiceSelections：{cardKey -> {serviceCode -> checked}}，记录可选服务勾选。
   // - quoteRiskConfirmed：已点「我已知风险确认」的 cardKey 集合。
@@ -1187,6 +1198,9 @@ export default function MiniProgramSupportH5Page() {
             sourcePlatform,
             sourcePage:
               typeof window === "undefined" ? undefined : window.location.href,
+            ...(Date.now() < consultActiveUntilRef.current
+              ? { consult_active: true }
+              : {}),
             ...(extra ?? {}),
           };
       const response = await fetch(endpoint, {
@@ -1335,6 +1349,9 @@ export default function MiniProgramSupportH5Page() {
   //     只会被回「重发链接」，故不改。
   function consultQuote(quote?: QuoteRef) {
     if (quote?.platform && ASSISTED_PURCHASE_PLATFORMS.has(quote.platform)) {
+      // 开启追问窗口期：接下来 10 分钟内的消息都放行 BFF 闸门，直达 bridge 的
+      // _consult_pending 会话态承接（见 consultActiveUntilRef 声明处注释）。
+      consultActiveUntilRef.current = Date.now() + 10 * 60 * 1000;
       void sendMessage(ASSISTED_CONSULT_TEXT + buildAssistedQuoteMarker(quote));
       return;
     }
@@ -1475,9 +1492,15 @@ export default function MiniProgramSupportH5Page() {
       // 有商品号跳确认单页；缺商品号退回购物车统一结算；两者都跳不动才走下方文字流。
       // 非 webview 的浏览器 H5 没有小程序页面可跳，仍走 bridge 辅助建单文字流。
       if (isMiniProgramWebview()) {
+        // 已勾选的增值服务须随「支付」跳转一起带到确认页，否则服务漏收（真机 bug）。
+        const sitesValueAddedIds = collectSelectedServiceIds(cardKey, quote);
         if (
           quote.item_id &&
-          navigateToMiniProgramSitesConfirm(quote.platform, quote.item_id)
+          navigateToMiniProgramSitesConfirm(
+            quote.platform,
+            quote.item_id,
+            sitesValueAddedIds,
+          )
         )
           return;
         if (navigateToMiniProgramCart()) return;
@@ -2310,12 +2333,16 @@ export default function MiniProgramSupportH5Page() {
     );
   };
 
+  // 横向永远铺满布局视口（left/right 钉 0），只纵向跟 visualViewport 钉位——
+  // 键盘弹出时 visualViewport 的 offsetLeft/width 常年是 0/整屏，用它设横向反而可能
+  // 把容器挤窄，导致发送按钮被裁出屏幕（真机实测）。纵向钉位逻辑（top/height 跟随
+  // 键盘）不动，见上方 2026-08-13 的 visualViewport effect。
   const viewportStyle: CSSProperties = vpRect
     ? {
         position: "fixed",
         top: vpRect.top,
-        left: vpRect.left,
-        width: vpRect.width,
+        left: 0,
+        right: 0,
         height: vpRect.height,
       }
     : { position: "fixed", inset: 0, height: "100dvh" };
@@ -2448,7 +2475,7 @@ export default function MiniProgramSupportH5Page() {
           name="message"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          className="min-w-0 flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+          className="min-w-0 flex-1 rounded-md border border-slate-200 px-3 py-2 text-base outline-none focus:border-orange-400"
           placeholder="请输入问题"
           maxLength={1000}
         />

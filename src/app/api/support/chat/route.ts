@@ -382,6 +382,17 @@ const BUSINESS_KEYWORDS = [
   "新人",
   "邀请",
   "晒单",
+  // 2026-08-14 止血补词：商品咨询常见追问词，防 consult_active flag 丢失时误拦
+  // （该白名单历史上已四次漏词误拦，见 guardCustomerServiceScope 上方 consult_active 分支）。
+  "包邮",
+  "邮费",
+  "成色",
+  "瑕疵",
+  "尺寸",
+  "尺码",
+  "正品",
+  "全新",
+  "二手",
 ];
 
 const GREETING_KEYWORDS = ["你好", "您好", "在吗", "hello", "hi", "哈喽"];
@@ -676,6 +687,14 @@ function guardCustomerServiceScope(body: Record<string, unknown>) {
   if (includesAnyKeyword(message, CONFIRMATION_KEYWORDS)) {
     return null;
   }
+
+  // 客户点过报价卡【咨询商品】后 10 分钟内的追问放行到 bridge：bridge 侧有
+  // _consult_pending 会话态承接（ASSISTED_CONSULT_TTL 600s，与 H5 端 consultActiveUntilRef
+  // 对齐）。H5 每轮追问都走本端点（bridge 会话不产生 conversationId），若仍按下面的
+  // BUSINESS_KEYWORDS 白名单硬拦，"是否包邮"这类不含业务词的追问会被兜底话术顶回、消息
+  // 根本到不了 bridge（真机 bug）。客户端可伪造该 flag，但后果仅等同于消息里含了业务
+  // 关键词，不产生额外风险面。
+  if (body.consult_active === true) return null;
 
   if (!includesAnyKeyword(message, BUSINESS_KEYWORDS)) {
     return guardedReply(

@@ -1932,3 +1932,87 @@ test("selected_value_added_ids 缺省/非法（防注入）→ 中继不带该�
     delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
   }
 });
+
+test("consult_active:true 放行无业务词的追问到 bridge（咨询商品后续追问不被兜底话术顶回）", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return Response.json({
+      action: "answered",
+      reply: "好的，帮你确认一下",
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    // "是否包邮" 不含 BUSINESS_KEYWORDS 里的原有词，若无 consult_active 会被兜底拦下。
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "是否包邮",
+        language: "zh",
+        consult_active: true,
+      }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.notEqual(payload.data.reason, "guardrail_out_of_business_scope");
+    assert.notEqual(payload.data.answeredBy, "kangaroo-chan-guardrail");
+    assert.equal(fetchCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("补词止血：「包邮」等商品咨询词命中 BUSINESS_KEYWORDS，即使 consult_active 缺省也放行", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return Response.json({
+      action: "answered",
+      reply: "包邮的哦",
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // 不带 consult_active，纯靠止血补词命中放行。
+      body: JSON.stringify({ message: "这个包邮吗", language: "zh" }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.notEqual(payload.data.reason, "guardrail_out_of_business_scope");
+    assert.notEqual(payload.data.answeredBy, "kangaroo-chan-guardrail");
+    assert.equal(fetchCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
