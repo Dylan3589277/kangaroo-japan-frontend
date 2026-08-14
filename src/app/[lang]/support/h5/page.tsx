@@ -17,6 +17,7 @@ import {
   Headset,
   MessageCircle,
   ShoppingBag,
+  ShoppingCart,
   Send,
   Tag,
   UserRoundCheck,
@@ -175,6 +176,8 @@ type MiniProgramWindow = Window & {
   wx?: {
     miniProgram?: {
       navigateTo?: (options: { url: string }) => void;
+      // tabBar 页（如购物车）不能用 navigateTo，必须 switchTab（微信官方限制）。
+      switchTab?: (options: { url: string }) => void;
     };
   };
 };
@@ -670,6 +673,41 @@ function navigateToMiniProgramBuy(itemId: string, valueAddedIds?: string) {
     url += "&values=" + encodeURIComponent(valueAddedIds);
   }
   win.wx.miniProgram.navigateTo({ url });
+  return true;
+}
+
+// 报价卡「加入购物车」：跳袋鼠君小程序该商品的详情页，由详情页现成的
+// [加入购物车] 按钮完成加购（用顾客本人登录态，客服 H5 不直接调 carts/addcart 接口）。
+// mercari 详情页是独立页面：依据 daishujunApp-cardD/pages/daishujun/index/mercari_detail.vue
+//   onLoad(e)（第 313-314 行）只读 e.id，无 platform 参数，path 为主包页面
+//   "pages/daishujun/index/mercari_detail"（daishujunApp-cardD/pages.json 第 114 行）。
+// rakuma / yahoofrima 共用通用商品页：依据
+//   daishujunApp-cardD/pages/bundle/sites/detail.vue onLoad(e)（第 324-326 行）读
+//   e.platform + e.id，path 为 subPackages root "pages/bundle" + "sites/detail"
+//   （daishujunApp-cardD/pages.json 第 571 行 root、第 658 行 path）。
+function navigateToMiniProgramGoodsDetail(platform: string, itemId: string) {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  const url =
+    platform === "mercari"
+      ? "/pages/daishujun/index/mercari_detail?id=" + encodeURIComponent(itemId)
+      : "/pages/bundle/sites/detail?platform=" +
+        encodeURIComponent(platform) +
+        "&id=" +
+        encodeURIComponent(itemId);
+  win.wx.miniProgram.navigateTo({ url });
+  return true;
+}
+
+// 报价卡「支付」（rakuma/yahoofrima 三等分场景）：跳袋鼠君小程序购物车页统一结算。
+// cart 是 tabBar 页（daishujunApp-cardD/pages.json tabBar list 含
+// pages/daishujun/index/cart），webview 跳 tabBar 页必须用 switchTab（navigateTo 会失败）。
+function navigateToMiniProgramCart() {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.switchTab) return false;
+  win.wx.miniProgram.switchTab({ url: "/pages/daishujun/index/cart" });
   return true;
 }
 
@@ -1407,6 +1445,11 @@ export default function MiniProgramSupportH5Page() {
     // 之前误落到下方 mercari 分支跳 /checkout?type=mercari&id=<rakuma/yahoofrima_id>，
     // 网页结算页按 mercari 拉商品 → 「商品不存在」→ 白屏（花哥实测 yahoofrima 点购买白屏）。
     if (quote.platform && ASSISTED_PURCHASE_PLATFORMS.has(quote.platform)) {
+      // 小程序 webview 内（三等分 咨询/加购/支付 场景）：「支付」直接跳小程序购物车页
+      // 统一结算（花哥 2026-08-14 拍板：rakuma/yahoofrima 点购买应到购物车结算，
+      // 不走 chat 文字录单流）。顾客先用[加入购物车]加购，此按钮带去购物车付款。
+      // 非 webview 的浏览器 H5 没有小程序购物车可跳，仍走下方 bridge 辅助建单文字流。
+      if (isMiniProgramWebview() && navigateToMiniProgramCart()) return;
       let intent = ASSISTED_BUY_INTENT_TEXT;
       intent += summarizeSelectedServices(cardKey, quote);
       if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
@@ -1453,6 +1496,24 @@ export default function MiniProgramSupportH5Page() {
     if (serviceCodes.length > 0) query.set("services", serviceCodes.join(","));
     if (riskAck) query.set("risk_ack", "1");
     router.push(`/${lang}/checkout?${query.toString()}`);
+  }
+
+  // 报价卡「加入购物车」：跳小程序该商品详情页，由详情页按钮完成加购。
+  // 仅在 renderQuoteCard 判定 canAddToCart 为真（webview 内 + 平台/商品号齐全）
+  // 时才会渲染出该按钮，故这里跳不动理论上不该发生；仍不静默吞掉失败，兜底转人工。
+  function addQuoteToCart(quote: QuoteRef) {
+    const itemId = quote.item_id;
+    const platform = quote.platform;
+    if (
+      itemId &&
+      platform &&
+      (platform === "mercari" || ASSISTED_PURCHASE_PLATFORMS.has(platform)) &&
+      navigateToMiniProgramGoodsDetail(platform, itemId)
+    ) {
+      return;
+    }
+    setHumanTransferVisible(true);
+    setHumanTransferNote("请在袋鼠君小程序内打开该商品详情页加入购物车。");
   }
 
   // 雅虎竞拍「去充押金」：仅跳转小程序充值页，不触发任何金钱动作。
@@ -1825,12 +1886,32 @@ export default function MiniProgramSupportH5Page() {
               quote.seller_risk?.needs_confirm &&
                 !quoteRiskConfirmed[cardKey],
             );
+            // 「加入购物车」三等分按钮区仅用于 mercari/rakuma/yahoofrima 的辅助链接报价卡
+            // （雅虎竞拍卡/即決卡有各自的按钮分支，不经过这里）；且仅在小程序 webview 内展示——
+            // 加购依赖顾客本人登录态，非 webview（PC 微信/浏览器直开）跳不进小程序，
+            // 保持原两按钮布局，不显示加购、买按钮文案也不改。
+            // 商品号缺失时同样不显示（拿不到 id 就跳不进详情页），按原两按钮布局兜底，不静默展示会失败的按钮。
+            const canAddToCart = Boolean(
+              quote.platform &&
+                (quote.platform === "mercari" ||
+                  ASSISTED_PURCHASE_PLATFORMS.has(quote.platform)) &&
+                quote.item_id &&
+                wxReady &&
+                isMiniProgramWebview(),
+            );
+            const buyButtonLabel = canAddToCart ? "支付" : "我要购买";
             return (
               <div className="mt-3" data-testid="support-quote-cta">
                 <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
                   核对无误后可点下方按钮，或回复『确认』，我为您录入订单。
                 </p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div
+                  className={
+                    canAddToCart
+                      ? "mt-2 grid grid-cols-3 gap-2"
+                      : "mt-2 grid grid-cols-2 gap-2"
+                  }
+                >
                   <button
                     type="button"
                     className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
@@ -1841,6 +1922,18 @@ export default function MiniProgramSupportH5Page() {
                     <MessageCircle className="h-4 w-4" />
                     咨询
                   </button>
+                  {canAddToCart ? (
+                    <button
+                      type="button"
+                      className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                      onClick={() => addQuoteToCart(quote)}
+                      disabled={loading}
+                      data-testid="support-quote-btn-cart"
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      加入购物车
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
@@ -1849,12 +1942,12 @@ export default function MiniProgramSupportH5Page() {
                     data-testid="support-quote-btn-buy"
                   >
                     <ShoppingBag className="h-4 w-4" />
-                    我要购买
+                    {buyButtonLabel}
                   </button>
                 </div>
                 {riskBlocksBuy ? (
                   <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
-                    请先在上方完成『高额订单风险确认』，再点『我要购买』。
+                    请先在上方完成『高额订单风险确认』，再点『{buyButtonLabel}』。
                   </p>
                 ) : null}
               </div>
@@ -2211,7 +2304,7 @@ export default function MiniProgramSupportH5Page() {
 
       <section
         ref={messagesSectionRef}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-4"
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden px-3 pb-4 pt-4"
       >
         {items.map((item, index) => {
           const node = renderChatItem(
@@ -2329,7 +2422,7 @@ export default function MiniProgramSupportH5Page() {
         />
         <button
           type="submit"
-          className="flex h-10 w-11 items-center justify-center rounded-md bg-orange-500 text-white disabled:bg-orange-200"
+          className="flex h-10 w-11 shrink-0 items-center justify-center rounded-md bg-orange-500 text-white disabled:bg-orange-200"
           disabled={loading}
           aria-label="发送"
         >
