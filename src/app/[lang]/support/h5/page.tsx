@@ -711,6 +711,30 @@ function navigateToMiniProgramCart() {
   return true;
 }
 
+// 报价卡「支付」（rakuma/yahoofrima）：跳袋鼠君小程序现成的确认订单页
+// pages/bundle/sites/confirm（花哥 2026-08-14 拍板：与 mercari 确认单页同构，
+// 商品卡+费用明细+提交订单）。参数契约对齐 sites/detail.vue handleBuy（第 469-476 行）：
+// platform + goods_no + pname(平台显示名，confirm.vue onLoad 缺省回落 platform 码)。
+const SITES_CONFIRM_PNAME: Record<string, string> = {
+  rakuma: "拉库玛",
+  yahoofrima: "Yahoo!フリマ",
+};
+function navigateToMiniProgramSitesConfirm(platform: string, goodsNo: string) {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  win.wx.miniProgram.navigateTo({
+    url:
+      "/pages/bundle/sites/confirm?platform=" +
+      encodeURIComponent(platform) +
+      "&goods_no=" +
+      encodeURIComponent(goodsNo) +
+      "&pname=" +
+      encodeURIComponent(SITES_CONFIRM_PNAME[platform] || platform),
+  });
+  return true;
+}
+
 // 小程序内「去出价」：跳袋鼠君小程序的雅虎竞拍详情页（出价/押金在该页操作）。
 // 路径依据 daishujunApp/pages/daishujun/index/yahoo_detail.vue：onLoad(e) 读 e.id，param 名是 `id`。
 function navigateToMiniProgramYahooBid(itemId: string) {
@@ -1445,11 +1469,19 @@ export default function MiniProgramSupportH5Page() {
     // 之前误落到下方 mercari 分支跳 /checkout?type=mercari&id=<rakuma/yahoofrima_id>，
     // 网页结算页按 mercari 拉商品 → 「商品不存在」→ 白屏（花哥实测 yahoofrima 点购买白屏）。
     if (quote.platform && ASSISTED_PURCHASE_PLATFORMS.has(quote.platform)) {
-      // 小程序 webview 内（三等分 咨询/加购/支付 场景）：「支付」直接跳小程序购物车页
-      // 统一结算（花哥 2026-08-14 拍板：rakuma/yahoofrima 点购买应到购物车结算，
-      // 不走 chat 文字录单流）。顾客先用[加入购物车]加购，此按钮带去购物车付款。
-      // 非 webview 的浏览器 H5 没有小程序购物车可跳，仍走下方 bridge 辅助建单文字流。
-      if (isMiniProgramWebview() && navigateToMiniProgramCart()) return;
+      // 小程序 webview 内（三等分 咨询/加购/支付 场景）：「支付」直接跳小程序现成的
+      // sites/confirm 确认订单页（花哥 2026-08-14 拍板：与 mercari 确认单页同构，
+      // 商品卡+费用明细+提交订单，不再跳购物车、不走 chat 文字录单流）。
+      // 有商品号跳确认单页；缺商品号退回购物车统一结算；两者都跳不动才走下方文字流。
+      // 非 webview 的浏览器 H5 没有小程序页面可跳，仍走 bridge 辅助建单文字流。
+      if (isMiniProgramWebview()) {
+        if (
+          quote.item_id &&
+          navigateToMiniProgramSitesConfirm(quote.platform, quote.item_id)
+        )
+          return;
+        if (navigateToMiniProgramCart()) return;
+      }
       let intent = ASSISTED_BUY_INTENT_TEXT;
       intent += summarizeSelectedServices(cardKey, quote);
       if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
