@@ -242,6 +242,19 @@ const ASSISTED_PURCHASE_PLATFORMS = new Set(["rakuma", "yahoofrima"]);
 // 与 bridge.py 常量逐字一致（改这里务必同步改 bridge）：
 const ASSISTED_BUY_INTENT_TEXT = "我要购买此商品";
 const ASSISTED_CONSULT_TEXT = "咨询商品";
+
+// 批量报价卡（如「去支付」命中多件商品）场景下，续聊分支 sendMessage 的 body 只发
+// {content}（见 sendMessage 实现，conversationId 存在时 extra 不透传），bridge 无法从
+// 固定文本区分点的是哪一件。故对辅助购买平台（rakuma/yahoofrima）在按钮文本末尾追加
+// 商品标记 ` [#<platform>:<item_id>]`，bridge 侧解析该后缀定位具体商品（契约已与 bridge
+// 分身同步）。platform/item_id 任一缺失时返回空串，调用方按原文本发送，向后兼容。
+function buildAssistedQuoteMarker(quote?: QuoteRef): string {
+  if (!quote?.platform || !ASSISTED_PURCHASE_PLATFORMS.has(quote.platform)) {
+    return "";
+  }
+  if (!quote.item_id) return "";
+  return ` [#${quote.platform}:${quote.item_id}]`;
+}
 const HUMAN_TRANSFER_MESSAGE =
   "袋鼠酱这边暂时有点忙，我先带你转人工客服继续处理～";
 const RESPONSE_TIME_NOTE =
@@ -643,20 +656,20 @@ function navigateToMiniProgramExpress(orderId: string) {
   return true;
 }
 
-// 小程序内「我要购买」：跳袋鼠君小程序的 mercari 商品详情页（含「立即购买」按钮，
-// 自带登录守卫 + 购买提示 + 进 confirm 结算页）。
-// 路径与参数依据 daishujunApp/pages/daishujun/index/mercari_detail.vue：
-//   - onLoad(e) 读 e.id（this.goodsNo = e.id），param 名是 `id`；
-//   - 商品列表/收藏/购物车等全部用 `/pages/daishujun/index/mercari_detail?id=` + goods_no 跳转。
-// 选商品详情页而非直接跳 ./confirm，是为了保留小程序侧 confirmOrder() 的登录守卫与购买提示，
-// 不绕过任何下单守卫（与网页端 router.push(/checkout) 直达结算的差异见报告）。
-function navigateToMiniProgramBuy(itemId: string) {
+// 小程序内「我要购买」：直接跳袋鼠君小程序的 confirm 结算页（type=mercari）。
+// 原先跳 mercari_detail 是为了借它的 confirmOrder() 登录守卫；现在小程序 request 层已
+// 统一处理登录态（自动记录返回路径、code 101 时跳登录），confirm 页本身也带守卫，
+// 无需再绕道详情页。valueAddedIds 是逗号分隔的增值服务 id（st_value_added 主键），
+// 透传给 confirm.vue 的 onLoad 用于预选服务（小程序侧由另一分身同步）。
+function navigateToMiniProgramBuy(itemId: string, valueAddedIds?: string) {
   if (typeof window === "undefined") return false;
   const win = window as MiniProgramWindow;
   if (!win.wx?.miniProgram?.navigateTo) return false;
-  win.wx.miniProgram.navigateTo({
-    url: "/pages/daishujun/index/mercari_detail?id=" + encodeURIComponent(itemId),
-  });
+  let url = "/pages/daishujun/index/confirm?type=mercari&id=" + encodeURIComponent(itemId);
+  if (valueAddedIds) {
+    url += "&values=" + encodeURIComponent(valueAddedIds);
+  }
+  win.wx.miniProgram.navigateTo({ url });
   return true;
 }
 
@@ -1260,7 +1273,7 @@ export default function MiniProgramSupportH5Page() {
   //     只会被回「重发链接」，故不改。
   function consultQuote(quote?: QuoteRef) {
     if (quote?.platform && ASSISTED_PURCHASE_PLATFORMS.has(quote.platform)) {
-      void sendMessage(ASSISTED_CONSULT_TEXT);
+      void sendMessage(ASSISTED_CONSULT_TEXT + buildAssistedQuoteMarker(quote));
       return;
     }
     setDraft((current) => current || "我想咨询这个商品");
@@ -1399,6 +1412,8 @@ export default function MiniProgramSupportH5Page() {
       if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
         intent += "；我已了解高额订单风险（不退不换），请继续为我录入";
       }
+      // 商品标记须在最末尾（bridge 按后缀解析，见 buildAssistedQuoteMarker 注释）。
+      intent += buildAssistedQuoteMarker(quote);
       // 把买家勾选的增值服务**数字 id 串**随购买意图发给 bridge（契约字段
       // selected_value_added_ids，逗号数字串如 "5,6"）。bridge 暂存→确认时透传给
       // 现代后端 value_added 建单收费。空串则不带该字段（向后兼容，不勾选零影响）。
@@ -1424,10 +1439,10 @@ export default function MiniProgramSupportH5Page() {
       quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey],
     );
 
-    // 小程序 webview：跳小程序内 mercari 购买入口。
-    // 小程序商品页 onLoad 只接 id，不接服务/风险参数；透传暂随网页端，小程序端透传待小程序侧扩展。
+    // 小程序 webview：直接跳小程序内 confirm 结算页，勾选的增值服务 id 随 values 参数透传。
     if (isMiniProgramWebview()) {
-      if (navigateToMiniProgramBuy(itemId)) return;
+      const valueAddedIds = collectSelectedServiceIds(cardKey, quote);
+      if (navigateToMiniProgramBuy(itemId, valueAddedIds)) return;
       // 跳不动（理论上 isMiniProgramWebview 为真时不该发生）兜底回原行为。
       void sendMessage("我要购买此商品" + summarizeSelectedServices(cardKey, quote));
       return;
