@@ -315,6 +315,16 @@ Azure 拒绝凭证。`AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` 在前�
 
 **已知小瑕疵（不改，与英文壳同款行为）**：非 zh locale 的页面虽 `noindex`，`ZhGuideShell` 仍按 `isIndexable(lang)` 输出 Article JSON-LD（en/ko 会输出，ja 不会）。英文壳 `guide-shell.tsx:190` 是同一写法，属对称复制而非新引入偏差；JSON-LD 内 `mainEntityOfPage` 写死 zh URL，noindex 页的结构化数据 Google 不会采用，实际影响≈0。
 
-**🔴 未推**：本仓 `.vercel/repo.json` 绑定 GitHub，**push main 即触发 Vercel 自动部署 = 直接上线**（与后端「推 git ≠ 上线」不同）。故只做本地 commit，等花哥明确「推」。
+**🔴 未推**：只做本地 commit（`4cd0c65`），等花哥明确「推」。
+
+**🔴 更正（同日，花哥指出「现在不用 vercel 了」后实测）**：本文档此处原写「push main = Vercel 自动部署 = 直接上线」，**是错的**。前端已于 2026-08-10 切到阿里云 ECS 容器，与后端同链路：
+
+- 实测 `curl -I https://jp-buy.com/zh` → `Server: nginx` + `X-Powered-By: Next.js`（Vercel 会是 `server: Vercel` + `x-vercel-id`）。
+- `.github/workflows/docker-image.yml` 的 `on: push: branches:[main]` 只做一件事：构建 amd64 镜像推 `ghcr.io/dylan3589277/kangaroo-japan-frontend:latest`。**它不碰 ECS。**
+- 上线还差第三步：ECS 上 `docker pull ...:latest` + `bash /opt/kangaroo-backend/run-frontend.sh`，再打 jp-buy.com 验活。
+
+所以**推 main ≠ 上线**，前后端现在是同一套规矩。原判断的错因是拿 `.vercel/repo.json` 文件存在当托管证据——**配置文件残留 ≠ 链路还在用**。正确判据只有两个：① `.github/workflows/` 里实际跑什么 ② 打生产域名看 `Server` 响应头。完整四步见 skill `deploy-backend`。
+
+**⚠️ 推之后的副作用（不碰生产但要知道）**：本 commit 含 8 个 tsx/ts，会触发镜像构建，把 `:latest` 标签指向含本次改动的新镜像。若此时别的会话上 ECS `docker pull latest` 部署他们自己的东西，会**连带**把这 5 篇 guides 一起带上生产。所以推之前最好确认没有别人正在部署。
 
 **下一步（未做）**：一稿两投——同 5 篇发微信公众号「煤炉供销社」（`wx76cffc295c3fae23`，zh 线唯一对外号，至今只当推送管道用、从未发过内容）。公众号三个不可替代优势：不会因代购导流被封 / 文章有独立 URL 可被微信搜一搜与中文 AI 抓全文 / 闭环最短。待花哥确认是订阅号还是服务号（决定发文频率）。
