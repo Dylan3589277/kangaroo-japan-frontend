@@ -3,7 +3,8 @@ import { BASE_URL, INDEXABLE_LOCALES } from "@/lib/seo";
 
 // 内容改版时手动往后拨（保持确定性、不用构建时间造假的"每次部署都更新"）。
 // 2026-07-03：FAQ 扩充 + 新增 guides + 全站结构化数据。
-const LAST_MODIFIED = new Date("2026-07-03T00:00:00.000Z");
+// 2026-08-17：新增 zh 侧中文 GEO 长文指南。
+const LAST_MODIFIED = new Date("2026-08-17T00:00:00.000Z");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   // 所有 locale 都存在的公开页（内容页非 en 时回退英文，仍可访问可索引）。
@@ -56,6 +57,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/guides/psa-graded-cards-from-japan-2026", priority: 0.8, changeFrequency: "monthly" },
   ];
 
+  // 中文限定的 GEO 长文指南（日本代购/代拍，写给中国买家；其它 locale 访问会
+  // noindex 并 canonical 指回 zh，故 sitemap 只报 zh 版）。
+  // 2026-08-17：首批 5 篇已全部落地为真实路由，与 guides hub 的 GUIDES_ZH 一一对应。
+  const zhOnlyPages: Array<{
+    path: string;
+    priority: number;
+    changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
+  }> = [
+    { path: "/guides", priority: 0.7, changeFrequency: "weekly" },
+    { path: "/guides/mercari-daigou-fee-comparison-2026", priority: 0.8, changeFrequency: "weekly" },
+    { path: "/guides/japan-daipai-platforms-2026", priority: 0.8, changeFrequency: "weekly" },
+    { path: "/guides/japan-daigou-shipping-cost-guide", priority: 0.8, changeFrequency: "weekly" },
+    { path: "/guides/japan-daigou-newbie-guide", priority: 0.8, changeFrequency: "weekly" },
+    { path: "/guides/daigou-human-vs-bot-service", priority: 0.8, changeFrequency: "weekly" },
+  ];
+
   const entries: MetadataRoute.Sitemap = [];
 
   for (const lang of INDEXABLE_LOCALES) {
@@ -74,6 +91,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
   for (const page of enOnlyPages) {
     entries.push({
       url: `${BASE_URL}/en${page.path}`,
+      lastModified: LAST_MODIFIED,
+      changeFrequency: page.changeFrequency,
+      priority: page.priority,
+    });
+  }
+
+  for (const page of zhOnlyPages) {
+    entries.push({
+      url: `${BASE_URL}/zh${page.path}`,
       lastModified: LAST_MODIFIED,
       changeFrequency: page.changeFrequency,
       priority: page.priority,

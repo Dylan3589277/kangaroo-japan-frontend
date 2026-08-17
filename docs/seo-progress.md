@@ -279,3 +279,42 @@ Azure 拒绝凭证。`AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` 在前�
 **前端本批**：`YahooItem.endTimestamp` 接后端 `end_timestamp`（`normalizeEndTimestamp` 本就支持，一行接线）；列表时间徽章基于可信时间恢复渲染（`formatTimeLeftLabel`，en/zh 文案分流），**只对有值的商品显示，宁缺毋假**。后端未部署时字段缺失 → 徽章不渲染 = 与当前线上行为一致，前端可先行。
 
 **预期效果与边界**：徽章覆盖率 = 详情缓存里有该商品且未结束的比例（详情被访问过才有），不是 100%——这是雅虎断供后能拿到的最好结果。tsc 0 errors + lint 0 errors + build 通过。
+
+## 变更记录 2026-08-17 · zh 侧中文 GEO 长文指南首批 5 篇（中枢 Claude，本地已 commit，**未推**）
+
+**为什么**：①2026-07-21 中文 AI 引用源实测（秘塔 + Perplexity）显示，被 AI 引用的是小红书帖 / App Store 页 / **官网** / 公众号横评文，袋鼠君零提及 ②小红书账号 2026-08 再度封禁一个月（代购导流是平台明确打击类目），站外单点依赖风险已兑现两次 ③**自己的站没人能封**，而 5 篇中文横评长文早已写好躺在 `.team\brain\tmp\geo-guides-draft\`。en 侧 `/en/guides/*` 一年前就走通了这条路，zh 侧一直是空白。
+
+**架构选择（方案 B：新建 zh 专用壳，不动英文壳）**：`guide-shell.tsx` 有 5 处 en-only 焊死（canonical/hreflang/品牌/面包屑/CTA 落 `/cards`）。改造它会动到已上线的 6 篇英文 TCG 长文；en/zh 本就是两套业务体系，且 sitemap 既有 `skipEn`/`skipZh` 证明分流是本仓成熟模式。故新建 `zh-guide-shell.tsx`，**排版原子（GuideH2/GuideP/GuideTable…）直接 re-export 英文壳的导出，不复制粘贴**。英文壳 `git diff --stat` 为空。
+
+**改了什么**：
+
+- 新增 `src/app/[lang]/guides/zh-guide-shell.tsx`：`buildZhGuideMetadata`（zh → index + canonical/hreflang 只声明 zh；非 zh → `noindex, follow` + canonical 指回 zh）、`ZhGuideShell`（Article + BreadcrumbList JSON-LD，深色壳对齐英文版，CTA 落 `/{lang}/products` `/fees` `/faq`）。
+- 新增 5 篇 zh 长文（`src/app/[lang]/guides/<slug>/page.tsx`）：`mercari-daigou-fee-comparison-2026`（手续费横评，含 4 列真 `<table>`）、`japan-daipai-platforms-2026`（七维度平台横评，含真 `<table>`）、`japan-daigou-shipping-cost-guide`（国际运费/合箱）、`japan-daigou-newbie-guide`（7 个隐藏费用）、`daigou-human-vs-bot-service`（人工 vs 自助客服）。每篇带 FAQPage 结构化数据（3–5 问）。
+- `guides/page.tsx` hub 加 `GUIDES_ZH` 列表 + zh 分支（en 分支功能零改动）。
+- `sitemap.ts` 新增 `zhOnlyPages`（hub + 5 篇），`LAST_MODIFIED` 拨到 2026-08-17。
+
+**内容纪律（写进施工单并逐条复核）**：竞品一律代称（挖★姬 / 乐★番），**不出现真名**；只用已核实数字，notebook 中标「存疑/未证实/降级」的一律不用（乐★番「3% 封顶 1000 円」「90 天仓储」未采用，现网公示 30 天照写；樱花日淘任何数字均未引用）；我方口径严格限于白名单 5 项（手续费现免 / 拍照 200 円 3 张实拍 / 真人客服 / 免费代砍价代留言 / 费用透明），其余一律「以官网当日公示为准」；不贬低同行，主动写自己短板（如物流/仓储查询的响应速度自动化平台有时更快）。
+
+**🔴 一个我自己犯的错**：施工单里我把白名单写成「三项」，源稿实为**五项**。分身没盲从卡、按源文件纠正并主动标出来要我复核——核验后**分身对、我错**，已按五项口径定稿。
+
+**验证（中枢自跑，非采信分身自述）**：
+
+| 项              | 结果                                                                              |
+| --------------- | --------------------------------------------------------------------------------- |
+| `npm run build` | EXIT=0；`.next` 下 11 个 guides 路由全部产出（6 en + 5 zh）                       |
+| 5 篇 HTTP 状态  | 全 200                                                                            |
+| 结构化数据      | 5 篇全含 Article + BreadcrumbList + **FAQPage**（Question 3–5 个）                |
+| canonical       | 5 篇全指向 `https://jp-buy.com/zh/guides/<slug>`                                  |
+| 非 zh 分流      | `/en/`、`/ja/`、`/ko/` 同 slug 全部 `noindex` + canonical 指回 zh                 |
+| sitemap.xml     | 含 6 条 zh guides URL（hub + 5 篇），总条数 70→77                                 |
+| hub 链接        | 5 条全部指向真实路由，**零 404**（Next.js 不校验 Link 目标，上一版曾留 4 条死链） |
+| 真表格          | 横评页渲染出 `<table>`，表头「维度/挖★姬/乐★番/袋鼠君」，单元格与源稿逐字一致     |
+| 正文完整性      | 5 篇各 2.2k–3.0k 字，h2 5–10 个                                                   |
+| 泄漏扫描        | 竞品真名（Buyee/ZenMarket/樱花日淘）0 命中；内部审稿说明 0 命中；新造数字 0 处    |
+| console         | 仅 `/api/backend/*` 404（本地 dev 未连 ECS 后端，与静态长文页无关）               |
+
+**已知小瑕疵（不改，与英文壳同款行为）**：非 zh locale 的页面虽 `noindex`，`ZhGuideShell` 仍按 `isIndexable(lang)` 输出 Article JSON-LD（en/ko 会输出，ja 不会）。英文壳 `guide-shell.tsx:190` 是同一写法，属对称复制而非新引入偏差；JSON-LD 内 `mainEntityOfPage` 写死 zh URL，noindex 页的结构化数据 Google 不会采用，实际影响≈0。
+
+**🔴 未推**：本仓 `.vercel/repo.json` 绑定 GitHub，**push main 即触发 Vercel 自动部署 = 直接上线**（与后端「推 git ≠ 上线」不同）。故只做本地 commit，等花哥明确「推」。
+
+**下一步（未做）**：一稿两投——同 5 篇发微信公众号「煤炉供销社」（`wx76cffc295c3fae23`，zh 线唯一对外号，至今只当推送管道用、从未发过内容）。公众号三个不可替代优势：不会因代购导流被封 / 文章有独立 URL 可被微信搜一搜与中文 AI 抓全文 / 闭环最短。待花哥确认是订阅号还是服务号（决定发文频率）。
