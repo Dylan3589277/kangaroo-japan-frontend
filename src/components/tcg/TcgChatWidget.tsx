@@ -23,6 +23,12 @@ import { useChatWidgetContext } from "./ChatProvider";
  * zh 走 sendSupportChat（site=kangaroo-japan，中文 KB）。不改任何后端/支付逻辑。
  */
 
+// 小程序人工客服落点是 53kf 托管的微信客服；zh 转人工在这里对齐，直接打开 53kf
+// 网页客服，而不是跳内部 /contact 页。后续会与小程序一起统一切企业微信客服。
+const KF53_CHAT_URL_DEFAULT =
+  "https://tb.53kf.com/code/client/8252b02b9d3316d5208582bc9dd052118/1";
+const KF53_CHAT_URL = process.env.NEXT_PUBLIC_KF53_CHAT_URL || KF53_CHAT_URL_DEFAULT;
+
 type ChatRole = "user" | "assistant";
 
 interface ChatMessage {
@@ -359,13 +365,25 @@ export function TcgChatWidget() {
                 >
                   {message.content}
                   {message.role === "assistant" && message.transfer ? (
-                    <Link
-                      href="/contact"
-                      onClick={() => setOpen(false)}
-                      className={`mt-2 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline ${skin.link}`}
-                    >
-                      {t("contactCta")}
-                    </Link>
+                    isEn ? (
+                      <Link
+                        href="/contact"
+                        onClick={() => setOpen(false)}
+                        className={`mt-2 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline ${skin.link}`}
+                      >
+                        {t("contactCta")}
+                      </Link>
+                    ) : (
+                      <a
+                        href={KF53_CHAT_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setOpen(false)}
+                        className={`mt-2 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline ${skin.link}`}
+                      >
+                        {t("contactCta")}
+                      </a>
+                    )
                   ) : null}
                 </div>
               </div>
