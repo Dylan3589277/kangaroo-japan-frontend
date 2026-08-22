@@ -215,6 +215,8 @@ const QUICK_QUESTIONS = [
 // 此前不在集合里 → 下面 sourcePlatform 被强制打回 "mercari" → 拿 rakuma 的商品号去拼煤炉
 // 链接，客服识别不出商品，建卡/报价/支付整条链都出不来（花哥真机反馈）。
 // 这两个平台的辅助购买链路后端本就支持（ASSISTED_PURCHASE_PLATFORMS）。
+// 2026-08-22 加入 cardrush-main（cardrush.jp 主站，区别于宝可梦分站 cardrush）：
+// 老后台 Chat.php 已放行该 shop 进 AI 客服，同一白屏风险适用，故同步收进来。
 const SUPPORTED_PLATFORMS = new Set([
   "mercari",
   "amazon",
@@ -222,6 +224,7 @@ const SUPPORTED_PLATFORMS = new Set([
   "rakuten",
   "rakuma",
   "yahoofrima",
+  "cardrush-main",
 ]);
 
 /** 平台 → 商品页 URL 模板（自动报价时交后端桥识别）。 */
@@ -230,18 +233,23 @@ const ITEM_URL_BUILDERS: Record<string, (id: string) => string> = {
   rakuma: (id) => `https://item.fril.jp/${id}`,
   yahoofrima: (id) => `https://paypayfleamarket.yahoo.co.jp/item/${id}`,
   mercari: (id) => `https://jp.mercari.com/item/${id}`,
+  "cardrush-main": (id) => `https://www.cardrush.jp/product/${id}`,
 };
 
-// 辅助购买（zh 灰度）平台：rakuma / yahoofrima。这两个平台的报价卡来自 bridge
-// _emit_assisted_quote_card（链接→internal/quote），报价时已 _stash_consult_pending
+// 辅助购买（zh 灰度）平台：rakuma / yahoofrima / cardrush-main。这些平台的报价卡来自
+// bridge _emit_assisted_quote_card（链接→internal/quote），报价时已 _stash_consult_pending
 // 暂存商品态。故卡上[我要购买]/[咨询]按钮**回发 bridge 预设文本**走辅助建单/咨询流，
 // 而不是像 mercari 那样跳现成网页结算页（那条 type=mercari 结算页认不出 rakuma/
-// yahoofrima 商品 → 白屏「商品不存在」）。文本须与 bridge 常量逐字一致：
+// yahoofrima/cardrush-main 商品 → 白屏「商品不存在」）。文本须与 bridge 常量逐字一致：
 //   - [我要购买] → QUOTE_CARD_BUY_TEXT_PREFIX「我要购买此商品」(bridge is_quote_card_buy
 //     前缀匹配 → _handle_purchase_intent → 报价确认 → 待支付卡)
 //   - [咨询]     → LINK_CHOICE_CONSULT_TEXT「咨询商品」(bridge is_control_text → 咨询
 //     ask 分支直接回「请问您想了解这个商品的什么?」)
-const ASSISTED_PURCHASE_PLATFORMS = new Set(["rakuma", "yahoofrima"]);
+// 🔴2026-08-22 实测差距：截至本次改动，bridge.py 的 _emit_assisted_quote_card 确认/建单
+// 解析仍硬编码 `platform not in ("rakuma", "yahoofrima")`（bridge.py 约5356/5421行），
+// 未认 cardrush-main —— 前端加了 cardrush-main 后，[我要购买]/[咨询] 按钮点击会被 bridge
+// 400 拒绝。上线前必须同步改 bridge.py 加 cardrush-main，否则这条平台的辅助购买链路仍是断的。
+const ASSISTED_PURCHASE_PLATFORMS = new Set(["rakuma", "yahoofrima", "cardrush-main"]);
 // 与 bridge.py 常量逐字一致（改这里务必同步改 bridge）：
 const ASSISTED_BUY_INTENT_TEXT = "我要购买此商品";
 const ASSISTED_CONSULT_TEXT = "咨询商品";
