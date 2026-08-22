@@ -217,6 +217,13 @@ const QUICK_QUESTIONS = [
 // 这两个平台的辅助购买链路后端本就支持（ASSISTED_PURCHASE_PLATFORMS）。
 // 2026-08-22 加入 cardrush-main（cardrush.jp 主站，区别于宝可梦分站 cardrush）：
 // 老后台 Chat.php 已放行该 shop 进 AI 客服，同一白屏风险适用，故同步收进来。
+// 2026-08-22 补全其余老后台 Chat.php 白名单里认、但前端此前漏收的平台
+// （paypayfleamarket/cardrush/cardmuseum/torecacamp/toretoku/smallbuy/otamart/
+// surugaya/zozotown/amiami）：同一道"不在集合里就被打回 mercari"的坑同样适用。
+// paypayfleamarket 与 yahoofrima 是同一站点（paypayfleamarket.yahoo.co.jp）的两个
+// shop 码——前者是老 PHP 侧的落库/展示码，后者是前端/新链路码，见后端仓
+// tcg-quote.service.ts 的 ZH_PRICING_LOCAL_PLATFORM_CODE_REWRITE（yahoofrima→
+// paypayfleamarket）——两个都要保留，不能只留一个或合并。
 const SUPPORTED_PLATFORMS = new Set([
   "mercari",
   "amazon",
@@ -225,15 +232,42 @@ const SUPPORTED_PLATFORMS = new Set([
   "rakuma",
   "yahoofrima",
   "cardrush-main",
+  "paypayfleamarket",
+  "cardrush",
+  "cardmuseum",
+  "torecacamp",
+  "toretoku",
+  "smallbuy",
+  "otamart",
+  "surugaya",
+  "zozotown",
+  "amiami",
+  "animate",
 ]);
 
-/** 平台 → 商品页 URL 模板（自动报价时交后端桥识别）。 */
+/** 平台 → 商品页 URL 模板（自动报价时交后端桥识别）。
+ *  smallbuy/otamart/zozotown 未收录：后端仓 integrations 里找不到可靠的单段
+ *  URL 拼接格式（zozotown 详情页还需要 shop slug，不能只靠 gid 拼），不瞎编——
+ *  这几个平台和已有的 amazon/rakuten 一样，SUPPORTED_PLATFORMS 认但没有
+ *  builder，效果是自动报价那一下不触发，不影响 sourcePlatform 正确透传。 */
 const ITEM_URL_BUILDERS: Record<string, (id: string) => string> = {
   yahoo: (id) => `https://auctions.yahoo.co.jp/jp/auction/${id}`,
   rakuma: (id) => `https://item.fril.jp/${id}`,
   yahoofrima: (id) => `https://paypayfleamarket.yahoo.co.jp/item/${id}`,
   mercari: (id) => `https://jp.mercari.com/item/${id}`,
   "cardrush-main": (id) => `https://www.cardrush.jp/product/${id}`,
+  paypayfleamarket: (id) => `https://paypayfleamarket.yahoo.co.jp/item/${id}`,
+  cardrush: (id) => `https://www.cardrush-pokemon.jp/product/${id}`,
+  cardmuseum: (id) => `https://www.card-museum.com/?pid=${id}`,
+  torecacamp: (id) => `https://torecacamp-pokemon.com/products/${id}`,
+  toretoku: (id) => `https://www.toretoku.jp/item/details/${id}`,
+  surugaya: (id) => `https://www.suruga-ya.jp/product/detail/${id}`,
+  amiami: (id) => `https://www.amiami.jp/top/detail/detail?gcode=${id}`,
+  // 2026-08-22：格式核对自后端仓 animate.service.ts 注释——detail 页真实 "add to cart"
+  // 表单 action="/pn/x/pd/<id>/" 里 /pn/<slug>/ 段服务端不校验（字面量 "x" 也能通过），
+  // 故直接用 /pn/x/pd/<id>/ 拼，匹配后端 paste-link.controller.ts 的
+  // /animate-onlineshop\.jp\/.*\/pd\/\d+/i 正则。
+  animate: (id) => `https://www.animate-onlineshop.jp/pn/x/pd/${id}/`,
 };
 
 // 辅助购买（zh 灰度）平台：rakuma / yahoofrima / cardrush-main。这些平台的报价卡来自
@@ -1073,12 +1107,24 @@ export default function MiniProgramSupportH5Page() {
     // 同一件商品在本次浏览器会话里只自动报价一次，换成不同商品则正常触发，不再被
     // conversationId 是否存在这个无关信号挡住。
     const autoQuoteDedupeKey = `kj_h5_autoquoted_${sourcePlatform}_${sourceGoodsId}`;
+    // 2026-08-22 花哥令：去重值从固定 "1" 改存时间戳，超过 30 分钟视为过期重新报价。
+    // 老版小程序 webview 里 sessionStorage 长期不清（同一会话可能开好几个小时），旧的
+    // "永久去重"写法导致同一商品第二次进客服再也不出报价卡。读到旧格式 "1"（parseInt
+    // 后是极小的时间戳，离 Date.now() 必然超过 30 分钟）也自然落入"过期"分支，无需
+    // 额外特判，向前兼容。
+    const AUTO_QUOTE_DEDUPE_TTL_MS = 30 * 60 * 1000;
     try {
-      if (
-        typeof window !== "undefined" &&
-        window.sessionStorage.getItem(autoQuoteDedupeKey)
-      ) {
-        return;
+      if (typeof window !== "undefined") {
+        const storedAt = Number.parseInt(
+          window.sessionStorage.getItem(autoQuoteDedupeKey) ?? "",
+          10,
+        );
+        if (
+          Number.isFinite(storedAt) &&
+          Date.now() - storedAt < AUTO_QUOTE_DEDUPE_TTL_MS
+        ) {
+          return;
+        }
       }
     } catch {
       // sessionStorage 不可用（隐私模式/小程序 webview 限制等）：退化为不去重，
@@ -1087,7 +1133,7 @@ export default function MiniProgramSupportH5Page() {
     autoQuoteTriggeredRef.current = true;
     try {
       if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(autoQuoteDedupeKey, "1");
+        window.sessionStorage.setItem(autoQuoteDedupeKey, String(Date.now()));
       }
     } catch {
       // 写入失败不影响本次请求正常发出，仅去重退化。
