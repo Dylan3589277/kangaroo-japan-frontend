@@ -472,3 +472,11 @@ TCG 内容）；约 20 个页面全站零入口，只能手敲 URL。同时站�
 ---
 
 > ⚠️ **事实层**：此文档为唯一真相源，所有展示层（飞书等）由此同步生成。
+
+### 2026-08-22 CardRush 主站(cardrush-main) zh 全链上线
+
+- **为什么**：贴链接扩站到 CardRush 本店 cardrush.jp 后，H5 智能客服页需放行新平台键 `cardrush-main`，配合后端/bridge/老后台同步上线打通 zh 全链。
+- **改动**：main `d0b15f3`（cherry-pick 自 `d249741`，用 origin/main worktree 隔离改动、tsc 0）部署，新镜像 `b4d749e48314`。
+- **验证**：`/zh/support/h5?platform=cardrush-main` 200 且响应含 `cardrush-main`。
+- **回滚**：`ghcr.io/dylan3589277/kangaroo-japan-frontend:rollback-20260822`(=旧镜像 6d93e098b650)。
+- **未做**：candy 端「立即购买」按钮（`feat/cardrush-main-cart`）待 Windows HBuilderX 发版；老后台 Index.php candy 入口覆盖待过审后再上。
