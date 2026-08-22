@@ -217,6 +217,13 @@ const QUICK_QUESTIONS = [
 // 这两个平台的辅助购买链路后端本就支持（ASSISTED_PURCHASE_PLATFORMS）。
 // 2026-08-22 加入 cardrush-main（cardrush.jp 主站，区别于宝可梦分站 cardrush）：
 // 老后台 Chat.php 已放行该 shop 进 AI 客服，同一白屏风险适用，故同步收进来。
+// 2026-08-22 补全其余老后台 Chat.php 白名单里认、但前端此前漏收的平台
+// （paypayfleamarket/cardrush/cardmuseum/torecacamp/toretoku/smallbuy/otamart/
+// surugaya/zozotown/amiami）：同一道"不在集合里就被打回 mercari"的坑同样适用。
+// paypayfleamarket 与 yahoofrima 是同一站点（paypayfleamarket.yahoo.co.jp）的两个
+// shop 码——前者是老 PHP 侧的落库/展示码，后者是前端/新链路码，见后端仓
+// tcg-quote.service.ts 的 ZH_PRICING_LOCAL_PLATFORM_CODE_REWRITE（yahoofrima→
+// paypayfleamarket）——两个都要保留，不能只留一个或合并。
 const SUPPORTED_PLATFORMS = new Set([
   "mercari",
   "amazon",
@@ -225,15 +232,36 @@ const SUPPORTED_PLATFORMS = new Set([
   "rakuma",
   "yahoofrima",
   "cardrush-main",
+  "paypayfleamarket",
+  "cardrush",
+  "cardmuseum",
+  "torecacamp",
+  "toretoku",
+  "smallbuy",
+  "otamart",
+  "surugaya",
+  "zozotown",
+  "amiami",
 ]);
 
-/** 平台 → 商品页 URL 模板（自动报价时交后端桥识别）。 */
+/** 平台 → 商品页 URL 模板（自动报价时交后端桥识别）。
+ *  smallbuy/otamart/zozotown 未收录：后端仓 integrations 里找不到可靠的单段
+ *  URL 拼接格式（zozotown 详情页还需要 shop slug，不能只靠 gid 拼），不瞎编——
+ *  这几个平台和已有的 amazon/rakuten 一样，SUPPORTED_PLATFORMS 认但没有
+ *  builder，效果是自动报价那一下不触发，不影响 sourcePlatform 正确透传。 */
 const ITEM_URL_BUILDERS: Record<string, (id: string) => string> = {
   yahoo: (id) => `https://auctions.yahoo.co.jp/jp/auction/${id}`,
   rakuma: (id) => `https://item.fril.jp/${id}`,
   yahoofrima: (id) => `https://paypayfleamarket.yahoo.co.jp/item/${id}`,
   mercari: (id) => `https://jp.mercari.com/item/${id}`,
   "cardrush-main": (id) => `https://www.cardrush.jp/product/${id}`,
+  paypayfleamarket: (id) => `https://paypayfleamarket.yahoo.co.jp/item/${id}`,
+  cardrush: (id) => `https://www.cardrush-pokemon.jp/product/${id}`,
+  cardmuseum: (id) => `https://www.card-museum.com/?pid=${id}`,
+  torecacamp: (id) => `https://torecacamp-pokemon.com/products/${id}`,
+  toretoku: (id) => `https://www.toretoku.jp/item/details/${id}`,
+  surugaya: (id) => `https://www.suruga-ya.jp/product/detail/${id}`,
+  amiami: (id) => `https://www.amiami.jp/top/detail/detail?gcode=${id}`,
 };
 
 // 辅助购买（zh 灰度）平台：rakuma / yahoofrima / cardrush-main。这些平台的报价卡来自
