@@ -238,10 +238,10 @@ const SUPPORTED_PLATFORMS = new Set([
   "torecacamp",
   "toretoku",
   "smallbuy",
-  "otamart",
   "surugaya",
   "zozotown",
   "amiami",
+  "animate",
 ]);
 
 /** 平台 → 商品页 URL 模板（自动报价时交后端桥识别）。
@@ -262,6 +262,11 @@ const ITEM_URL_BUILDERS: Record<string, (id: string) => string> = {
   toretoku: (id) => `https://www.toretoku.jp/item/details/${id}`,
   surugaya: (id) => `https://www.suruga-ya.jp/product/detail/${id}`,
   amiami: (id) => `https://www.amiami.jp/top/detail/detail?gcode=${id}`,
+  // 2026-08-22：格式核对自后端仓 animate.service.ts 注释——detail 页真实 "add to cart"
+  // 表单 action="/pn/x/pd/<id>/" 里 /pn/<slug>/ 段服务端不校验（字面量 "x" 也能通过），
+  // 故直接用 /pn/x/pd/<id>/ 拼，匹配后端 paste-link.controller.ts 的
+  // /animate-onlineshop\.jp\/.*\/pd\/\d+/i 正则。
+  animate: (id) => `https://www.animate-onlineshop.jp/pn/x/pd/${id}/`,
 };
 
 // 辅助购买（zh 灰度）平台：rakuma / yahoofrima / cardrush-main。这些平台的报价卡来自
@@ -1101,12 +1106,24 @@ export default function MiniProgramSupportH5Page() {
     // 同一件商品在本次浏览器会话里只自动报价一次，换成不同商品则正常触发，不再被
     // conversationId 是否存在这个无关信号挡住。
     const autoQuoteDedupeKey = `kj_h5_autoquoted_${sourcePlatform}_${sourceGoodsId}`;
+    // 2026-08-22 花哥令：去重值从固定 "1" 改存时间戳，超过 30 分钟视为过期重新报价。
+    // 老版小程序 webview 里 sessionStorage 长期不清（同一会话可能开好几个小时），旧的
+    // "永久去重"写法导致同一商品第二次进客服再也不出报价卡。读到旧格式 "1"（parseInt
+    // 后是极小的时间戳，离 Date.now() 必然超过 30 分钟）也自然落入"过期"分支，无需
+    // 额外特判，向前兼容。
+    const AUTO_QUOTE_DEDUPE_TTL_MS = 30 * 60 * 1000;
     try {
-      if (
-        typeof window !== "undefined" &&
-        window.sessionStorage.getItem(autoQuoteDedupeKey)
-      ) {
-        return;
+      if (typeof window !== "undefined") {
+        const storedAt = Number.parseInt(
+          window.sessionStorage.getItem(autoQuoteDedupeKey) ?? "",
+          10,
+        );
+        if (
+          Number.isFinite(storedAt) &&
+          Date.now() - storedAt < AUTO_QUOTE_DEDUPE_TTL_MS
+        ) {
+          return;
+        }
       }
     } catch {
       // sessionStorage 不可用（隐私模式/小程序 webview 限制等）：退化为不去重，
@@ -1115,7 +1132,7 @@ export default function MiniProgramSupportH5Page() {
     autoQuoteTriggeredRef.current = true;
     try {
       if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(autoQuoteDedupeKey, "1");
+        window.sessionStorage.setItem(autoQuoteDedupeKey, String(Date.now()));
       }
     } catch {
       // 写入失败不影响本次请求正常发出，仅去重退化。
