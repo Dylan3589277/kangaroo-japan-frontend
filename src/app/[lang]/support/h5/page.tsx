@@ -238,6 +238,7 @@ const SUPPORTED_PLATFORMS = new Set([
   "torecacamp",
   "toretoku",
   "smallbuy",
+  "otamart",
   "surugaya",
   "zozotown",
   "amiami",
