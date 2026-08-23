@@ -103,6 +103,7 @@ type QuoteRef = {
   platform?: string;
   item_id?: string;
   goods_name?: string;
+  goods_name_zh?: string; // bridge 翻译，失败为空
   cover?: string;
   price_jpy?: number;
   purchasable?: boolean;
@@ -459,6 +460,7 @@ function getQuoteRef(value: unknown): QuoteRef | undefined {
     platform: getString(record.platform),
     item_id: itemId,
     goods_name: goodsName,
+    goods_name_zh: getString(record.goods_name_zh),
     cover: getString(record.cover),
     price_jpy: priceJpy,
     purchasable: getBoolean(record.purchasable),
@@ -1674,6 +1676,23 @@ export default function MiniProgramSupportH5Page() {
     setHumanTransferNote("请在袋鼠君小程序内打开该商品详情页加入购物车。");
   }
 
+  // 报价卡「点封面图/标题」跳小程序商品详情页（所有平台，2026-08-23 新增）。
+  // 雅虎单独分流去竞拍出价页（雅虎商品在小程序内没有独立详情页，出价页即详情）；
+  // 其它平台复用 navigateToMiniProgramGoodsDetail（与「加入购物车」同一跳转）。
+  // QuoteRef 目前没有源站 url 字段，跳不动（非小程序 webview）时只能兜底转人工，
+  // 不做 window.open——保留该分支注释以便后端后续下发源站链接时补上。
+  function openQuoteDetail(quote: QuoteRef) {
+    const itemId = quote.item_id;
+    const platform = quote.platform;
+    if (platform === "yahoo") {
+      if (itemId && navigateToMiniProgramYahooBid(itemId)) return;
+    } else if (platform && itemId) {
+      if (navigateToMiniProgramGoodsDetail(platform, itemId)) return;
+    }
+    setHumanTransferVisible(true);
+    setHumanTransferNote("请在袋鼠君小程序内打开该商品详情页。");
+  }
+
   // 竞拍（雅虎/煤炉）「去充押金」：仅跳转小程序充值页，不触发任何金钱动作。
   // path 未配置（占位）时按钮本就禁用，这里再兜底：跳不动就引导回小程序。
   function goRechargeDeposit(moneyRmb?: number) {
@@ -1748,6 +1767,8 @@ export default function MiniProgramSupportH5Page() {
       quote.platform === "mercari" && quote.sale_type === "auction";
     // 「去充押金」入口是否可用：仅当配置了充值页 path 才可点。
     const depositRechargeEnabled = Boolean(YAHOO_DEPOSIT_RECHARGE_PAGE_PATH);
+    // 封面图/标题可点跳详情：platform + item_id 都齐才可点（openQuoteDetail 内部也会兜底）。
+    const canOpenDetail = Boolean(quote.platform && quote.item_id);
 
     return (
       <div
@@ -1763,13 +1784,24 @@ export default function MiniProgramSupportH5Page() {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={quote.cover}
-            alt={quote.goods_name || "商品图片"}
-            className="mb-2 h-32 w-full rounded-md object-cover"
+            alt={quote.goods_name_zh || quote.goods_name || "商品图片"}
+            className={`mb-2 h-32 w-full rounded-md object-cover${canOpenDetail ? " cursor-pointer" : ""}`}
             loading="lazy"
+            role={canOpenDetail ? "button" : undefined}
+            onClick={canOpenDetail ? () => openQuoteDetail(quote) : undefined}
           />
         ) : null}
-        {quote.goods_name ? (
-          <div className="line-clamp-2 text-sm leading-5 text-slate-700">
+        {quote.goods_name || quote.goods_name_zh ? (
+          <div
+            className={`line-clamp-2 text-sm leading-5 text-slate-700${canOpenDetail ? " cursor-pointer" : ""}`}
+            role={canOpenDetail ? "button" : undefined}
+            onClick={canOpenDetail ? () => openQuoteDetail(quote) : undefined}
+          >
+            {quote.goods_name_zh || quote.goods_name}
+          </div>
+        ) : null}
+        {quote.goods_name_zh && quote.goods_name ? (
+          <div className="mt-0.5 line-clamp-1 text-[11px] leading-4 text-slate-400">
             {quote.goods_name}
           </div>
         ) : null}
