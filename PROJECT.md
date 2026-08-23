@@ -50,3 +50,4 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **为什么**：同上（小程序无法更新，煤炉竞拍商品进小程序详情页只显示"已售出"）。
 - **逻辑**：`openQuoteDetail` 遇 `quote.kind==="auction"` 调 `openMercariBidConfirm` 并 return，其它平台照旧跳小程序详情。
 - **改动**：`src/app/[lang]/support/h5/page.tsx`。ECS 已部署镜像 sha256:9c33b685…，回滚锚点 sha256:1eb396bc…。
+- 2026-08-23 | fix(csp) 8cb92f8 | 骏河屋商品图实际在 cdn.suruga-ya.jp，CSP img-src 与 images.remotePatterns 白名单从 www.suruga-ya.jp 改通配 *.suruga-ya.jp，H5 智能客服报价卡图片才能显示。
