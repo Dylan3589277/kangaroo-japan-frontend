@@ -51,3 +51,8 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **逻辑**：`openQuoteDetail` 遇 `quote.kind==="auction"` 调 `openMercariBidConfirm` 并 return，其它平台照旧跳小程序详情。
 - **改动**：`src/app/[lang]/support/h5/page.tsx`。ECS 已部署镜像 sha256:9c33b685…，回滚锚点 sha256:1eb396bc…。
 - 2026-08-23 | fix(csp) 8cb92f8 | 骏河屋商品图实际在 cdn.suruga-ya.jp，CSP img-src 与 images.remotePatterns 白名单从 www.suruga-ya.jp 改通配 *.suruga-ya.jp，H5 智能客服报价卡图片才能显示。
+
+### 2026-08-23 · 智能客服 tgc 四站/cardrush 分站不出报价卡（bc3ce66，ECS 已部署 38c422606bc0）
+- 为什么：bridge 出卡靠识别消息里的商品链接（`_parse_supported_purchase_link`），原只认 `cardrush.jp/product/数字`；H5 `page.tsx` 把 `cardrush-main` 的分站 gid（`db:6523`）拼成主站 URL 也无法识别。前面三道白名单（candy 映射/后端 DTO/bridge allowlist）都在这道门之后。
+- 改动：bridge 加 cardrush 8 分站（→`cardrush-main`+`slug:digits`）、cardrush-pokemon.jp、card-museum.com `?pid=`、torecacamp-pokemon.com `/products/`、toretoku.jp `/item/details/` 解析；前端 `ITEM_URL_BUILDERS['cardrush-main']` 识别 `<slug>:<digits>` 拼分站域名，`ASSISTED_PURCHASE_PLATFORMS` 加 cardrush/cardmuseum/torecacamp/toretoku（防按钮落 mercari 分支白屏）。
+- 回滚：前端旧镜像 e349ddeeed80；bridge 备份 `bridge.py.bak-20260823-tgc2`。
