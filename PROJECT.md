@@ -38,3 +38,9 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **验证**：`tsc` 0 错、`next build` 通过；线上包 `/_next/static/chunks/0~t9f.r50c~h3.js` 含「确认出价/去充押金/default_bid_jpy」字样确认已发布。已部署 ECS，回滚镜像锚点 `sha256:864535c12a610ccc77bb923022d46a9a94ea3dcaa86857222c8e8879f22e2b71`。
 - **未做**：真机小程序内点击「去充押金」深链是否正确跳转支付页，待花哥实测确认。
 - 2026-08-23 | 客服报价卡不显示图片 | 生产 CSP img-src 缺新站图床；next.config.ts IMG_HOSTS+remotePatterns 加 *.techorus-cdn.com(animate)/*.amiami.jp/*.cardrush*.jp/www.suruga-ya.jp/*.imgz.jp | next.config.ts (commit a1ca5d1，已部署 ECS，回滚锚点镜像 0721a35e18fb)
+
+### 2026-08-23 智能客服报价卡标题中文化 + 图片/标题点击跳商品详情（c7013b3）
+
+- **为什么**：智能客服 H5 报价卡标题未翻译；图片点击不能跳商品详情。
+- **逻辑**：`src/app/[lang]/support/h5/page.tsx` 解析 `goods_name_zh` 优先显示（日文原名作小字副标题）；封面图/标题可点击 → `platform==="yahoo"` 走 `navigateToMiniProgramYahooBid`，其余平台走 `navigateToMiniProgramGoodsDetail(platform,item_id)`，失败则提示在小程序内打开。
+- **改动**：`src/app/[lang]/support/h5/page.tsx`，commit `c7013b3`。
