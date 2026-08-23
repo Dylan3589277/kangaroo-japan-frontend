@@ -1717,7 +1717,7 @@ export default function MiniProgramSupportH5Page() {
   // 面板内点「确认出价」：把买家确认过的金额拼成消息发送（与用户手输走同一条
   // sendMessage 路径），bridge 据此推进竞拍确认/出价；发送后收起面板。
   function confirmMercariAuctionBid(amountJpy: number) {
-    void sendMessage(`确认竞拍 ¥${amountJpy.toLocaleString()}`);
+    void sendMessage(`确认竞拍 ¥${amountJpy.toLocaleString("en-US")}`);
     setMercariBidConfirmingItemId(null);
   }
 
@@ -2070,7 +2070,7 @@ export default function MiniProgramSupportH5Page() {
                 className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs leading-5 text-emerald-700"
                 data-testid="support-quote-deposit-ok"
               >
-                押金余额
+                可用押金
                 {quote.deposit_balance_rmb !== undefined
                   ? `≈¥${quote.deposit_balance_rmb.toLocaleString(
                       "zh-CN",
