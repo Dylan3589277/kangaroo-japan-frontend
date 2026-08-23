@@ -4,6 +4,12 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-08-23 煤炉竞拍确认面板出价输入框前导0修复（f03375c，已部署ECS，回滚锚点镜像 sha256:4d7c04ed167b…）
+
+- **为什么**：真机改出价时清空后显示 `0` 删不掉，再输入变 `02100`。
+- **逻辑**：`support/h5/page.tsx` 的 `mercariBidAmountInputs` 原存 number，onChange `Number('')=0` 回写；改为存字符串（只留数字、允许空串），`bidAmount=Number(str||0)` 派生供 belowMin/overMax/按钮文案/提交使用。
+- **改动**：仅 `src/app/[lang]/support/h5/page.tsx`（10+/8−）；tsc/eslint 通过；线上 chunk 含修复正则。
+
 ### 2026-08-23 注册页支持客服签名绑定链接参数（已于2026-08-23部署ECS（main f9a1541））
 
 - **为什么**：配合后端 `feat/register-legacy-bind`：客服 bridge 给没账号的小程序用户发 `/zh/register?bindUid=&ts=&sig=`，注册时自动绑定小程序会员（原先靠手机号匹配，微信会员常没手机号绑不上）。
