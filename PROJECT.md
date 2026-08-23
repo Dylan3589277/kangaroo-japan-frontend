@@ -23,3 +23,11 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **已知小坑**：本地 `/api/support/chat` 404 时 requestError 文案仍写「或在「联系我们」页找到人工客服」，与新链接微不一致，生产正常路径不触发，未改。
 
 - 2026-08-23 | 客服 H5 白屏 | src/app/[lang]/support/h5/page.tsx 的 ASSISTED_PURCHASE_PLATFORMS 加入 amiami/animate/surugaya/zozotown 及对应显示名；未命中平台时改为提示转人工，不再直接崩溃 | src/app/[lang]/support/h5/page.tsx (commit 663ce9a)
+
+### 2026-08-23 煤炉竞拍卡美化+出价前最终确认面板
+
+- **为什么**：煤炉竞拍卡片体验优化 + 花哥要求买家出价前再加一道最终确认（"再加一个最终确认按钮让买家确认出价金额"），避免误触发大额出价。
+- **逻辑**：`QuoteRef` 新增 `default_bid_jpy`；点「确认竞拍」打开确认面板（状态 `mercariBidConfirmingItemId`），输入框默认值 `default_bid_jpy ?? current_bid`，下限=当前价+100，上限=`max_bid_allowed_jpy`，不合法禁用提交；点「确认出价 ¥N」才真正发送 `确认竞拍 ¥N`（金额用 `toLocaleString("en-US")` 固定千分位——对抗审查发现裸 `toLocaleString()` 在部分浏览器 locale 下会输出 `19.400` 之类被误读为小数点的格式）；押金不足时显示「去充押金」深链小程序 `pages/daishujun/index/pay?type=deposit&money=N`，不再弹注册打断；标签由「押金」改「可用押金」更准确对齐后端新口径。
+- **改动**：`src/app/[lang]/support/h5/page.tsx`，commits `7135846`/`988e109`/`916e4e3`，已合入 main `6108728`。
+- **验证**：`tsc` 0 错、`next build` 通过；线上包 `/_next/static/chunks/0~t9f.r50c~h3.js` 含「确认出价/去充押金/default_bid_jpy」字样确认已发布。已部署 ECS，回滚镜像锚点 `sha256:864535c12a610ccc77bb923022d46a9a94ea3dcaa86857222c8e8879f22e2b71`。
+- **未做**：真机小程序内点击「去充押金」深链是否正确跳转支付页，待花哥实测确认。
