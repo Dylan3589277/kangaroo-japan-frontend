@@ -65,6 +65,14 @@ function ErrorBox({ message }: { message: string }) {
   );
 }
 
+function HintBox({ message }: { message: string }) {
+  return (
+    <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-sm text-cyan-200">
+      {message}
+    </div>
+  );
+}
+
 export interface TcgLoginTexts {
   title: string;
   subtitle: string;
@@ -198,6 +206,7 @@ export function RegisterTcgView({
   onChange,
   onSubmit,
   turnstileSlot,
+  legacyBindHint,
 }: {
   texts: TcgRegisterTexts;
   lang: string;
@@ -213,6 +222,8 @@ export function RegisterTcgView({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmit: (e: React.FormEvent) => void;
   turnstileSlot?: React.ReactNode;
+  // 客服注册绑定链接携带有效参数时的提示文案；无参数时不传。
+  legacyBindHint?: string;
 }) {
   return (
     <AuthShell>
@@ -220,6 +231,7 @@ export function RegisterTcgView({
         <Brand title={texts.title} subtitle={texts.subtitle} />
 
         <form onSubmit={onSubmit} className="space-y-4">
+          {legacyBindHint && <HintBox message={legacyBindHint} />}
           {error && <ErrorBox message={error} />}
 
           <div>

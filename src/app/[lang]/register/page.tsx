@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,10 +25,24 @@ export default function RegisterPage() {
   const t = useTranslations("auth");
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const lang = (params.lang as string) || "zh";
   // en 走设计方向 A 深色呈现，其它语言保持现有渲染。仅影响视觉，业务逻辑共用。
   const isEn = lang === "en";
   const login = useAuthStore((state) => state.login);
+
+  // 客服发给小程序会员的注册链接：?bindUid=<数字>&ts=<数字>&sig=<hex64>。
+  // 三者齐全且格式合法才视为有效绑定请求，随注册请求透传给后端做注册即绑。
+  const legacyBindUid = searchParams.get("bindUid");
+  const legacyBindTs = searchParams.get("ts");
+  const legacyBindSig = searchParams.get("sig");
+  const hasLegacyBind =
+    !!legacyBindUid &&
+    !!legacyBindTs &&
+    !!legacyBindSig &&
+    /^\d+$/.test(legacyBindUid) &&
+    /^\d+$/.test(legacyBindTs) &&
+    /^[0-9a-fA-F]{64}$/.test(legacyBindSig);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -72,14 +87,32 @@ export default function RegisterPage() {
         name: formData.name,
         phone: formData.phone || undefined,
         turnstileToken,
+        ...(hasLegacyBind
+          ? {
+              legacyBindUid: legacyBindUid!,
+              legacyBindTs: legacyBindTs!,
+              legacyBindSig: legacyBindSig!,
+            }
+          : {}),
       }) as {
         success: boolean;
-        data?: { user: Parameters<typeof login>[0]; tokens: { access_token: string } };
+        data?: {
+          user: Parameters<typeof login>[0];
+          tokens: { access_token: string };
+          legacyBound?: boolean;
+        };
         error?: { message: string };
       };
 
       if (response.success && response.data) {
         login(response.data.user, response.data.tokens.access_token);
+        if (hasLegacyBind) {
+          if (response.data.legacyBound) {
+            toast.success(`${t("registerSuccess")}${isEn ? ". " : "，"}${t("legacyBoundSuccess")}`);
+          } else {
+            toast.error(t("legacyBoundFailed"));
+          }
+        }
         router.push("/");
       } else {
         const msg = response.error?.message;
@@ -121,6 +154,7 @@ export default function RegisterPage() {
         onChange={handleChange}
         onSubmit={handleSubmit}
         turnstileSlot={<Turnstile onToken={setTurnstileToken} theme="dark" language={lang} className="flex justify-center" />}
+        legacyBindHint={hasLegacyBind ? t("legacyBindHint", { uid: legacyBindUid }) : undefined}
       />
     );
   }
@@ -141,6 +175,12 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {hasLegacyBind && (
+              <div className="bg-blue-50 text-blue-700 text-sm p-3 rounded-md">
+                {t("legacyBindHint", { uid: legacyBindUid })}
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-50 text-red-500 text-sm p-3 rounded-md">
                 {error}
