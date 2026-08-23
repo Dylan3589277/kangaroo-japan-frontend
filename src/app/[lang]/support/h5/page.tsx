@@ -123,6 +123,7 @@ type QuoteRef = {
   left_time?: string; // 剩余/终了时间文案（日文原样）
   bid_num?: number; // 出价数
   end_at?: string; // 终了时间（ISO，可选，煤炉竞拍新增）
+  default_bid_jpy?: number; // 煤炉竞拍新增：默认出价上限（当前价×1.2 取整到百位），最终确认面板默认值
   // 'ok' | 'insufficient' | 'unknown'（雅虎）；'ok' | 'insufficient' | 'no_account' | 'unavailable'（煤炉竞拍新增）
   deposit_state?: string;
   deposit_balance_rmb?: number; // 押金余额（元，仅查到会员时下发）
@@ -476,6 +477,7 @@ function getQuoteRef(value: unknown): QuoteRef | undefined {
     left_time: getString(record.left_time),
     bid_num: getNumber(record.bid_num),
     end_at: getString(record.end_at),
+    default_bid_jpy: getNumber(record.default_bid_jpy),
     deposit_state: getString(record.deposit_state),
     deposit_balance_rmb: getNumber(record.deposit_balance_rmb),
     deposit_locked_jpy: getNumber(record.deposit_locked_jpy),
@@ -943,6 +945,14 @@ export default function MiniProgramSupportH5Page() {
   >({});
   const [quoteRiskConfirmed, setQuoteRiskConfirmed] = useState<
     Record<string, boolean>
+  >({});
+  // 煤炉竞拍「确认竞拍」最终确认面板：mercariBidConfirmingItemId 记录正在展开面板的
+  // item_id（null=都收起）；mercariBidAmountInputs 记录各 item_id 当前输入的出价金额。
+  const [mercariBidConfirmingItemId, setMercariBidConfirmingItemId] = useState<
+    string | null
+  >(null);
+  const [mercariBidAmountInputs, setMercariBidAmountInputs] = useState<
+    Record<string, number>
   >({});
   const kf53ChatUrl = getKf53ChatUrl();
 
@@ -1684,11 +1694,31 @@ export default function MiniProgramSupportH5Page() {
     );
   }
 
-  // 煤炉竞拍「确认竞拍」：deposit_state='ok' 时把 action_text 原样当用户消息发送
-  // （与用户手输走同一条 sendMessage 路径），bridge 据此推进竞拍确认/出价。
-  function confirmMercariAuctionBid(quote: QuoteRef) {
-    if (!quote.action_text) return;
-    void sendMessage(quote.action_text);
+  // 煤炉竞拍「确认竞拍」：点按钮不再直接发消息，先展开最终确认面板（记录 item_id），
+  // 默认出价 = default_bid_jpy ?? current_bid，已展开过的沿用买家已输入的值。
+  function openMercariBidConfirm(quote: QuoteRef) {
+    const itemId = quote.item_id;
+    if (!itemId) return;
+    setMercariBidConfirmingItemId(itemId);
+    setMercariBidAmountInputs((prev) =>
+      prev[itemId] !== undefined
+        ? prev
+        : {
+            ...prev,
+            [itemId]: quote.default_bid_jpy ?? quote.current_bid ?? 0,
+          },
+    );
+  }
+
+  function closeMercariBidConfirm() {
+    setMercariBidConfirmingItemId(null);
+  }
+
+  // 面板内点「确认出价」：把买家确认过的金额拼成消息发送（与用户手输走同一条
+  // sendMessage 路径），bridge 据此推进竞拍确认/出价；发送后收起面板。
+  function confirmMercariAuctionBid(amountJpy: number) {
+    void sendMessage(`确认竞拍 ¥${amountJpy.toLocaleString()}`);
+    setMercariBidConfirmingItemId(null);
   }
 
   // 煤炉竞拍 deposit_state='no_account'「点我注册」：跳 register_url（同域 jp-buy.com）。
@@ -2107,19 +2137,102 @@ export default function MiniProgramSupportH5Page() {
                 登录后可查看你的押金额度。
               </div>
             )}
-            {/* 确认竞拍：ok 时可点直接发消息；insufficient 时同样展示但 disabled（先充押金） */}
+            {/* 确认竞拍：ok 时点按钮展开最终确认面板（改金额/取消）；insufficient 时同样
+                展示按钮但 disabled（先充押金）。面板收起前不发任何消息。 */}
             {quote.deposit_state === "ok" ||
             quote.deposit_state === "insufficient" ? (
-              <button
-                type="button"
-                className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
-                onClick={() => confirmMercariAuctionBid(quote)}
-                disabled={loading || quote.deposit_state !== "ok"}
-                data-testid="support-quote-auction-btn-confirm"
-              >
-                <ShoppingBag className="h-4 w-4" />
-                {quote.action_text || "确认竞拍"}
-              </button>
+              (() => {
+                const itemId = quote.item_id;
+                const isConfirming =
+                  Boolean(itemId) && mercariBidConfirmingItemId === itemId;
+                if (!isConfirming) {
+                  return (
+                    <button
+                      type="button"
+                      className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                      onClick={() => openMercariBidConfirm(quote)}
+                      disabled={
+                        loading || quote.deposit_state !== "ok" || !itemId
+                      }
+                      data-testid="support-quote-auction-btn-confirm"
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      {quote.action_text || "确认竞拍"}
+                    </button>
+                  );
+                }
+                const currentBid = quote.current_bid ?? 0;
+                const minBid = currentBid + 100;
+                const maxAllowed = quote.max_bid_allowed_jpy;
+                const bidAmount =
+                  mercariBidAmountInputs[itemId as string] ??
+                  quote.default_bid_jpy ??
+                  currentBid;
+                const belowMin = bidAmount < minBid;
+                const overMax =
+                  maxAllowed !== undefined && bidAmount > maxAllowed;
+                return (
+                  <div
+                    className="mt-2 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-2"
+                    data-testid="support-quote-mercari-auction-bid-panel"
+                  >
+                    <label className="block text-xs font-medium text-slate-700">
+                      我的最高出价（日元）
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      step={100}
+                      min={minBid}
+                      value={bidAmount}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setMercariBidAmountInputs((prev) => ({
+                          ...prev,
+                          [itemId as string]: Number.isFinite(val) ? val : 0,
+                        }));
+                      }}
+                      className="mt-1 w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-900"
+                      data-testid="support-quote-mercari-auction-bid-input"
+                    />
+                    {belowMin ? (
+                      <p className="mt-1 text-[11px] leading-4 text-red-500">
+                        需高于当前价 ¥{currentBid.toLocaleString("ja-JP")}
+                      </p>
+                    ) : null}
+                    {overMax ? (
+                      <p className="mt-1 text-[11px] leading-4 text-red-500">
+                        超出可用押金额度 ¥
+                        {(maxAllowed as number).toLocaleString("ja-JP")}
+                        ，请先充押金
+                      </p>
+                    ) : null}
+                    <p className="mt-1.5 text-[11px] leading-4 text-slate-500">
+                      系统将代您出价，最高不超过此金额；确认后不可撤回。
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        className="flex items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm"
+                        onClick={closeMercariBidConfirm}
+                        data-testid="support-quote-mercari-auction-btn-bid-cancel"
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="button"
+                        className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                        onClick={() => confirmMercariAuctionBid(bidAmount)}
+                        disabled={loading || belowMin || overMax}
+                        data-testid="support-quote-mercari-auction-btn-bid-confirm"
+                      >
+                        <ShoppingBag className="h-4 w-4" />
+                        确认出价 ¥{bidAmount.toLocaleString()}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
             ) : null}
             <button
               type="button"
