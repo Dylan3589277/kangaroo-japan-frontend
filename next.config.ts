@@ -67,6 +67,12 @@ const IMG_HOSTS = [
   "https://*.cardrush-dm.jp",
   "https://*.suruga-ya.jp", // cdn.suruga-ya.jp 图床
   "https://*.imgz.jp",
+  // 2026-08-23 tgc 四站图床（card-museum/toretoku/torecacamp/cardrush-pokemon），H5 报价卡图片
+  "https://*.shop-pro.jp",
+  "https://*.toretoku.jp",
+  "https://*.torecacamp-pokemon.com",
+  "https://torecacamp-pokemon.com",
+  "https://*.cardrush-pokemon.jp",
 ];
 
 const SCRIPT_HOSTS = [
@@ -209,6 +215,12 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.cardrush-dm.jp" },
       { protocol: "https", hostname: "*.suruga-ya.jp" }, // cdn.suruga-ya.jp 图床
       { protocol: "https", hostname: "**.imgz.jp" },
+      // 2026-08-23 tgc 四站图床（card-museum/toretoku/torecacamp/cardrush-pokemon），H5 报价卡图片
+      { protocol: "https", hostname: "**.shop-pro.jp" },
+      { protocol: "https", hostname: "**.toretoku.jp" },
+      { protocol: "https", hostname: "**.torecacamp-pokemon.com" },
+      { protocol: "https", hostname: "torecacamp-pokemon.com" },
+      { protocol: "https", hostname: "**.cardrush-pokemon.jp" },
     ],
   },
 };
