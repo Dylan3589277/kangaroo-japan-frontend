@@ -53,6 +53,20 @@ const IMG_HOSTS = [
   // 第三方运行时图片
   "https://*.tawk.to",
   "https://*.stripe.com",
+  // 2026-08-23 新站图床（animate/amiami/cardrush/骏河屋/zozo），报价卡 <img> 走 CSP img-src
+  "https://*.techorus-cdn.com",
+  "https://*.amiami.jp",
+  "https://*.cardrush.jp",
+  "https://*.cardrush-op.jp",
+  "https://*.cardrush-db.jp",
+  "https://*.cardrush-mtg.jp",
+  "https://*.cardrush-bs.jp",
+  "https://*.cardrush-digimon.jp",
+  "https://*.cardrush-vanguard.jp",
+  "https://*.cardrush-sv.jp",
+  "https://*.cardrush-dm.jp",
+  "https://www.suruga-ya.jp",
+  "https://*.imgz.jp",
 ];
 
 const SCRIPT_HOSTS = [
@@ -181,6 +195,20 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "cdn.shopify.com" },
       { protocol: "https", hostname: "cdn.jsdelivr.net" },
+      // 2026-08-23 新站图床（animate/amiami/cardrush/骏河屋/zozo），报价卡 <img> 走 CSP img-src
+      { protocol: "https", hostname: "tc-animate.techorus-cdn.com" },
+      { protocol: "https", hostname: "img.amiami.jp" },
+      { protocol: "https", hostname: "**.cardrush.jp" },
+      { protocol: "https", hostname: "**.cardrush-op.jp" },
+      { protocol: "https", hostname: "**.cardrush-db.jp" },
+      { protocol: "https", hostname: "**.cardrush-mtg.jp" },
+      { protocol: "https", hostname: "**.cardrush-bs.jp" },
+      { protocol: "https", hostname: "**.cardrush-digimon.jp" },
+      { protocol: "https", hostname: "**.cardrush-vanguard.jp" },
+      { protocol: "https", hostname: "**.cardrush-sv.jp" },
+      { protocol: "https", hostname: "**.cardrush-dm.jp" },
+      { protocol: "https", hostname: "www.suruga-ya.jp" },
+      { protocol: "https", hostname: "**.imgz.jp" },
     ],
   },
 };
