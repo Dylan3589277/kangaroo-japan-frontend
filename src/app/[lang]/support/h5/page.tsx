@@ -102,6 +102,9 @@ type ProxyBuyPay = {
 type QuoteRef = {
   platform?: string;
   item_id?: string;
+  // bridge 新增：'auction' 标记煤炉竞拍卡（区别于普通购买卡）。缺省即 undefined，
+  // 用于 openQuoteDetail 分流——竞拍品跳小程序详情页会被老后台判成「已售出」。
+  kind?: string;
   goods_name?: string;
   goods_name_zh?: string; // bridge 翻译，失败为空
   cover?: string;
@@ -459,6 +462,7 @@ function getQuoteRef(value: unknown): QuoteRef | undefined {
   return {
     platform: getString(record.platform),
     item_id: itemId,
+    kind: getString(record.kind),
     goods_name: goodsName,
     goods_name_zh: getString(record.goods_name_zh),
     cover: getString(record.cover),
@@ -1678,12 +1682,19 @@ export default function MiniProgramSupportH5Page() {
 
   // 报价卡「点封面图/标题」跳小程序商品详情页（所有平台，2026-08-23 新增）。
   // 雅虎单独分流去竞拍出价页（雅虎商品在小程序内没有独立详情页，出价页即详情）；
-  // 其它平台复用 navigateToMiniProgramGoodsDetail（与「加入购物车」同一跳转）。
+  // 煤炉竞拍卡（kind==='auction'）也单独分流：竞拍品跳小程序详情页会被老后台判成
+  // 「已售出」，改为展开页面里已有的「确认出价」最终确认面板（复用 openMercariBidConfirm，
+  // 与「确认竞拍」按钮同一入口）。其它平台/非竞拍复用 navigateToMiniProgramGoodsDetail
+  // （与「加入购物车」同一跳转）。
   // QuoteRef 目前没有源站 url 字段，跳不动（非小程序 webview）时只能兜底转人工，
   // 不做 window.open——保留该分支注释以便后端后续下发源站链接时补上。
   function openQuoteDetail(quote: QuoteRef) {
     const itemId = quote.item_id;
     const platform = quote.platform;
+    if (quote.kind === "auction") {
+      openMercariBidConfirm(quote);
+      return;
+    }
     if (platform === "yahoo") {
       if (itemId && navigateToMiniProgramYahooBid(itemId)) return;
     } else if (platform && itemId) {
