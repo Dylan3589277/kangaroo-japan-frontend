@@ -31,3 +31,4 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **改动**：`src/app/[lang]/support/h5/page.tsx`，commits `7135846`/`988e109`/`916e4e3`，已合入 main `6108728`。
 - **验证**：`tsc` 0 错、`next build` 通过；线上包 `/_next/static/chunks/0~t9f.r50c~h3.js` 含「确认出价/去充押金/default_bid_jpy」字样确认已发布。已部署 ECS，回滚镜像锚点 `sha256:864535c12a610ccc77bb923022d46a9a94ea3dcaa86857222c8e8879f22e2b71`。
 - **未做**：真机小程序内点击「去充押金」深链是否正确跳转支付页，待花哥实测确认。
+- 2026-08-23 | 客服报价卡不显示图片 | 生产 CSP img-src 缺新站图床；next.config.ts IMG_HOSTS+remotePatterns 加 *.techorus-cdn.com(animate)/*.amiami.jp/*.cardrush*.jp/www.suruga-ya.jp/*.imgz.jp | next.config.ts (commit a1ca5d1，已部署 ECS，回滚锚点镜像 0721a35e18fb)
