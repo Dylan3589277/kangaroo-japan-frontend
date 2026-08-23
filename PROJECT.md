@@ -44,3 +44,9 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **为什么**：智能客服 H5 报价卡标题未翻译；图片点击不能跳商品详情。
 - **逻辑**：`src/app/[lang]/support/h5/page.tsx` 解析 `goods_name_zh` 优先显示（日文原名作小字副标题）；封面图/标题可点击 → `platform==="yahoo"` 走 `navigateToMiniProgramYahooBid`，其余平台走 `navigateToMiniProgramGoodsDetail(platform,item_id)`，失败则提示在小程序内打开。
 - **改动**：`src/app/[lang]/support/h5/page.tsx`，commit `c7013b3`。
+
+### 2026-08-23 智能客服 H5 竞拍卡点图改为打开确认出价面板（commit f294c04）
+
+- **为什么**：同上（小程序无法更新，煤炉竞拍商品进小程序详情页只显示"已售出"）。
+- **逻辑**：`openQuoteDetail` 遇 `quote.kind==="auction"` 调 `openMercariBidConfirm` 并 return，其它平台照旧跳小程序详情。
+- **改动**：`src/app/[lang]/support/h5/page.tsx`。ECS 已部署镜像 sha256:9c33b685…，回滚锚点 sha256:1eb396bc…。
