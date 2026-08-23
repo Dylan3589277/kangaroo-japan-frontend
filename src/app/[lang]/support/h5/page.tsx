@@ -122,11 +122,15 @@ type QuoteRef = {
   buyout_jpy?: number; // 一口价；0=无
   left_time?: string; // 剩余/终了时间文案（日文原样）
   bid_num?: number; // 出价数
-  deposit_state?: string; // 'ok' | 'insufficient' | 'unknown'
+  end_at?: string; // 终了时间（ISO，可选，煤炉竞拍新增）
+  // 'ok' | 'insufficient' | 'unknown'（雅虎）；'ok' | 'insufficient' | 'no_account' | 'unavailable'（煤炉竞拍新增）
+  deposit_state?: string;
   deposit_balance_rmb?: number; // 押金余额（元，仅查到会员时下发）
   deposit_locked_jpy?: number; // 已在拍占用额度（日元，仅查到会员时下发）
   max_bid_allowed_jpy?: number; // 本次可出价上限（日元）
   suggest_recharge_rmb?: number; // 建议充值额（元，仅 insufficient 下发）
+  required_cny?: number; // 煤炉竞拍新增：本次所需人民币（展示用）
+  register_url?: string; // 煤炉竞拍新增：no_account 时「点我注册」跳转链接（同域 jp-buy.com）
   // ── 可选增值服务（报价卡展示+买家勾选；勾选只前端记录，实际计费在录单环节由 L1/L2/客服处理）。
   //    字段契约见 .team/artifacts/buy-optional-services-design.md。
   //    缺省即不渲染可选服务区，零回归。
@@ -319,11 +323,12 @@ const RESPONSE_TIME_NOTE =
   "我会尽量快点回复；复杂问题可能需要十几秒整理，请稍等一下。";
 const MINI_PROGRAM_REAL_KEFU_PATH = "/pages/bundle/realkefu/realkefu";
 const KF53_CHAT_URL = process.env.NEXT_PUBLIC_KF53_CHAT_URL || "";
-// 雅虎竞拍押金不足时「去充押金」跳转的小程序充值页 path。
-// 真实 path（形如 /pages/deposit/...）待花哥给，先用环境变量占位：
-// 未配置时按钮禁用并显示「充值入口待配置」，绝不写死错误 path。
+// 竞拍（雅虎/煤炉）押金不足时「去充押金」跳转的小程序充值页 path。
+// 默认走袋鼠君小程序现有充值页 /pages/daishujun/index/pay（pay.vue onLoad 读 p.type/p.money），
+// 拼参 type=deposit&money=<建议充值 CNY 整数>；env 仍可覆盖为专用 path。
 const YAHOO_DEPOSIT_RECHARGE_PAGE_PATH =
-  process.env.NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH || "";
+  process.env.NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH ||
+  "/pages/daishujun/index/pay";
 // 智能客服辅助购买待支付卡「去支付」跳转的小程序代拍待支付页 path。
 // proxy-buy 订单是新库 UUID 体系（≠ 旧库 numeric orderDetail），故不复用 orderDetail?id= 这条旧库路径，
 // 改用专门的环境变量占位（同 YAHOO_DEPOSIT_RECHARGE_PAGE_PATH 的处理法）：
@@ -470,11 +475,14 @@ function getQuoteRef(value: unknown): QuoteRef | undefined {
     buyout_jpy: getNumber(record.buyout_jpy),
     left_time: getString(record.left_time),
     bid_num: getNumber(record.bid_num),
+    end_at: getString(record.end_at),
     deposit_state: getString(record.deposit_state),
     deposit_balance_rmb: getNumber(record.deposit_balance_rmb),
     deposit_locked_jpy: getNumber(record.deposit_locked_jpy),
     max_bid_allowed_jpy: getNumber(record.max_bid_allowed_jpy),
     suggest_recharge_rmb: getNumber(record.suggest_recharge_rmb),
+    required_cny: getNumber(record.required_cny),
+    register_url: getString(record.register_url),
     // 可选服务 / 卖家风险：缺省即 undefined，前端按存在性渲染（零回归）。
     optional_services: getOptionalServices(record.optional_services),
     seller_risk: getSellerRisk(record.seller_risk),
@@ -812,12 +820,18 @@ function navigateToMiniProgramYahooBid(itemId: string) {
   return true;
 }
 
-function navigateToMiniProgramDepositRecharge() {
+// moneyRmb：建议充值额（元）。传给 pay.vue 的 money 参数须为 ≥1 的整数，缺失/非法时兜底 1，
+// 绝不传 0 或小数（pay.vue 按此参数发起充值）。
+function navigateToMiniProgramDepositRecharge(moneyRmb?: number) {
   if (!YAHOO_DEPOSIT_RECHARGE_PAGE_PATH) return false;
   if (typeof window === "undefined") return false;
   const win = window as MiniProgramWindow;
   if (!win.wx?.miniProgram?.navigateTo) return false;
-  win.wx.miniProgram.navigateTo({ url: YAHOO_DEPOSIT_RECHARGE_PAGE_PATH });
+  const money = Math.max(1, Math.round(moneyRmb ?? 1) || 1);
+  const joiner = YAHOO_DEPOSIT_RECHARGE_PAGE_PATH.includes("?") ? "&" : "?";
+  win.wx.miniProgram.navigateTo({
+    url: `${YAHOO_DEPOSIT_RECHARGE_PAGE_PATH}${joiner}type=deposit&money=${money}`,
+  });
   return true;
 }
 
@@ -1650,10 +1664,10 @@ export default function MiniProgramSupportH5Page() {
     setHumanTransferNote("请在袋鼠君小程序内打开该商品详情页加入购物车。");
   }
 
-  // 雅虎竞拍「去充押金」：仅跳转小程序充值页，不触发任何金钱动作。
+  // 竞拍（雅虎/煤炉）「去充押金」：仅跳转小程序充值页，不触发任何金钱动作。
   // path 未配置（占位）时按钮本就禁用，这里再兜底：跳不动就引导回小程序。
-  function goRechargeDeposit() {
-    if (navigateToMiniProgramDepositRecharge()) return;
+  function goRechargeDeposit(moneyRmb?: number) {
+    if (navigateToMiniProgramDepositRecharge(moneyRmb)) return;
     setHumanTransferVisible(true);
     setHumanTransferNote(
       "请在袋鼠君小程序内打开『我的-我的押金』充值押金后再参与竞拍。",
@@ -1670,6 +1684,25 @@ export default function MiniProgramSupportH5Page() {
     );
   }
 
+  // 煤炉竞拍「确认竞拍」：deposit_state='ok' 时把 action_text 原样当用户消息发送
+  // （与用户手输走同一条 sendMessage 路径），bridge 据此推进竞拍确认/出价。
+  function confirmMercariAuctionBid(quote: QuoteRef) {
+    if (!quote.action_text) return;
+    void sendMessage(quote.action_text);
+  }
+
+  // 煤炉竞拍 deposit_state='no_account'「点我注册」：跳 register_url（同域 jp-buy.com）。
+  // 小程序 webview 内用 location.href 跳（避免 wx.miniProgram.navigateTo 只能跳小程序内页、
+  // 跳不了外链 h5）；非微信环境用 window.open 新开页，不弹复制框兜底。
+  function openMercariAuctionRegister(url?: string) {
+    if (!url) return;
+    if (isMiniProgramWebview()) {
+      window.location.href = url;
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   // 单张报价卡渲染（从 renderChatItem 抽出，供单件 quoteRef 与批量 quoteRefs 共用）。
   // cardKey 是该卡在 quoteServiceSelections/quoteRiskConfirmed 等按卡状态 map 里的主键：
   // 单件时沿用消息 key（与改造前行为一致，零回归）；批量时用 `${messageKey}-quote-${idx}`，
@@ -1679,6 +1712,10 @@ export default function MiniProgramSupportH5Page() {
     const isYahoo = quote.platform === "yahoo";
     const isYahooAuction = isYahoo && quote.sale_type === "auction";
     const isYahooSokketsu = isYahoo && quote.sale_type === "sokketsu";
+    // 煤炉竞拍卡（新增）：与雅虎竞拍共用「当前价/剩余时间/出价数」信息区样式，押金区/操作
+    // 按钮走各自平台的分支（煤炉走 sendMessage 确认竞拍，不经小程序出价页）。
+    const isMercariAuction =
+      quote.platform === "mercari" && quote.sale_type === "auction";
     // 「去充押金」入口是否可用：仅当配置了充值页 path 才可点。
     const depositRechargeEnabled = Boolean(YAHOO_DEPOSIT_RECHARGE_PAGE_PATH);
 
@@ -1742,9 +1779,10 @@ export default function MiniProgramSupportH5Page() {
           </p>
         ) : null}
 
-        {/* ── 可选增值服务区（仅录单流：mercari / 雅虎即決；雅虎竞拍走出价不展示）。
+        {/* ── 可选增值服务区（仅录单流：mercari / 雅虎即決；雅虎竞拍/煤炉竞拍走出价不展示）。
              买家勾选只前端记录，实际计费在录单环节由 L1/L2/客服处理。 */}
         {!isYahooAuction &&
+        !isMercariAuction &&
         quote.optional_services &&
         quote.optional_services.length > 0 ? (
           <div
@@ -1797,7 +1835,7 @@ export default function MiniProgramSupportH5Page() {
              随买家勾选实时重算（computeQuoteTotalJpy 依赖 quoteServiceSelections re-render），
              让买家看见勾选增值服务后的价格变化、避免价格歧义。竞拍卡不出（走出价/押金）。
              仅前端展示，权威金额仍以建单时服务端按勾选项重算为准。 */}
-        {!isYahooAuction && quote.price_jpy !== undefined ? (
+        {!isYahooAuction && !isMercariAuction && quote.price_jpy !== undefined ? (
           <div
             className="mt-3 border-t border-slate-100 pt-2"
             data-testid="support-quote-total"
@@ -1820,7 +1858,7 @@ export default function MiniProgramSupportH5Page() {
 
         {/* ── >5万风险确认卡（卖家核验不达标时显著展示）。
              仅录单流出卡；买家点确认只前端记录，不录入/不付款/不下单。 */}
-        {!isYahooAuction && quote.seller_risk?.needs_confirm ? (
+        {!isYahooAuction && !isMercariAuction && quote.seller_risk?.needs_confirm ? (
           <div
             className="mt-3 rounded-md border border-red-300 bg-red-50 px-2.5 py-2"
             data-testid="support-quote-risk-card"
@@ -1889,8 +1927,8 @@ export default function MiniProgramSupportH5Page() {
           </div>
         ) : null}
 
-        {/* 雅虎竞拍：现价/一口价/剩余时间/出价数（缺字段不显示对应行） */}
-        {isYahooAuction ? (
+        {/* 雅虎/煤炉竞拍：现价/一口价/剩余时间/出价数（缺字段不显示对应行） */}
+        {isYahooAuction || isMercariAuction ? (
           <div
             className="mt-2 space-y-1 rounded-md bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-600"
             data-testid="support-quote-auction-info"
@@ -1954,7 +1992,7 @@ export default function MiniProgramSupportH5Page() {
                 <button
                   type="button"
                   className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-amber-200"
-                  onClick={goRechargeDeposit}
+                  onClick={() => goRechargeDeposit(quote.suggest_recharge_rmb)}
                   disabled={!depositRechargeEnabled}
                   data-testid="support-quote-btn-recharge"
                 >
@@ -1992,6 +2030,107 @@ export default function MiniProgramSupportH5Page() {
                 去出价
               </button>
             </div>
+          </div>
+        ) : isMercariAuction ? (
+          // 煤炉竞拍卡：押金区按 deposit_state 分支（ok/insufficient/no_account/unavailable）；
+          // 「确认竞拍」直接把 action_text 当消息发送（sendMessage，与手输同路径），不经小程序出价页。
+          <div className="mt-3" data-testid="support-quote-mercari-auction-deposit">
+            {quote.deposit_state === "ok" ? (
+              <div
+                className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs leading-5 text-emerald-700"
+                data-testid="support-quote-deposit-ok"
+              >
+                押金余额
+                {quote.deposit_balance_rmb !== undefined
+                  ? `≈¥${quote.deposit_balance_rmb.toLocaleString(
+                      "zh-CN",
+                    )}`
+                  : ""}
+                ，本商品可出价上限
+                {quote.max_bid_allowed_jpy !== undefined
+                  ? `≈¥${quote.max_bid_allowed_jpy.toLocaleString(
+                      "ja-JP",
+                    )}（日元）`
+                  : "请回小程序查看"}
+                。
+              </div>
+            ) : quote.deposit_state === "insufficient" ? (
+              <div
+                className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs leading-5 text-amber-800"
+                data-testid="support-quote-deposit-insufficient"
+              >
+                您暂无足够押金，建议充值
+                {quote.suggest_recharge_rmb !== undefined
+                  ? `≈¥${quote.suggest_recharge_rmb.toLocaleString(
+                      "zh-CN",
+                    )}`
+                  : ""}
+                后参与竞拍。
+                <button
+                  type="button"
+                  className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-amber-200"
+                  onClick={() => goRechargeDeposit(quote.suggest_recharge_rmb)}
+                  disabled={!depositRechargeEnabled}
+                  data-testid="support-quote-btn-recharge"
+                >
+                  {depositRechargeEnabled ? "去充押金" : "充值入口待配置"}
+                </button>
+              </div>
+            ) : quote.deposit_state === "no_account" ? (
+              <div
+                className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-600"
+                data-testid="support-quote-deposit-no-account"
+              >
+                未查到您的竞拍押金账户，需先注册开通后才能参与竞拍。
+                <button
+                  type="button"
+                  className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                  onClick={() => openMercariAuctionRegister(quote.register_url)}
+                  disabled={!quote.register_url}
+                  data-testid="support-quote-btn-register"
+                >
+                  点我注册
+                </button>
+              </div>
+            ) : quote.deposit_state === "unavailable" ? (
+              <div
+                className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-500"
+                data-testid="support-quote-deposit-unavailable"
+              >
+                押金查询暂不可用，请联系客服。
+              </div>
+            ) : (
+              <div
+                className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs leading-5 text-slate-500"
+                data-testid="support-quote-deposit-unknown"
+              >
+                登录后可查看你的押金额度。
+              </div>
+            )}
+            {/* 确认竞拍：ok 时可点直接发消息；insufficient 时同样展示但 disabled（先充押金） */}
+            {quote.deposit_state === "ok" ||
+            quote.deposit_state === "insufficient" ? (
+              <button
+                type="button"
+                className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                onClick={() => confirmMercariAuctionBid(quote)}
+                disabled={loading || quote.deposit_state !== "ok"}
+                data-testid="support-quote-auction-btn-confirm"
+              >
+                <ShoppingBag className="h-4 w-4" />
+                {quote.action_text || "确认竞拍"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+              onClick={() => consultQuote(quote)}
+              disabled={loading}
+              data-testid="support-quote-auction-btn-consult"
+            >
+              <MessageCircle className="h-4 w-4" />
+              咨询
+            </button>
           </div>
         ) : isYahooSokketsu && quote.purchasable !== false ? (
           // 雅虎即決：联系客服下单，不显示自动下单/购买按钮
