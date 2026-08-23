@@ -952,7 +952,7 @@ export default function MiniProgramSupportH5Page() {
     string | null
   >(null);
   const [mercariBidAmountInputs, setMercariBidAmountInputs] = useState<
-    Record<string, number>
+    Record<string, string>
   >({});
   const kf53ChatUrl = getKf53ChatUrl();
 
@@ -1705,7 +1705,7 @@ export default function MiniProgramSupportH5Page() {
         ? prev
         : {
             ...prev,
-            [itemId]: quote.default_bid_jpy ?? quote.current_bid ?? 0,
+            [itemId]: String(quote.default_bid_jpy ?? quote.current_bid ?? 0),
           },
     );
   }
@@ -2164,10 +2164,10 @@ export default function MiniProgramSupportH5Page() {
                 const currentBid = quote.current_bid ?? 0;
                 const minBid = currentBid + 100;
                 const maxAllowed = quote.max_bid_allowed_jpy;
-                const bidAmount =
+                const bidAmountStr =
                   mercariBidAmountInputs[itemId as string] ??
-                  quote.default_bid_jpy ??
-                  currentBid;
+                  String(quote.default_bid_jpy ?? currentBid);
+                const bidAmount = Number(bidAmountStr || 0);
                 const belowMin = bidAmount < minBid;
                 const overMax =
                   maxAllowed !== undefined && bidAmount > maxAllowed;
@@ -2184,12 +2184,14 @@ export default function MiniProgramSupportH5Page() {
                       inputMode="numeric"
                       step={100}
                       min={minBid}
-                      value={bidAmount}
+                      value={bidAmountStr}
                       onChange={(e) => {
-                        const val = Number(e.target.value);
                         setMercariBidAmountInputs((prev) => ({
                           ...prev,
-                          [itemId as string]: Number.isFinite(val) ? val : 0,
+                          [itemId as string]: e.target.value.replace(
+                            /[^\d]/g,
+                            "",
+                          ),
                         }));
                       }}
                       className="mt-1 w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm text-slate-900"
