@@ -65,7 +65,7 @@ const IMG_HOSTS = [
   "https://*.cardrush-vanguard.jp",
   "https://*.cardrush-sv.jp",
   "https://*.cardrush-dm.jp",
-  "https://www.suruga-ya.jp",
+  "https://*.suruga-ya.jp", // cdn.suruga-ya.jp 图床
   "https://*.imgz.jp",
 ];
 
@@ -207,7 +207,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.cardrush-vanguard.jp" },
       { protocol: "https", hostname: "**.cardrush-sv.jp" },
       { protocol: "https", hostname: "**.cardrush-dm.jp" },
-      { protocol: "https", hostname: "www.suruga-ya.jp" },
+      { protocol: "https", hostname: "*.suruga-ya.jp" }, // cdn.suruga-ya.jp 图床
       { protocol: "https", hostname: "**.imgz.jp" },
     ],
   },
