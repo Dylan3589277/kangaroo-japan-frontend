@@ -1649,6 +1649,10 @@ class ApiClient {
     preferredLanguage?: string;
     preferredCurrency?: string;
     turnstileToken?: string | null;
+    // 客服发给小程序会员的注册链接携带的老后台绑定参数，三者齐全时透传给后端做注册即绑。
+    legacyBindUid?: string;
+    legacyBindTs?: string;
+    legacyBindSig?: string;
   }) {
     const { turnstileToken, ...rest } = data;
     return this.request("/auth/register", {
