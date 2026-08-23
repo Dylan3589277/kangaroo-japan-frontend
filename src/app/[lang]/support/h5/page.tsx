@@ -283,7 +283,20 @@ const ITEM_URL_BUILDERS: Record<string, (id: string) => string> = {
 // 解析仍硬编码 `platform not in ("rakuma", "yahoofrima")`（bridge.py 约5356/5421行），
 // 未认 cardrush-main —— 前端加了 cardrush-main 后，[我要购买]/[咨询] 按钮点击会被 bridge
 // 400 拒绝。上线前必须同步改 bridge.py 加 cardrush-main，否则这条平台的辅助购买链路仍是断的。
-const ASSISTED_PURCHASE_PLATFORMS = new Set(["rakuma", "yahoofrima", "cardrush-main"]);
+// 2026-08-23 加入 amiami/animate/surugaya/zozotown（真机反馈：贴链接报价卡点[我要购买]
+// 落进下方 mercari-only 分支，拿这几个平台的商品号去建 mercari 订单 → 结算页「商品不存在」
+// 白屏——与上面 yahoofrima 那次白屏同一种坑）。同样继承上面那条 bridge 硬编码差距：
+// bridge.py 的确认/建单白名单未必已认这四个平台，上线前需核对同步（不在本卡范围内，见
+// kjb-wt-paste-sites 施工单 A3 只加了日志行，未改这处白名单）。
+const ASSISTED_PURCHASE_PLATFORMS = new Set([
+  "rakuma",
+  "yahoofrima",
+  "cardrush-main",
+  "amiami",
+  "animate",
+  "surugaya",
+  "zozotown",
+]);
 // 与 bridge.py 常量逐字一致（改这里务必同步改 bridge）：
 const ASSISTED_BUY_INTENT_TEXT = "我要购买此商品";
 const ASSISTED_CONSULT_TEXT = "咨询商品";
@@ -760,6 +773,10 @@ function navigateToMiniProgramCart() {
 const SITES_CONFIRM_PNAME: Record<string, string> = {
   rakuma: "拉库玛",
   yahoofrima: "Yahoo!フリマ",
+  amiami: "AmiAmi",
+  animate: "Animate",
+  surugaya: "骏河屋",
+  zozotown: "ZOZOTOWN",
 };
 function navigateToMiniProgramSitesConfirm(
   platform: string,
@@ -1577,7 +1594,15 @@ export default function MiniProgramSupportH5Page() {
       return;
     }
 
-    // 以下仅 mercari：进现成购买流程。
+    // 以下仅 mercari：进现成购买流程。非 mercari 且不在 ASSISTED_PURCHASE_PLATFORMS 白名单内的
+    // 平台（2026-08-23 真机反馈）此前会静默落入这条 mercari 专属流程，拿别平台商品号去建
+    // mercari 订单 → 结算页/小程序页「商品不存在」白屏；改成提前拦截 + 转人工提示，不再
+    // 静默假装是 mercari（呼应上面 yahoofrima/cardrush-main 那两次同款白屏教训）。
+    if (quote.platform && quote.platform !== "mercari") {
+      setHumanTransferVisible(true);
+      setHumanTransferNote("暂不支持该平台的自动购买，请联系客服协助下单。");
+      return;
+    }
     const itemId = quote.item_id;
     // 没有商品号无法定位购买流程：兜底回原 sendMessage 行为，避免跳到空 id 的结算页。
     if (!itemId) {
