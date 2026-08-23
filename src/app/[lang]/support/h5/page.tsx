@@ -254,6 +254,21 @@ const SUPPORTED_PLATFORMS = new Set([
   "animate",
 ]);
 
+// cardrush 8 个分站 slug → 域名映射，须与 bridge 侧的映射逐字对应：
+// op→cardrush-op.jp, db→cardrush-db.jp, mtg→cardrush-mtg.jp, bs→cardrush-bs.jp,
+// digimon→cardrush-digimon.jp, vanguard→cardrush-vanguard.jp, sv→cardrush-sv.jp,
+// dm→cardrush-dm.jp。gid 用 `<slug>:<digits>` 前缀标记命中哪个分站。
+const CARDRUSH_SUB_SITE_SLUGS = new Set([
+  "op",
+  "db",
+  "mtg",
+  "bs",
+  "digimon",
+  "vanguard",
+  "sv",
+  "dm",
+]);
+
 /** 平台 → 商品页 URL 模板（自动报价时交后端桥识别）。
  *  smallbuy/otamart/zozotown 未收录：后端仓 integrations 里找不到可靠的单段
  *  URL 拼接格式（zozotown 详情页还需要 shop slug，不能只靠 gid 拼），不瞎编——
@@ -264,7 +279,17 @@ const ITEM_URL_BUILDERS: Record<string, (id: string) => string> = {
   rakuma: (id) => `https://item.fril.jp/${id}`,
   yahoofrima: (id) => `https://paypayfleamarket.yahoo.co.jp/item/${id}`,
   mercari: (id) => `https://jp.mercari.com/item/${id}`,
-  "cardrush-main": (id) => `https://www.cardrush.jp/product/${id}`,
+  "cardrush-main": (id) => {
+    const sepIndex = id.indexOf(":");
+    if (sepIndex > 0) {
+      const slug = id.slice(0, sepIndex);
+      const digits = id.slice(sepIndex + 1);
+      if (CARDRUSH_SUB_SITE_SLUGS.has(slug) && digits) {
+        return `https://www.cardrush-${slug}.jp/product/${digits}`;
+      }
+    }
+    return `https://www.cardrush.jp/product/${id}`;
+  },
   paypayfleamarket: (id) => `https://paypayfleamarket.yahoo.co.jp/item/${id}`,
   cardrush: (id) => `https://www.cardrush-pokemon.jp/product/${id}`,
   cardmuseum: (id) => `https://www.card-museum.com/?pid=${id}`,
@@ -297,6 +322,9 @@ const ITEM_URL_BUILDERS: Record<string, (id: string) => string> = {
 // 白屏——与上面 yahoofrima 那次白屏同一种坑）。同样继承上面那条 bridge 硬编码差距：
 // bridge.py 的确认/建单白名单未必已认这四个平台，上线前需核对同步（不在本卡范围内，见
 // kjb-wt-paste-sites 施工单 A3 只加了日志行，未改这处白名单）。
+// 2026-08-23 再加 cardrush（cardrush-pokemon.jp）/cardmuseum/torecacamp/toretoku：
+// bridge 已同步支持识别这几种链接的报价卡，同一条"不在集合里就落进 mercari-only 分支"
+// 的坑同样适用，不加会重演上面几次白屏。
 const ASSISTED_PURCHASE_PLATFORMS = new Set([
   "rakuma",
   "yahoofrima",
@@ -305,6 +333,10 @@ const ASSISTED_PURCHASE_PLATFORMS = new Set([
   "animate",
   "surugaya",
   "zozotown",
+  "cardrush",
+  "cardmuseum",
+  "torecacamp",
+  "toretoku",
 ]);
 // 与 bridge.py 常量逐字一致（改这里务必同步改 bridge）：
 const ASSISTED_BUY_INTENT_TEXT = "我要购买此商品";
