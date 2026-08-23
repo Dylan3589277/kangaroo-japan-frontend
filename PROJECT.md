@@ -4,7 +4,7 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
-### 2026-08-23 注册页支持客服签名绑定链接参数（未部署）
+### 2026-08-23 注册页支持客服签名绑定链接参数（已于2026-08-23部署ECS（main f9a1541））
 
 - **为什么**：配合后端 `feat/register-legacy-bind`：客服 bridge 给没账号的小程序用户发 `/zh/register?bindUid=&ts=&sig=`，注册时自动绑定小程序会员（原先靠手机号匹配，微信会员常没手机号绑不上）。
 - **逻辑**：注册页用 `useSearchParams` 读 `bindUid/ts/sig`，格式校验（uid/ts 纯数字、sig 64 位 hex）通过才透传给 `api.register()`（字段 `legacyBindUid/legacyBindTs/legacyBindSig`）；页面顶部显示「将自动绑定小程序会员 {uid}」提示；注册响应 `data.legacyBound` 为 true 弹成功 toast、false 弹「未能自动绑定」提示（不阻断注册）。
