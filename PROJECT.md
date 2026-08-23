@@ -4,6 +4,14 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-08-23 注册页支持客服签名绑定链接参数（未部署）
+
+- **为什么**：配合后端 `feat/register-legacy-bind`：客服 bridge 给没账号的小程序用户发 `/zh/register?bindUid=&ts=&sig=`，注册时自动绑定小程序会员（原先靠手机号匹配，微信会员常没手机号绑不上）。
+- **逻辑**：注册页用 `useSearchParams` 读 `bindUid/ts/sig`，格式校验（uid/ts 纯数字、sig 64 位 hex）通过才透传给 `api.register()`（字段 `legacyBindUid/legacyBindTs/legacyBindSig`）；页面顶部显示「将自动绑定小程序会员 {uid}」提示；注册响应 `data.legacyBound` 为 true 弹成功 toast、false 弹「未能自动绑定」提示（不阻断注册）。
+- **改动文件**（分支 `feat/register-legacy-bind` commit `a0e4a8c`）：`src/app/[lang]/register/page.tsx`、`src/lib/api.ts`（register 加 3 个可选字段）、`src/components/auth/auth-tcg.tsx`（`legacyBindHint` 提示框）、`src/i18n/locales/{zh,en}/auth.json`（`legacyBindHint/legacyBoundSuccess/legacyBoundFailed`）。
+- **验证**：`tsc --noEmit` 0 错、lint 0 错、`next build` 通过（中枢复跑 tsc 通过）。
+- **未做**：只合 main **未部署 ECS**（等花哥「推」）；ja/ko/vi/id/th locale 未加文案（回退 en）。
+
 ### 2026-08-21 zh 站智能客服「转人工」对齐小程序 → 53kf
 
 - **为什么**：zh 网页客服点「转人工」跳站内 `/contact` 页，小程序人工客服是 53kf 托管的微信客服，两边不一致，花哥要求先对齐。
