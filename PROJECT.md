@@ -56,3 +56,8 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 为什么：bridge 出卡靠识别消息里的商品链接（`_parse_supported_purchase_link`），原只认 `cardrush.jp/product/数字`；H5 `page.tsx` 把 `cardrush-main` 的分站 gid（`db:6523`）拼成主站 URL 也无法识别。前面三道白名单（candy 映射/后端 DTO/bridge allowlist）都在这道门之后。
 - 改动：bridge 加 cardrush 8 分站（→`cardrush-main`+`slug:digits`）、cardrush-pokemon.jp、card-museum.com `?pid=`、torecacamp-pokemon.com `/products/`、toretoku.jp `/item/details/` 解析；前端 `ITEM_URL_BUILDERS['cardrush-main']` 识别 `<slug>:<digits>` 拼分站域名，`ASSISTED_PURCHASE_PLATFORMS` 加 cardrush/cardmuseum/torecacamp/toretoku（防按钮落 mercari 分支白屏）。
 - 回滚：前端旧镜像 e349ddeeed80；bridge 备份 `bridge.py.bak-20260823-tgc2`。
+
+### 2026-08-24 · 雅虎竞拍客服出卡 H5 门 + 去出价跳老版小程序（eb21ac2，ECS 已部署 eb5ba813）
+- 为什么：客户粘贴雅虎竞拍链接只得纯文字；老版煤炉供销社不能发版，出价入口由 H5 卡按钮跳老版详情页 `/pages/daishujun/index/yahoo_detail?id=`。
+- 改动：`src/app/[lang]/support/h5/page.tsx`：渲染 bridge quote_ref kind:auction 竞拍卡；`purchasable !== false` 才出【去出价】按钮，否则红条 `support-quote-unpurchasable`（对抗审查修复 523c48e）。
+- 回滚：旧镜像 4f8c46c6（已 tag rollback-20260824）。
