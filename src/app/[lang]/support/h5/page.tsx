@@ -1599,10 +1599,11 @@ export default function MiniProgramSupportH5Page() {
   //     （与 mercari 商品页「立即购买」同一入口：createOrder → NewAge 付款 → 待支付）。
   // 买家勾选的可选服务 code 与已确认风险标记尽量作为 URL query 透传（services=逗号分隔code、risk_ack=1），
   // 结算/小程序端将来读取（后端建单存费由中枢另做，前端先透传，读不读不影响本次路由）。
-  // 雅虎(platform==='yahoo')：即決/竞拍购买路径与 mercari 不同，本次保持原 sendMessage 行为不动。
+  // 雅虎(platform==='yahoo')：NestJS 新后端已退役，一口价/竞拍都不进网页结算页——
+  // 竞拍（sale_type!=='sokketsu'）保持原 sendMessage 行为不动；一口价（sale_type
+  // ==='sokketsu'）改跳小程序雅虎详情页在老后台下单（方案①，2026-08-24）。
   function buyQuote(cardKey: string, quote: QuoteRef) {
-    // 雅虎不走本次新路由，保持原有「发购买意图文本 → 后端话术」行为，零回归。
-    if (quote.platform === "yahoo") {
+    if (quote.platform === "yahoo" && quote.sale_type !== "sokketsu") {
       let intent = "我要购买此商品";
       intent += summarizeSelectedServices(cardKey, quote);
       if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
@@ -1660,7 +1661,11 @@ export default function MiniProgramSupportH5Page() {
     // 平台（2026-08-23 真机反馈）此前会静默落入这条 mercari 专属流程，拿别平台商品号去建
     // mercari 订单 → 结算页/小程序页「商品不存在」白屏；改成提前拦截 + 转人工提示，不再
     // 静默假装是 mercari（呼应上面 yahoofrima/cardrush-main 那两次同款白屏教训）。
-    if (quote.platform && quote.platform !== "mercari") {
+    if (
+      quote.platform &&
+      quote.platform !== "mercari" &&
+      quote.platform !== "yahoo"
+    ) {
       setHumanTransferVisible(true);
       setHumanTransferNote("暂不支持该平台的自动购买，请联系客服协助下单。");
       return;
@@ -1672,13 +1677,25 @@ export default function MiniProgramSupportH5Page() {
       return;
     }
 
+    // 雅虎一口价：NestJS 新后端已退役，不再走网页结算页——改跳小程序雅虎详情页在老后台
+    // 下单（与 goYahooBid「去出价」同一目标页，一口价购买按钮由老后台按 sale_type 渲染）。
+    // 跳不动（非小程序 webview / PC 微信）回退人工提示，不落到已删除的结算页。
+    if (quote.platform === "yahoo") {
+      if (navigateToMiniProgramYahooBid(itemId)) return;
+      setHumanTransferVisible(true);
+      setHumanTransferNote(
+        "雅虎一口价购买请在袋鼠君小程序内操作（打开该商品详情页）。",
+      );
+      return;
+    }
+
     // 买家选择透传：服务 code 列表 + 风险已确认标记。
     const serviceCodes = collectSelectedServiceCodes(cardKey, quote);
     const riskAck = Boolean(
       quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey],
     );
 
-    // 小程序 webview：直接跳小程序内 confirm 结算页，勾选的增值服务 id 随 values 参数透传。
+    // 小程序 webview：直接跳小程序内 confirm 结算页（仅 mercari，走到这里已排除 yahoo）。
     if (isMiniProgramWebview()) {
       const valueAddedIds = collectSelectedServiceIds(cardKey, quote);
       if (navigateToMiniProgramBuy(itemId, valueAddedIds)) return;
@@ -2060,7 +2077,7 @@ export default function MiniProgramSupportH5Page() {
           </div>
         ) : null}
 
-        {isYahooAuction ? (
+        {isYahooAuction && quote.purchasable !== false ? (
           // 竞拍卡：押金区，不放「立即出价/我要购买/确认录入」（出价走小程序竞拍流程）
           <div className="mt-3" data-testid="support-quote-auction-deposit">
             {quote.deposit_state === "ok" ? (
@@ -2323,17 +2340,49 @@ export default function MiniProgramSupportH5Page() {
             </button>
           </div>
         ) : isYahooSokketsu && quote.purchasable !== false ? (
-          // 雅虎即決：联系客服下单，不显示自动下单/购买按钮
-          <div
-            className="mt-3 rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700"
-            data-testid="support-quote-sokketsu-cta"
-          >
-            {quote.action_hint === "contact_kefu" ||
-            !quote.action_hint
-              ? quote.action_text ||
-                "此商品为即決，请联系客服为您下单。"
-              : quote.action_text || "此商品请联系客服处理。"}
-          </div>
+          // 雅虎即決（一口价）：NestJS 新后端已退役，「去小程序购买」改跳袋鼠君小程序雅虎
+          // 详情页在老后台下单（方案①，2026-08-24），不再是纯联系客服文案。
+          (() => {
+            const riskBlocksBuy = Boolean(
+              quote.seller_risk?.needs_confirm &&
+                !quoteRiskConfirmed[cardKey],
+            );
+            return (
+              <div className="mt-3" data-testid="support-quote-sokketsu-cta">
+                <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
+                  {quote.action_text ||
+                    "核对无误后可点下方按钮立即购买，先到先得。"}
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                    onClick={() => consultQuote(quote)}
+                    disabled={loading}
+                    data-testid="support-quote-sokketsu-btn-consult"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    咨询
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                    onClick={() => buyQuote(cardKey, quote)}
+                    disabled={loading || riskBlocksBuy}
+                    data-testid="support-quote-sokketsu-btn-buy"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    去小程序购买
+                  </button>
+                </div>
+                {riskBlocksBuy ? (
+                  <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
+                    请先在上方完成『高额订单风险确认』，再点『去小程序购买』。
+                  </p>
+                ) : null}
+              </div>
+            );
+          })()
         ) : quote.purchasable === false ? (
           <div
             className="mt-3 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium leading-5 text-red-700"
