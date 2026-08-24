@@ -1599,10 +1599,11 @@ export default function MiniProgramSupportH5Page() {
   //     （与 mercari 商品页「立即购买」同一入口：createOrder → NewAge 付款 → 待支付）。
   // 买家勾选的可选服务 code 与已确认风险标记尽量作为 URL query 透传（services=逗号分隔code、risk_ack=1），
   // 结算/小程序端将来读取（后端建单存费由中枢另做，前端先透传，读不读不影响本次路由）。
-  // 雅虎(platform==='yahoo')：即決/竞拍购买路径与 mercari 不同，本次保持原 sendMessage 行为不动。
+  // 雅虎(platform==='yahoo')：竞拍（sale_type!=='sokketsu'，无一口价）购买路径与 mercari
+  // 不同，保持原 sendMessage 行为不动；一口价（sale_type==='sokketsu'）与 mercari 同构，
+  // 走下方现成的网页结算页路由（2026-08-24 花哥令：雅虎一口价接「立即购买」入口）。
   function buyQuote(cardKey: string, quote: QuoteRef) {
-    // 雅虎不走本次新路由，保持原有「发购买意图文本 → 后端话术」行为，零回归。
-    if (quote.platform === "yahoo") {
+    if (quote.platform === "yahoo" && quote.sale_type !== "sokketsu") {
       let intent = "我要购买此商品";
       intent += summarizeSelectedServices(cardKey, quote);
       if (quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey]) {
@@ -1660,11 +1661,16 @@ export default function MiniProgramSupportH5Page() {
     // 平台（2026-08-23 真机反馈）此前会静默落入这条 mercari 专属流程，拿别平台商品号去建
     // mercari 订单 → 结算页/小程序页「商品不存在」白屏；改成提前拦截 + 转人工提示，不再
     // 静默假装是 mercari（呼应上面 yahoofrima/cardrush-main 那两次同款白屏教训）。
-    if (quote.platform && quote.platform !== "mercari") {
+    if (
+      quote.platform &&
+      quote.platform !== "mercari" &&
+      quote.platform !== "yahoo"
+    ) {
       setHumanTransferVisible(true);
       setHumanTransferNote("暂不支持该平台的自动购买，请联系客服协助下单。");
       return;
     }
+    const isYahooSokketsuBuy = quote.platform === "yahoo";
     const itemId = quote.item_id;
     // 没有商品号无法定位购买流程：兜底回原 sendMessage 行为，避免跳到空 id 的结算页。
     if (!itemId) {
@@ -1678,8 +1684,10 @@ export default function MiniProgramSupportH5Page() {
       quote.seller_risk?.needs_confirm && quoteRiskConfirmed[cardKey],
     );
 
-    // 小程序 webview：直接跳小程序内 confirm 结算页，勾选的增值服务 id 随 values 参数透传。
-    if (isMiniProgramWebview()) {
+    // 小程序 webview：直接跳小程序内 confirm 结算页。仅 mercari——小程序侧 confirm 页
+    // 硬编码 type=mercari（navigateToMiniProgramBuy 见上，未同步雅虎一口价），雅虎一口价
+    // 一律走下方网页结算页，避免拿雅虎商品号建出 mercari 订单。
+    if (!isYahooSokketsuBuy && isMiniProgramWebview()) {
       const valueAddedIds = collectSelectedServiceIds(cardKey, quote);
       if (navigateToMiniProgramBuy(itemId, valueAddedIds)) return;
       // 跳不动（理论上 isMiniProgramWebview 为真时不该发生）兜底回原行为。
@@ -1688,7 +1696,10 @@ export default function MiniProgramSupportH5Page() {
     }
 
     // 普通网页 H5：进现成网页结算页。带上服务/风险透传 query（结算端读不读都不影响路由）。
-    const query = new URLSearchParams({ type: "mercari", id: itemId });
+    const query = new URLSearchParams({
+      type: isYahooSokketsuBuy ? "yahoo" : "mercari",
+      id: itemId,
+    });
     if (serviceCodes.length > 0) query.set("services", serviceCodes.join(","));
     if (riskAck) query.set("risk_ack", "1");
     router.push(`/${lang}/checkout?${query.toString()}`);
@@ -2323,17 +2334,49 @@ export default function MiniProgramSupportH5Page() {
             </button>
           </div>
         ) : isYahooSokketsu && quote.purchasable !== false ? (
-          // 雅虎即決：联系客服下单，不显示自动下单/购买按钮
-          <div
-            className="mt-3 rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700"
-            data-testid="support-quote-sokketsu-cta"
-          >
-            {quote.action_hint === "contact_kefu" ||
-            !quote.action_hint
-              ? quote.action_text ||
-                "此商品为即決，请联系客服为您下单。"
-              : quote.action_text || "此商品请联系客服处理。"}
-          </div>
+          // 雅虎即決（一口价）：与 mercari 一样接「立即购买」→ 现成网页结算页
+          // （2026-08-24 花哥令），不再是纯联系客服文案。
+          (() => {
+            const riskBlocksBuy = Boolean(
+              quote.seller_risk?.needs_confirm &&
+                !quoteRiskConfirmed[cardKey],
+            );
+            return (
+              <div className="mt-3" data-testid="support-quote-sokketsu-cta">
+                <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
+                  {quote.action_text ||
+                    "核对无误后可点下方按钮立即购买，先到先得。"}
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                    onClick={() => consultQuote(quote)}
+                    disabled={loading}
+                    data-testid="support-quote-sokketsu-btn-consult"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    咨询
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                    onClick={() => buyQuote(cardKey, quote)}
+                    disabled={loading || riskBlocksBuy}
+                    data-testid="support-quote-sokketsu-btn-buy"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    立即购买
+                  </button>
+                </div>
+                {riskBlocksBuy ? (
+                  <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
+                    请先在上方完成『高额订单风险确认』，再点『立即购买』。
+                  </p>
+                ) : null}
+              </div>
+            );
+          })()
         ) : quote.purchasable === false ? (
           <div
             className="mt-3 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium leading-5 text-red-700"
