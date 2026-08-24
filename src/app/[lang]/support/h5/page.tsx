@@ -849,14 +849,17 @@ function navigateToMiniProgramSitesConfirm(
 }
 
 // 小程序内「去出价」：跳袋鼠君小程序的雅虎竞拍详情页（出价/押金在该页操作）。
-// 路径依据 daishujunApp/pages/daishujun/index/yahoo_detail.vue：onLoad(e) 读 e.id，param 名是 `id`。
-function navigateToMiniProgramYahooBid(itemId: string) {
+// 老版路径依据 daishujunApp/pages/daishujun/index/yahoo_detail.vue：onLoad(e) 读 e.id，param 名是 `id`。
+// candy 宿主（useCandyTransfer=true，判据同 isCandyTheme）没有 yahoo_detail 页，改跳中转页
+// /pages/bundle/transfer/auction（onLoad 同样读 id），老版行为零变化。
+function navigateToMiniProgramYahooBid(itemId: string, useCandyTransfer: boolean) {
   if (typeof window === "undefined") return false;
   const win = window as MiniProgramWindow;
   if (!win.wx?.miniProgram?.navigateTo) return false;
-  win.wx.miniProgram.navigateTo({
-    url: "/pages/daishujun/index/yahoo_detail?id=" + encodeURIComponent(itemId),
-  });
+  const url = useCandyTransfer
+    ? "/pages/bundle/transfer/auction?id=" + encodeURIComponent(itemId)
+    : "/pages/daishujun/index/yahoo_detail?id=" + encodeURIComponent(itemId);
+  win.wx.miniProgram.navigateTo({ url });
   return true;
 }
 
@@ -1681,7 +1684,7 @@ export default function MiniProgramSupportH5Page() {
     // 下单（与 goYahooBid「去出价」同一目标页，一口价购买按钮由老后台按 sale_type 渲染）。
     // 跳不动（非小程序 webview / PC 微信）回退人工提示，不落到已删除的结算页。
     if (quote.platform === "yahoo") {
-      if (navigateToMiniProgramYahooBid(itemId)) return;
+      if (navigateToMiniProgramYahooBid(itemId, isCandyTheme)) return;
       setHumanTransferVisible(true);
       setHumanTransferNote(
         "雅虎一口价购买请在袋鼠君小程序内操作（打开该商品详情页）。",
@@ -1745,7 +1748,7 @@ export default function MiniProgramSupportH5Page() {
       return;
     }
     if (platform === "yahoo") {
-      if (itemId && navigateToMiniProgramYahooBid(itemId)) return;
+      if (itemId && navigateToMiniProgramYahooBid(itemId, isCandyTheme)) return;
     } else if (platform && itemId) {
       if (navigateToMiniProgramGoodsDetail(platform, itemId)) return;
     }
@@ -1766,7 +1769,7 @@ export default function MiniProgramSupportH5Page() {
   // 雅虎竞拍「去出价」：小程序内跳竞拍详情页（出价/押金在该页操作）；
   // 跳不动（网页端等）则引导回小程序——竞拍出价是小程序专属流程。
   function goYahooBid(itemId?: string) {
-    if (itemId && navigateToMiniProgramYahooBid(itemId)) return;
+    if (itemId && navigateToMiniProgramYahooBid(itemId, isCandyTheme)) return;
     setHumanTransferVisible(true);
     setHumanTransferNote(
       "雅虎竞拍的出价与押金请在袋鼠君小程序内操作（打开该商品出价）。",
