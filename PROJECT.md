@@ -61,3 +61,8 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 为什么：客户粘贴雅虎竞拍链接只得纯文字；老版煤炉供销社不能发版，出价入口由 H5 卡按钮跳老版详情页 `/pages/daishujun/index/yahoo_detail?id=`。
 - 改动：`src/app/[lang]/support/h5/page.tsx`：渲染 bridge quote_ref kind:auction 竞拍卡；`purchasable !== false` 才出【去出价】按钮，否则红条 `support-quote-unpurchasable`（对抗审查修复 523c48e）。
 - 回滚：旧镜像 4f8c46c6（已 tag rollback-20260824）。
+
+### 2026-08-24 · 竞拍去出价按宿主分流：candy 跳中转页（ab23d27，ECS 已部署）
+- 为什么：kefu H5 竞拍卡【去出价】原来写死跳老版煤炉供销社页面，在 candy（新版小程序）宿主里该路径不存在、点了没反应。
+- 改动：`src/app/[lang]/support/h5/page.tsx` `navigateToMiniProgramYahooBid(itemId, useCandyTransfer)` 按 `isCandyTheme` 分流——candy 宿主跳 `/pages/bundle/transfer/auction?id=`（candy 新中转页，用户点按钮后 `navigateToMiniProgram` 跳老版），老版宿主 URL 字节不变。3 个调用点全部传 `isCandyTheme`。
+- 回滚：旧镜像 eb5ba8133140（已 tag rollback-20260824b）。
