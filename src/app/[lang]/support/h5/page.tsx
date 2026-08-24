@@ -2077,7 +2077,7 @@ export default function MiniProgramSupportH5Page() {
           </div>
         ) : null}
 
-        {isYahooAuction ? (
+        {isYahooAuction && quote.purchasable !== false ? (
           // 竞拍卡：押金区，不放「立即出价/我要购买/确认录入」（出价走小程序竞拍流程）
           <div className="mt-3" data-testid="support-quote-auction-deposit">
             {quote.deposit_state === "ok" ? (
