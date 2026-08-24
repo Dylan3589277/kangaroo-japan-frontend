@@ -80,14 +80,6 @@ export interface MercariQuote {
   valueAdded: MercariQuoteValueAdded[];
 }
 
-// Yahoo 一口价（sokketsu）委托下单：请求/响应形状与上方 Mercari 完全同构，
-// 后端经 /api/backend 代理 → /api/v1/yahoo/proxy-submit（NestJS 镜像端点）。
-export type YahooProxySubmitResult = MercariProxySubmitResult;
-
-// Yahoo 一口价后端权威报价，形状同 MercariQuote（同一批后端镜像端点产出）。
-export type YahooQuoteValueAdded = MercariQuoteValueAdded;
-export type YahooQuote = MercariQuote;
-
 // 通用「网页代拍」建单结果（平台无关）。金额 JPY 整数；payAmount 按 payCurrency。
 export interface ProxyBuyCreateResult {
   orderId: string;
@@ -2054,35 +2046,6 @@ class ApiClient {
     // 开了 forbidNonWhitelisted——多发任何字段（id/buyerMessage 等）都会被 400 拒绝。
     // 故只发这两个；商品号后端会自行转成旧端的 id/goods_no，无需前端重复发。
     return this.request<MercariProxySubmitResult>("/mercari/proxy-submit", {
-      method: "POST",
-      body: {
-        goodsNo: data.goodsNo,
-        values: data.values || "",
-      },
-    });
-  }
-
-  // Yahoo 一口价（sokketsu）后端权威报价，镜像 getMercariQuote。
-  // 经 /api/backend 代理 → 后端 GET /api/v1/yahoo/quote?goodsNo=...，JWT 自动带。
-  async getYahooQuote(
-    goodsNo: string,
-    opts?: { tcg?: boolean; skipAuthRedirect?: boolean },
-  ) {
-    const tcgQuery = opts?.tcg ? "&tcg=true" : "";
-    return this.request<YahooQuote>(
-      `/yahoo/quote?goodsNo=${encodeURIComponent(goodsNo)}${tcgQuery}`,
-      { skipAuthRedirect: opts?.skipAuthRedirect ?? false },
-    );
-  }
-
-  // Yahoo 一口价委托下单 + 在线全额支付，镜像 mercariProxySubmit。
-  // 经 /api/backend 代理 → 后端 /api/v1/yahoo/proxy-submit。
-  async yahooProxySubmit(data: {
-    goodsNo: string;
-    values?: string;
-    buyerMessage?: string;
-  }) {
-    return this.request<YahooProxySubmitResult>("/yahoo/proxy-submit", {
       method: "POST",
       body: {
         goodsNo: data.goodsNo,

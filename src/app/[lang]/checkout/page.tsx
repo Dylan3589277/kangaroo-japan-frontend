@@ -7,7 +7,6 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { api } from "@/lib/api";
 import MercariCheckout from "@/components/checkout/mercari-checkout";
-import YahooSokketsuCheckout from "@/components/checkout/yahoo-sokketsu-checkout";
 import ProxyBuyCheckout from "@/components/checkout/proxy-buy-checkout";
 import { useAuthStore } from "@/lib/auth";
 import { loginPathWithNext } from "@/lib/login-redirect";
@@ -116,11 +115,6 @@ export default function CheckoutPage() {
   // Mercari 网页结算（type=mercari&id=...）走专用流程：委托下单 → NewAge 在线全额支付。
   if (type === "mercari") {
     return <MercariCheckout />;
-  }
-  // Yahoo 一口价（type=yahoo&id={拍品id}）：与 Mercari 同构的委托下单 → NewAge 在线全额支付流程。
-  // 🔴不进 PROXY_BUY_PLATFORMS——那是网页代拍（人工履约）管道，设计上排除 yahoo 一口价。
-  if (type === "yahoo") {
-    return <YahooSokketsuCheckout />;
   }
   // 通用网页代拍（type=rakuma|yahoofrima|...&id=...）：建单 → Stripe(en)/NewAge(zh)，人工履约。
   if (type && PROXY_BUY_PLATFORMS.has(type)) {
