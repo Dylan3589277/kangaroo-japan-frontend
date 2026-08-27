@@ -26,7 +26,7 @@ import { useChatWidgetContext } from "./ChatProvider";
 // 小程序人工客服落点是 53kf 托管的微信客服；zh 转人工在这里对齐，直接打开 53kf
 // 网页客服，而不是跳内部 /contact 页。后续会与小程序一起统一切企业微信客服。
 const KF53_CHAT_URL_DEFAULT =
-  "https://tb.53kf.com/code/client/8252b02b9d3316d5208582bc9dd052118/1";
+  "https://work.weixin.qq.com/kfid/kfcdd40f1f6c4b4b499";
 const KF53_CHAT_URL = process.env.NEXT_PUBLIC_KF53_CHAT_URL || KF53_CHAT_URL_DEFAULT;
 
 type ChatRole = "user" | "assistant";

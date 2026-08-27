@@ -359,7 +359,10 @@ const HUMAN_TRANSFER_MESSAGE =
 const RESPONSE_TIME_NOTE =
   "我会尽量快点回复；复杂问题可能需要十几秒整理，请稍等一下。";
 const MINI_PROGRAM_REAL_KEFU_PATH = "/pages/bundle/realkefu/realkefu";
-const KF53_CHAT_URL = process.env.NEXT_PUBLIC_KF53_CHAT_URL || "";
+// 默认走企业微信客服链接，env 可覆盖。
+const KF53_CHAT_URL =
+  process.env.NEXT_PUBLIC_KF53_CHAT_URL ||
+  "https://work.weixin.qq.com/kfid/kfcdd40f1f6c4b4b499";
 // 竞拍（雅虎/煤炉）押金不足时「去充押金」跳转的小程序充值页 path。
 // 默认走袋鼠君小程序现有充值页 /pages/daishujun/index/pay（pay.vue onLoad 读 p.type/p.money），
 // 拼参 type=deposit&money=<建议充值 CNY 整数>；env 仍可覆盖为专用 path。
