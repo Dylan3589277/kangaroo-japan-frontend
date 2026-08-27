@@ -717,6 +717,12 @@ function isPcWechat() {
   return ua.includes("WindowsWechat") || ua.includes("MacWechat");
 }
 
+function isMobileWechat() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /MicroMessenger/i.test(ua) && !isPcWechat();
+}
+
 function navigateToMiniProgramHumanKefu() {
   if (typeof window === "undefined") return false;
   const win = window as MiniProgramWindow;
@@ -1400,6 +1406,10 @@ export default function MiniProgramSupportH5Page() {
     // PC 微信（WindowsWechat/MacWechat）跳过不可靠的小程序桥，直接走 53kf 网页人工客服。
     // 非 PC 微信（移动端小程序 webview）仍优先跳小程序内人工客服页。
     if (!isPcWechat() && navigateToMiniProgramHumanKefu()) return;
+    if (kf53ChatUrl && isMobileWechat()) {
+      window.location.href = kf53ChatUrl;
+      return;
+    }
     if (kf53ChatUrl) {
       // window.open 可能被拦截/返回 null（部分 webview 不支持新开窗口）：
       // 失败兜底为当前页跳转 location.href，确保人工客服一定能进。
