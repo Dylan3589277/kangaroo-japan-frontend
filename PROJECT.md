@@ -4,6 +4,13 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-08-27 客服转人工从 53kf 切企业微信客服（b3aa103，已部署ECS，回滚锚点镜像 rollback-20260827，旧镜像 8aca676c68c2）
+
+- **为什么**：客服团队 8/31 离职，统一切企业微信客服接待，不再用 53kf。
+- **逻辑**：`TcgChatWidget` 的 `KF53_CHAT_URL_DEFAULT` 与 `/zh/support/h5` 的 `KF53_CHAT_URL` 默认值改为企业微信客服链接 `https://work.weixin.qq.com/kfid/kfcdd40f1f6c4b4b499`；`env NEXT_PUBLIC_KF53_CHAT_URL` 仍可覆盖。
+- **改动**：`src/components/tcg/TcgChatWidget.tsx`、`src/app/[lang]/support/h5/page.tsx` 的 `KF53_CHAT_URL(_DEFAULT)` 默认值。
+- **备注**：老后台 `api/index/kefu` 同日已全量下发 `corp` 字段（小程序 realkefu 用）。
+
 ### 2026-08-23 煤炉竞拍确认面板出价输入框前导0修复（f03375c，已部署ECS，回滚锚点镜像 sha256:4d7c04ed167b…）
 
 - **为什么**：真机改出价时清空后显示 `0` 删不掉，再输入变 `02100`。
