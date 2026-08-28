@@ -23,11 +23,12 @@ import { useChatWidgetContext } from "./ChatProvider";
  * zh 走 sendSupportChat（site=kangaroo-japan，中文 KB）。不改任何后端/支付逻辑。
  */
 
-// 小程序人工客服落点是 53kf 托管的微信客服；zh 转人工在这里对齐，直接打开 53kf
-// 网页客服，而不是跳内部 /contact 页。后续会与小程序一起统一切企业微信客服。
-const KF53_CHAT_URL_DEFAULT =
+// zh 转人工落点是企业微信客服（2026-08-27 由 53kf 切换，见 commit b3aa103）；
+// 这里直接打开企业微信客服链接，而不是跳内部 /contact 页。en 仍走站内 /contact 页。
+const WECOM_KEFU_CHAT_URL_DEFAULT =
   "https://work.weixin.qq.com/kfid/kfcdd40f1f6c4b4b499";
-const KF53_CHAT_URL = process.env.NEXT_PUBLIC_KF53_CHAT_URL || KF53_CHAT_URL_DEFAULT;
+// env 名沿用历史名 KF53，保留是为了不破坏既有配置。
+const WECOM_KEFU_CHAT_URL = process.env.NEXT_PUBLIC_KF53_CHAT_URL || WECOM_KEFU_CHAT_URL_DEFAULT;
 
 type ChatRole = "user" | "assistant";
 
@@ -375,7 +376,7 @@ export function TcgChatWidget() {
                       </Link>
                     ) : (
                       <a
-                        href={KF53_CHAT_URL}
+                        href={WECOM_KEFU_CHAT_URL}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setOpen(false)}

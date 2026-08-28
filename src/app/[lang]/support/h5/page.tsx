@@ -359,8 +359,8 @@ const HUMAN_TRANSFER_MESSAGE =
 const RESPONSE_TIME_NOTE =
   "我会尽量快点回复；复杂问题可能需要十几秒整理，请稍等一下。";
 const MINI_PROGRAM_REAL_KEFU_PATH = "/pages/bundle/realkefu/realkefu";
-// 默认走企业微信客服链接，env 可覆盖。
-const KF53_CHAT_URL =
+// 默认走企业微信客服链接，env 可覆盖。env 名沿用历史名 KF53，保留是为了不破坏既有配置。
+const WECOM_KEFU_CHAT_URL =
   process.env.NEXT_PUBLIC_KF53_CHAT_URL ||
   "https://work.weixin.qq.com/kfid/kfcdd40f1f6c4b4b499";
 // 竞拍（雅虎/煤炉）押金不足时「去充押金」跳转的小程序充值页 path。
@@ -710,7 +710,7 @@ function isMiniProgramWebview() {
 
 // PC 端微信内置浏览器（WindowsWechat / MacWechat）：这里的小程序 webview 桥
 // (wx.miniProgram.navigateTo) 行为不可靠 —— PC 微信打开的小程序 webview 跳转人工
-// 客服页常失败或空白。故 PC 微信一律走 53kf 网页人工客服兜底，不依赖小程序桥。
+// 客服页常失败或空白。故 PC 微信一律走企业微信客服兜底，不依赖小程序桥。
 function isPcWechat() {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent || "";
@@ -887,8 +887,8 @@ function navigateToMiniProgramDepositRecharge(moneyRmb?: number) {
   return true;
 }
 
-function getKf53ChatUrl() {
-  const rawUrl = KF53_CHAT_URL.trim();
+function getWecomKefuChatUrl() {
+  const rawUrl = WECOM_KEFU_CHAT_URL.trim();
   if (!rawUrl) return null;
 
   try {
@@ -1004,7 +1004,7 @@ export default function MiniProgramSupportH5Page() {
   const [mercariBidAmountInputs, setMercariBidAmountInputs] = useState<
     Record<string, string>
   >({});
-  const kf53ChatUrl = getKf53ChatUrl();
+  const wecomKefuChatUrl = getWecomKefuChatUrl();
 
   const externalSessionId = useMemo(
     () => initialSessionId || `mini-h5-${Date.now()}`,
@@ -1403,19 +1403,19 @@ export default function MiniProgramSupportH5Page() {
   }
 
   function contactHuman() {
-    // PC 微信（WindowsWechat/MacWechat）跳过不可靠的小程序桥，直接走 53kf 网页人工客服。
+    // PC 微信（WindowsWechat/MacWechat）跳过不可靠的小程序桥，直接走企业微信客服。
     // 非 PC 微信（移动端小程序 webview）仍优先跳小程序内人工客服页。
     if (!isPcWechat() && navigateToMiniProgramHumanKefu()) return;
-    if (kf53ChatUrl && isMobileWechat()) {
-      window.location.href = kf53ChatUrl;
+    if (wecomKefuChatUrl && isMobileWechat()) {
+      window.location.href = wecomKefuChatUrl;
       return;
     }
-    if (kf53ChatUrl) {
+    if (wecomKefuChatUrl) {
       // window.open 可能被拦截/返回 null（部分 webview 不支持新开窗口）：
       // 失败兜底为当前页跳转 location.href，确保人工客服一定能进。
-      const opened = window.open(kf53ChatUrl, "_blank", "noopener,noreferrer");
+      const opened = window.open(wecomKefuChatUrl, "_blank", "noopener,noreferrer");
       if (!opened) {
-        window.location.href = kf53ChatUrl;
+        window.location.href = wecomKefuChatUrl;
         return;
       }
       setHumanTransferVisible(true);
@@ -2902,7 +2902,7 @@ export default function MiniProgramSupportH5Page() {
             {!isMiniProgramWebview() ? (
               <p className="mt-2 flex items-start gap-1 text-xs leading-5 text-slate-500">
                 <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {kf53ChatUrl
+                {wecomKefuChatUrl
                   ? "普通 H5 环境会打开网页人工客服窗口，不会自动携带订单或个人敏感信息。"
                   : "普通 H5 环境无法直接拉起微信客服，请回到袋鼠君小程序后点击人工客服入口。"}
               </p>

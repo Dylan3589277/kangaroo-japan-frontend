@@ -515,6 +515,12 @@ function transferHumanResponse(
       reply: sanitizeCustomerReply(reply),
       reason,
       sourceIds: [],
+      // "53kf" is a legacy field value; the actual handoff destination is now
+      // enterprise WeChat customer service (switched 2026-08-27, commit b3aa103).
+      // 🔴 Do not change this value: the mini-program (pages/bundle/kefu/kefu.vue)
+      // branches on data.fallback === '53kf' to trigger human handoff, and already
+      // shipped old client versions can't be updated — changing it breaks their
+      // handoff. What actually decides the redirect is type/action == transfer_human.
       fallback: "53kf",
       requiresTicket: true,
       isHighRisk: true,
@@ -617,6 +623,7 @@ function quickReplyResponse(message: string, body: Record<string, unknown>) {
         reason: quickReply.reason,
         sourceIds: [QUICK_REPLY_SOURCE_ID, quickReply.sourceId],
         sourceVersion: quickReply.sourceVersion,
+        // "53kf" legacy value, see transferHumanResponse() above — do not change.
         fallback: "53kf",
         requiresTicket: true,
         isHighRisk: true,
@@ -876,7 +883,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
 //
 // This path is fully isolated from the mini-program flow above: it never reads a
 // user_id, never runs personalized-status / order-lookup, and never falls back to
-// the Chinese 53kf transfer text. v1 answers general FAQ only (fees, value-added
+// the Chinese enterprise-WeChat-support transfer text. v1 answers general FAQ only (fees, value-added
 // services, condition, grading, sealed risk, packaging, consolidation, customs,
 // shipping) and hands off order-specific questions to email/WhatsApp.
 // Order lookup (查单) is intentionally deferred to phase 2 once the TCG user ↔
