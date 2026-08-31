@@ -42,6 +42,8 @@ type ChatItem = {
   choiceRef?: ChoiceRef;
   listRef?: ListRef;
   proxyBuyPayRef?: ProxyBuyPay;
+  // 「留言给卖家」结构化卡片（bridge 新增，与 quote_ref 同级）。字段契约见 getLeaveMsgRef。
+  leaveMsgRef?: LeaveMsgRef;
   createdAt?: string;
 };
 
@@ -173,6 +175,18 @@ type SellerRisk = {
   disclaimer?: string; // 「一旦购买成功不退不换」声明文案
 };
 
+// 「留言给卖家」结构化卡片（bridge 新增，与 quote_ref 同级，data/root 两处都可能下发）。
+// goods_no 为锚点字段——缺失即视为无效卡片（呼应 getProxyBuyPay 的 orderRef 锚点惯例）。
+type LeaveMsgRef = {
+  platform?: string;
+  goods_no?: string;
+  link?: string;
+  price_jpy?: number;
+  floor_price_jpy?: number;
+  prefill_amount_jpy?: number;
+  mode_hint?: "bargain" | "consult";
+};
+
 type SupportParsedResponse = {
   text: string;
   transferHuman: boolean;
@@ -184,6 +198,7 @@ type SupportParsedResponse = {
   choiceRef?: ChoiceRef;
   listRef?: ListRef;
   proxyBuyPayRef?: ProxyBuyPay;
+  leaveMsgRef?: LeaveMsgRef;
 };
 
 type MiniProgramWindow = Window & {
@@ -223,6 +238,15 @@ const QUICK_QUESTIONS = [
   "代拍费用怎么算？",
   "会产生关税吗？",
   "我要转人工客服",
+];
+
+// 「留言给卖家」咨询模式预设问题（花哥拍板 4 条，仅中文——弹窗只在 zh 场景出现）。
+// 点击只填入 textarea，不直接提交，买家仍可编辑。
+const LEAVE_MSG_PRESET_QUESTIONS = [
+  "商品还在吗？",
+  "能多拍几张实物照片吗？",
+  "有瑕疵或使用痕迹吗？",
+  "可以说明一下尺寸/成色吗？",
 ];
 
 // 2026-08-08 加入 rakuma / yahoofrima：小程序站点详情页点「客服」会带 shop=rakuma 等进来，
@@ -623,6 +647,28 @@ function getProxyBuyPay(value: unknown): ProxyBuyPay | undefined {
   };
 }
 
+// 「留言给卖家」结构化卡片解析。goods_no 为锚点字段（呼应 getProxyBuyPay 的 orderRef 惯例）——
+// 缺失/类型不对一律返回 undefined，不渲染空卡。mode_hint 只认白名单两个值，其余当未提供。
+function getLeaveMsgRef(value: unknown): LeaveMsgRef | undefined {
+  const r = getRecord(value);
+  const goodsNo = getString(r.goods_no);
+  if (!goodsNo) return undefined;
+  const modeHintRaw = getString(r.mode_hint);
+  const modeHint =
+    modeHintRaw === "bargain" || modeHintRaw === "consult"
+      ? modeHintRaw
+      : undefined;
+  return {
+    platform: getString(r.platform),
+    goods_no: goodsNo,
+    link: getString(r.link),
+    price_jpy: getNumber(r.price_jpy),
+    floor_price_jpy: getNumber(r.floor_price_jpy),
+    prefill_amount_jpy: getNumber(r.prefill_amount_jpy),
+    mode_hint: modeHint,
+  };
+}
+
 function parseSupportResponse(payload: unknown): SupportParsedResponse {
   const root = getRecord(payload);
   const data = getRecord(root.data) || root;
@@ -640,6 +686,9 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
   const listRef = getListRef(data.list || root.list);
   const proxyBuyPayRef = getProxyBuyPay(
     data.proxy_buy_pay || root.proxy_buy_pay,
+  );
+  const leaveMsgRef = getLeaveMsgRef(
+    data.leave_msg_ref || root.leave_msg_ref,
   );
 
   const text =
@@ -662,6 +711,7 @@ function parseSupportResponse(payload: unknown): SupportParsedResponse {
     choiceRef,
     listRef,
     proxyBuyPayRef,
+    leaveMsgRef,
   };
 }
 
@@ -1014,6 +1064,10 @@ export default function MiniProgramSupportH5Page() {
   const [leaveMsgTarget, setLeaveMsgTarget] = useState<{
     cardKey: string;
     quote: QuoteRef;
+    // 来自 leaveMsgRef 结构化卡片的上下文透传（QuoteRef 无这两个字段，故不塞进 quote，
+    // 避免污染该类型）：floorPriceJpy 覆盖砍价底线默认的 80% 算法；link 供「查看商品」用。
+    floorPriceJpy?: number;
+    link?: string;
   } | null>(null);
   const [leaveMsgType, setLeaveMsgType] = useState<
     "bargain" | "question" | null
@@ -1399,6 +1453,7 @@ export default function MiniProgramSupportH5Page() {
             choiceRef: parsed.choiceRef,
             listRef: parsed.listRef,
             proxyBuyPayRef: parsed.proxyBuyPayRef,
+            leaveMsgRef: parsed.leaveMsgRef,
           },
         ]);
       }
@@ -1836,10 +1891,30 @@ export default function MiniProgramSupportH5Page() {
 
   // 「留言给卖家」（砍价/咨询）：仅 mercari 报价卡展示，visitor 接口公开、不依赖小程序
   // 登录态，webview 和浏览器直开都可用（与 canAddToCart 的 wxReady 门槛无关）。
-  function openLeaveMsgModal(cardKey: string, quote: QuoteRef) {
-    setLeaveMsgTarget({ cardKey, quote });
-    setLeaveMsgType(null);
-    setLeaveMsgTargetPrice("");
+  // opts 供 leaveMsgRef 结构化卡片调用：可带 floorPriceJpy/link 上下文，并直接跳过
+  // 类型选择屏、带预填砍价打开对应子视图（原报价卡按钮不传 opts，行为不变）。
+  function openLeaveMsgModal(
+    cardKey: string,
+    quote: QuoteRef,
+    opts?: {
+      floorPriceJpy?: number;
+      link?: string;
+      initialType?: "bargain" | "question";
+      prefillAmountJpy?: number;
+    },
+  ) {
+    setLeaveMsgTarget({
+      cardKey,
+      quote,
+      floorPriceJpy: opts?.floorPriceJpy,
+      link: opts?.link,
+    });
+    setLeaveMsgType(opts?.initialType ?? null);
+    setLeaveMsgTargetPrice(
+      opts?.prefillAmountJpy !== undefined
+        ? String(opts.prefillAmountJpy)
+        : "",
+    );
     setLeaveMsgQuestionText("");
     setLeaveMsgError("");
   }
@@ -1887,7 +1962,8 @@ export default function MiniProgramSupportH5Page() {
         setLeaveMsgError("请输入整数日元目标价");
         return;
       }
-      const floor = leaveMsgBargainFloor(quote.price_jpy);
+      const floor =
+        leaveMsgTarget.floorPriceJpy ?? leaveMsgBargainFloor(quote.price_jpy);
       if (floor !== undefined && target < floor) {
         setLeaveMsgError(
           `目标价不能低于现价的 80%，最低可请求 ¥${floor.toLocaleString("ja-JP")} 日元`,
@@ -2948,6 +3024,88 @@ export default function MiniProgramSupportH5Page() {
             </div>
           </div>
         ) : null}
+        {/* 「留言给卖家」结构化卡片（leaveMsgRef，bridge 新增，与 quote_ref 同级）：买家未必
+             先看到报价卡（如直接问"能便宜点吗"）时也能一步开留言弹窗。复用现有弹窗/state
+             （openLeaveMsgModal），与报价卡第二排的「留言给卖家」按钮走同一路径，零冲突。
+             仅 goods_no 非空才会解析出这张卡（见 getLeaveMsgRef），此处再叠一层 userId
+             门槛（无登录态提交必失败，避免出一张点了没用的卡）。 */}
+        {item.leaveMsgRef && userId ? (
+          <div
+            className="mt-2 w-[82%] max-w-sm rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+            data-testid="support-leavemsg-ref-card"
+          >
+            {item.leaveMsgRef.link ? (
+              <a
+                href={item.leaveMsgRef.link}
+                target="_blank"
+                rel="noreferrer"
+                className="mb-2 flex items-center gap-1 text-xs text-orange-600 underline"
+              >
+                <ExternalLink className="h-3 w-3" />
+                查看商品
+              </a>
+            ) : null}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className={
+                  item.leaveMsgRef.mode_hint === "bargain"
+                    ? "flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                    : "flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 disabled:opacity-50"
+                }
+                onClick={() =>
+                  openLeaveMsgModal(
+                    key,
+                    {
+                      platform: item.leaveMsgRef?.platform || "mercari",
+                      item_id: item.leaveMsgRef?.goods_no,
+                      price_jpy: item.leaveMsgRef?.price_jpy,
+                    },
+                    {
+                      floorPriceJpy: item.leaveMsgRef?.floor_price_jpy,
+                      link: item.leaveMsgRef?.link,
+                      initialType: "bargain",
+                      prefillAmountJpy: item.leaveMsgRef?.prefill_amount_jpy,
+                    },
+                  )
+                }
+                disabled={loading || item.leaveMsgRef.price_jpy === undefined}
+                data-testid="leave-msg-ref-btn-bargain"
+              >
+                <HandCoins className="h-4 w-4" />
+                帮我砍价
+              </button>
+              <button
+                type="button"
+                className={
+                  item.leaveMsgRef.mode_hint === "consult"
+                    ? "flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                    : "flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 disabled:opacity-50"
+                }
+                onClick={() =>
+                  openLeaveMsgModal(
+                    key,
+                    {
+                      platform: item.leaveMsgRef?.platform || "mercari",
+                      item_id: item.leaveMsgRef?.goods_no,
+                      price_jpy: item.leaveMsgRef?.price_jpy,
+                    },
+                    {
+                      floorPriceJpy: item.leaveMsgRef?.floor_price_jpy,
+                      link: item.leaveMsgRef?.link,
+                      initialType: "question",
+                    },
+                  )
+                }
+                disabled={loading}
+                data-testid="leave-msg-ref-btn-consult"
+              >
+                <MessageSquarePlus className="h-4 w-4" />
+                咨询卖家
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -3194,11 +3352,13 @@ export default function MiniProgramSupportH5Page() {
                   disabled={leaveMsgSubmitting}
                   data-testid="leave-msg-bargain-input"
                 />
-                {leaveMsgTarget.quote.price_jpy !== undefined ? (
+                {leaveMsgTarget.floorPriceJpy !== undefined ||
+                leaveMsgTarget.quote.price_jpy !== undefined ? (
                   <p className="mt-1 text-[11px] leading-4 text-slate-400">
                     最低可请求 ¥
-                    {leaveMsgBargainFloor(
-                      leaveMsgTarget.quote.price_jpy,
+                    {(
+                      leaveMsgTarget.floorPriceJpy ??
+                      leaveMsgBargainFloor(leaveMsgTarget.quote.price_jpy)
                     )?.toLocaleString("ja-JP")}{" "}
                     日元（现价的 80%），低于此价卖家大概率不会同意。
                   </p>
@@ -3209,6 +3369,21 @@ export default function MiniProgramSupportH5Page() {
                 <label className="block text-xs font-medium text-slate-500">
                   想咨询卖家的问题
                 </label>
+                {/* 预设问题 chips：点击填入 textarea，仍可编辑后再提交，不直接发送。 */}
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {LEAVE_MSG_PRESET_QUESTIONS.map((question) => (
+                    <button
+                      key={question}
+                      type="button"
+                      className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs text-orange-700 disabled:opacity-50"
+                      onClick={() => setLeaveMsgQuestionText(question)}
+                      disabled={leaveMsgSubmitting}
+                      data-testid="leave-msg-preset-question"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
                 <textarea
                   value={leaveMsgQuestionText}
                   onChange={(event) => setLeaveMsgQuestionText(event.target.value)}
