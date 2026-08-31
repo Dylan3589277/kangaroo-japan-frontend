@@ -44,7 +44,7 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **改动**：`src/app/[lang]/support/h5/page.tsx`，commits `7135846`/`988e109`/`916e4e3`，已合入 main `6108728`。
 - **验证**：`tsc` 0 错、`next build` 通过；线上包 `/_next/static/chunks/0~t9f.r50c~h3.js` 含「确认出价/去充押金/default_bid_jpy」字样确认已发布。已部署 ECS，回滚镜像锚点 `sha256:864535c12a610ccc77bb923022d46a9a94ea3dcaa86857222c8e8879f22e2b71`。
 - **未做**：真机小程序内点击「去充押金」深链是否正确跳转支付页，待花哥实测确认。
-- 2026-08-23 | 客服报价卡不显示图片 | 生产 CSP img-src 缺新站图床；next.config.ts IMG_HOSTS+remotePatterns 加 *.techorus-cdn.com(animate)/*.amiami.jp/*.cardrush*.jp/www.suruga-ya.jp/*.imgz.jp | next.config.ts (commit a1ca5d1，已部署 ECS，回滚锚点镜像 0721a35e18fb)
+- 2026-08-23 | 客服报价卡不显示图片 | 生产 CSP img-src 缺新站图床；next.config.ts IMG_HOSTS+remotePatterns 加 _.techorus-cdn.com(animate)/_.amiami.jp/_.cardrush_.jp/www.suruga-ya.jp/*.imgz.jp | next.config.ts (commit a1ca5d1，已部署 ECS，回滚锚点镜像 0721a35e18fb)
 
 ### 2026-08-23 智能客服报价卡标题中文化 + 图片/标题点击跳商品详情（c7013b3）
 
@@ -57,19 +57,29 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **为什么**：同上（小程序无法更新，煤炉竞拍商品进小程序详情页只显示"已售出"）。
 - **逻辑**：`openQuoteDetail` 遇 `quote.kind==="auction"` 调 `openMercariBidConfirm` 并 return，其它平台照旧跳小程序详情。
 - **改动**：`src/app/[lang]/support/h5/page.tsx`。ECS 已部署镜像 sha256:9c33b685…，回滚锚点 sha256:1eb396bc…。
-- 2026-08-23 | fix(csp) 8cb92f8 | 骏河屋商品图实际在 cdn.suruga-ya.jp，CSP img-src 与 images.remotePatterns 白名单从 www.suruga-ya.jp 改通配 *.suruga-ya.jp，H5 智能客服报价卡图片才能显示。
+- 2026-08-23 | fix(csp) 8cb92f8 | 骏河屋商品图实际在 cdn.suruga-ya.jp，CSP img-src 与 images.remotePatterns 白名单从 www.suruga-ya.jp 改通配 \*.suruga-ya.jp，H5 智能客服报价卡图片才能显示。
 
 ### 2026-08-23 · 智能客服 tgc 四站/cardrush 分站不出报价卡（bc3ce66，ECS 已部署 38c422606bc0）
+
 - 为什么：bridge 出卡靠识别消息里的商品链接（`_parse_supported_purchase_link`），原只认 `cardrush.jp/product/数字`；H5 `page.tsx` 把 `cardrush-main` 的分站 gid（`db:6523`）拼成主站 URL 也无法识别。前面三道白名单（candy 映射/后端 DTO/bridge allowlist）都在这道门之后。
 - 改动：bridge 加 cardrush 8 分站（→`cardrush-main`+`slug:digits`）、cardrush-pokemon.jp、card-museum.com `?pid=`、torecacamp-pokemon.com `/products/`、toretoku.jp `/item/details/` 解析；前端 `ITEM_URL_BUILDERS['cardrush-main']` 识别 `<slug>:<digits>` 拼分站域名，`ASSISTED_PURCHASE_PLATFORMS` 加 cardrush/cardmuseum/torecacamp/toretoku（防按钮落 mercari 分支白屏）。
 - 回滚：前端旧镜像 e349ddeeed80；bridge 备份 `bridge.py.bak-20260823-tgc2`。
 
 ### 2026-08-24 · 雅虎竞拍客服出卡 H5 门 + 去出价跳老版小程序（eb21ac2，ECS 已部署 eb5ba813）
+
 - 为什么：客户粘贴雅虎竞拍链接只得纯文字；老版煤炉供销社不能发版，出价入口由 H5 卡按钮跳老版详情页 `/pages/daishujun/index/yahoo_detail?id=`。
 - 改动：`src/app/[lang]/support/h5/page.tsx`：渲染 bridge quote_ref kind:auction 竞拍卡；`purchasable !== false` 才出【去出价】按钮，否则红条 `support-quote-unpurchasable`（对抗审查修复 523c48e）。
 - 回滚：旧镜像 4f8c46c6（已 tag rollback-20260824）。
 
 ### 2026-08-24 · 竞拍去出价按宿主分流：candy 跳中转页（ab23d27，ECS 已部署）
+
 - 为什么：kefu H5 竞拍卡【去出价】原来写死跳老版煤炉供销社页面，在 candy（新版小程序）宿主里该路径不存在、点了没反应。
 - 改动：`src/app/[lang]/support/h5/page.tsx` `navigateToMiniProgramYahooBid(itemId, useCandyTransfer)` 按 `isCandyTheme` 分流——candy 宿主跳 `/pages/bundle/transfer/auction?id=`（candy 新中转页，用户点按钮后 `navigateToMiniProgram` 跳老版），老版宿主 URL 字节不变。3 个调用点全部传 `isCandyTheme`。
 - 回滚：旧镜像 eb5ba8133140（已 tag rollback-20260824b）。
+
+### 2026-08-31 · 智能客服「留言给卖家」上线 + leaveMsgRef 直点卡（待推）
+
+- 为什么：花哥令①煤炉留言移植进客服聊天页（报价卡可直接留言）；③否掉一来一回对话式收集，bridge 命中留言意图直接回结构化卡（价格输入+问题直点）。
+- 改动A（**已部署**，c21f594+1a873cd，ECS 已上线）：`src/app/[lang]/support/h5/page.tsx` 报价卡加「留言给卖家」按钮（仅 mercari），弹窗砍价/咨询两模式；新增 `src/app/api/support/seller-messages/route.ts` 代理。回滚锚点：旧镜像 `60badac7c5a7`。
+- 改动B（**未部署**，分支 `feat/h5-leave-msg-card` commit `f8c5528`，已推 origin）：渲染 bridge 回包 root/data 层 `leave_msg_ref`（7字段契约），出 `support-leavemsg-ref-card` 双按钮卡（帮我砍价/咨询卖家，mode_hint 决定高亮，price_jpy 缺失时砍价按钮置灰）+ 4 条预设问题 chips 直点填入；`openLeaveMsgModal` 加可选 opts（floorPriceJpy/link/initialType/prefillAmountJpy），原报价卡按钮不传 opts 行为不变。已知备忘：page.tsx:3363/:1969 文案硬编码「现价的80%」，当前与 floor_price_jpy 契约（ceil(price\*0.8)）恒等无实害，floor 定义变更时需同步文案。
+- 验证：`npm run build` 绿 + `tsc --noEmit` 无错 + 对抗审查 7 攻击向量未攻破 [中枢自验]。改动B上线需花哥明确「推」令。
