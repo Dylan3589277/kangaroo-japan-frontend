@@ -141,8 +141,23 @@ export async function POST(request: NextRequest) {
         ? (payload as Record<string, unknown>)
         : null;
 
-    // 非 2xx 或后端 code!==0 → 一律友好失败，绝不把后端原始 errmsg/堆栈漏给买家。
+    // 非 2xx 或后端 code!==0 → 默认一律友好失败，绝不把后端堆栈/网络错误漏给买家。
+    // 例外：leave-message 的 400 校验类失败（如"该商品留言已达2次上限"）要把后端
+    // 具体原因带给买家，否则买家不知道为什么提交不了；超时/网络/5xx 仍统一走友好话术。
     if (!response.ok || !payloadRecord || payloadRecord.code !== 0) {
+      if (action === "leave-message" && response.status === 400 && payloadRecord) {
+        const backendMessage = payloadRecord.message;
+        const detail =
+          typeof backendMessage === "string"
+            ? backendMessage
+            : Array.isArray(backendMessage) &&
+                typeof backendMessage[0] === "string"
+              ? backendMessage[0]
+              : undefined;
+        if (detail) {
+          return friendlyErrorResponse(detail);
+        }
+      }
       return friendlyErrorResponse(ACTIONS[action].friendlyError);
     }
 

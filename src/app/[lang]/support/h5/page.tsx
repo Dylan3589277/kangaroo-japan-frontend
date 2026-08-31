@@ -14,14 +14,19 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ExternalLink,
+  HandCoins,
   Headset,
+  Loader2,
   MessageCircle,
+  MessageSquarePlus,
   ShoppingBag,
   ShoppingCart,
   Send,
   Tag,
   UserRoundCheck,
+  X,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { getH5UidSignature, getNumericH5UserId } from "./identity";
 
@@ -1004,6 +1009,19 @@ export default function MiniProgramSupportH5Page() {
   const [mercariBidAmountInputs, setMercariBidAmountInputs] = useState<
     Record<string, string>
   >({});
+  // 「留言给卖家」弹窗（砍价/咨询）：leaveMsgTarget 非空即弹窗展开，记录目标报价卡；
+  // 关闭/提交成功后统一清空，下次打开都是干净初始态。
+  const [leaveMsgTarget, setLeaveMsgTarget] = useState<{
+    cardKey: string;
+    quote: QuoteRef;
+  } | null>(null);
+  const [leaveMsgType, setLeaveMsgType] = useState<
+    "bargain" | "question" | null
+  >(null);
+  const [leaveMsgTargetPrice, setLeaveMsgTargetPrice] = useState("");
+  const [leaveMsgQuestionText, setLeaveMsgQuestionText] = useState("");
+  const [leaveMsgSubmitting, setLeaveMsgSubmitting] = useState(false);
+  const [leaveMsgError, setLeaveMsgError] = useState("");
   const wecomKefuChatUrl = getWecomKefuChatUrl();
 
   const externalSessionId = useMemo(
@@ -1816,6 +1834,108 @@ export default function MiniProgramSupportH5Page() {
     setMercariBidConfirmingItemId(null);
   }
 
+  // 「留言给卖家」（砍价/咨询）：仅 mercari 报价卡展示，visitor 接口公开、不依赖小程序
+  // 登录态，webview 和浏览器直开都可用（与 canAddToCart 的 wxReady 门槛无关）。
+  function openLeaveMsgModal(cardKey: string, quote: QuoteRef) {
+    setLeaveMsgTarget({ cardKey, quote });
+    setLeaveMsgType(null);
+    setLeaveMsgTargetPrice("");
+    setLeaveMsgQuestionText("");
+    setLeaveMsgError("");
+  }
+
+  function closeLeaveMsgModal() {
+    setLeaveMsgTarget(null);
+    setLeaveMsgType(null);
+    setLeaveMsgTargetPrice("");
+    setLeaveMsgQuestionText("");
+    setLeaveMsgError("");
+    setLeaveMsgSubmitting(false);
+  }
+
+  // 砍价下限：现价的 80%（向上取整），低于此价前端直接硬拦不提交，与后端校验对齐。
+  function leaveMsgBargainFloor(priceJpy?: number) {
+    return priceJpy !== undefined ? Math.ceil(priceJpy * 0.8) : undefined;
+  }
+
+  async function submitLeaveMsg() {
+    if (!leaveMsgTarget || !leaveMsgType || leaveMsgSubmitting) return;
+    const { quote } = leaveMsgTarget;
+    const goodsNo = quote.item_id;
+    if (!goodsNo || !userId) {
+      setLeaveMsgError("身份信息缺失，请从袋鼠君小程序重新进入～");
+      return;
+    }
+
+    const body: Record<string, unknown> = {
+      action: "leave-message",
+      user_id: userId,
+      ts: uidSignature.ts,
+      sig: uidSignature.sig,
+      platform: "mercari",
+      goods_no: goodsNo,
+      type: leaveMsgType,
+    };
+
+    if (leaveMsgType === "bargain") {
+      const target = Number(leaveMsgTargetPrice);
+      if (
+        !leaveMsgTargetPrice.trim() ||
+        !Number.isInteger(target) ||
+        target <= 0
+      ) {
+        setLeaveMsgError("请输入整数日元目标价");
+        return;
+      }
+      const floor = leaveMsgBargainFloor(quote.price_jpy);
+      if (floor !== undefined && target < floor) {
+        setLeaveMsgError(
+          `目标价不能低于现价的 80%，最低可请求 ¥${floor.toLocaleString("ja-JP")} 日元`,
+        );
+        return;
+      }
+      body.targetPriceJpy = target;
+      if (quote.price_jpy !== undefined) body.listingPriceJpy = quote.price_jpy;
+    } else {
+      const text = leaveMsgQuestionText.trim();
+      if (!text) {
+        setLeaveMsgError("请填写想咨询卖家的问题");
+        return;
+      }
+      body.customerRequestZh = text;
+    }
+
+    setLeaveMsgSubmitting(true);
+    setLeaveMsgError("");
+    try {
+      const res = await fetch("/api/support/seller-messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload: unknown = await res.json().catch(() => null);
+      const payloadRecord =
+        payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>)
+          : null;
+      if (!res.ok || !payloadRecord || payloadRecord.code !== 0) {
+        // 后端/中继失败原因原样展示给买家（如"该商品留言已达2次上限"），不静默、不用通用话术兜底。
+        const errmsg =
+          payloadRecord && typeof payloadRecord.errmsg === "string"
+            ? payloadRecord.errmsg
+            : "留言提交失败了，请稍后重试～";
+        setLeaveMsgError(errmsg);
+        return;
+      }
+      toast.success("已提交，人工确认后会转达卖家，可在留言中心查看进度");
+      closeLeaveMsgModal();
+    } catch {
+      setLeaveMsgError("网络异常，请稍后重试～");
+    } finally {
+      setLeaveMsgSubmitting(false);
+    }
+  }
+
   // 煤炉竞拍 deposit_state='no_account'「点我注册」：跳 register_url（同域 jp-buy.com）。
   // 小程序 webview 内用 location.href 跳（避免 wx.miniProgram.navigateTo 只能跳小程序内页、
   // 跳不了外链 h5）；非微信环境用 window.open 新开页，不弹复制框兜底。
@@ -2478,6 +2598,18 @@ export default function MiniProgramSupportH5Page() {
                     请先在上方完成『高额订单风险确认』，再点『{buyButtonLabel}』。
                   </p>
                 ) : null}
+                {quote.platform === "mercari" && quote.item_id && userId ? (
+                  <button
+                    type="button"
+                    className="support-quote-btn-leavemsg mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                    onClick={() => openLeaveMsgModal(cardKey, quote)}
+                    disabled={loading}
+                    data-testid="support-quote-btn-leavemsg"
+                  >
+                    <MessageSquarePlus className="h-4 w-4" />
+                    留言给卖家
+                  </button>
+                ) : null}
               </div>
             );
           })()
@@ -2961,6 +3093,145 @@ export default function MiniProgramSupportH5Page() {
           <Send className="h-4 w-4" />
         </button>
       </form>
+
+      {leaveMsgTarget ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+          onClick={() => {
+            if (!leaveMsgSubmitting) closeLeaveMsgModal();
+          }}
+          data-testid="leave-msg-modal-backdrop"
+        >
+          <div
+            className="w-full max-w-md rounded-t-2xl bg-white p-4 shadow-lg"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}
+            onClick={(event) => event.stopPropagation()}
+            data-testid="leave-msg-modal"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <MessageSquarePlus className="h-4 w-4 text-orange-500" />
+                留言给卖家
+              </div>
+              <button
+                type="button"
+                className="rounded-full p-1 text-slate-400"
+                onClick={closeLeaveMsgModal}
+                aria-label="关闭"
+                disabled={leaveMsgSubmitting}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {leaveMsgType === null ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className="flex flex-col items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-medium text-orange-700"
+                  onClick={() => setLeaveMsgType("bargain")}
+                  data-testid="leave-msg-type-bargain"
+                >
+                  <HandCoins className="h-5 w-5" />
+                  帮我砍价
+                </button>
+                <button
+                  type="button"
+                  className="flex flex-col items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-medium text-orange-700"
+                  onClick={() => setLeaveMsgType("question")}
+                  data-testid="leave-msg-type-question"
+                >
+                  <MessageSquarePlus className="h-5 w-5" />
+                  咨询卖家
+                </button>
+              </div>
+            ) : leaveMsgType === "bargain" ? (
+              <div>
+                <p className="text-sm text-slate-700">
+                  现价 ¥
+                  {leaveMsgTarget.quote.price_jpy !== undefined
+                    ? leaveMsgTarget.quote.price_jpy.toLocaleString("ja-JP")
+                    : "—"}{" "}
+                  日元
+                </p>
+                <label className="mt-3 block text-xs font-medium text-slate-500">
+                  期望价格（日元整数）
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  step={1}
+                  value={leaveMsgTargetPrice}
+                  onChange={(event) => setLeaveMsgTargetPrice(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-base text-slate-900 outline-none focus:border-orange-400"
+                  placeholder="请输入整数日元金额"
+                  disabled={leaveMsgSubmitting}
+                  data-testid="leave-msg-bargain-input"
+                />
+                {leaveMsgTarget.quote.price_jpy !== undefined ? (
+                  <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                    最低可请求 ¥
+                    {leaveMsgBargainFloor(
+                      leaveMsgTarget.quote.price_jpy,
+                    )?.toLocaleString("ja-JP")}{" "}
+                    日元（现价的 80%），低于此价卖家大概率不会同意。
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-slate-500">
+                  想咨询卖家的问题
+                </label>
+                <textarea
+                  value={leaveMsgQuestionText}
+                  onChange={(event) => setLeaveMsgQuestionText(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm leading-5 text-slate-900 outline-none focus:border-orange-400"
+                  rows={3}
+                  maxLength={500}
+                  placeholder="例如：商品有没有明显瑕疵/能否补拍实物照片/是否可以拆分包裹发货"
+                  disabled={leaveMsgSubmitting}
+                  data-testid="leave-msg-question-input"
+                />
+              </div>
+            )}
+
+            {leaveMsgError ? (
+              <p className="mt-2 rounded-md bg-red-50 px-2.5 py-2 text-xs leading-5 text-red-700">
+                {leaveMsgError}
+              </p>
+            ) : null}
+
+            {leaveMsgType !== null ? (
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 disabled:opacity-50"
+                  onClick={() => {
+                    setLeaveMsgType(null);
+                    setLeaveMsgError("");
+                  }}
+                  disabled={leaveMsgSubmitting}
+                >
+                  返回
+                </button>
+                <button
+                  type="button"
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                  onClick={() => void submitLeaveMsg()}
+                  disabled={leaveMsgSubmitting}
+                  data-testid="leave-msg-submit"
+                >
+                  {leaveMsgSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : null}
+                  提交
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
