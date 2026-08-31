@@ -1927,6 +1927,20 @@ export default function MiniProgramSupportH5Page() {
         setLeaveMsgError(errmsg);
         return;
       }
+      // 200+code:0 不等于真提交成功：规则引擎（如砍价 2 次上限）会同步判拒，此时
+      // data.customer_status==='rejected'，要照实拦下，不能当成功 toast 糊弄过去。
+      const data =
+        payloadRecord.data && typeof payloadRecord.data === "object"
+          ? (payloadRecord.data as Record<string, unknown>)
+          : null;
+      if (data && data.customer_status === "rejected") {
+        const rejectReason =
+          typeof data.reject_reason_zh === "string" && data.reject_reason_zh
+            ? data.reject_reason_zh
+            : "留言未通过平台规则，未提交";
+        setLeaveMsgError(rejectReason);
+        return;
+      }
       toast.success("已提交，人工确认后会转达卖家，可在留言中心查看进度");
       closeLeaveMsgModal();
     } catch {
@@ -3125,25 +3139,37 @@ export default function MiniProgramSupportH5Page() {
             </div>
 
             {leaveMsgType === null ? (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  className="flex flex-col items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-medium text-orange-700"
-                  onClick={() => setLeaveMsgType("bargain")}
-                  data-testid="leave-msg-type-bargain"
-                >
-                  <HandCoins className="h-5 w-5" />
-                  帮我砍价
-                </button>
-                <button
-                  type="button"
-                  className="flex flex-col items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-medium text-orange-700"
-                  onClick={() => setLeaveMsgType("question")}
-                  data-testid="leave-msg-type-question"
-                >
-                  <MessageSquarePlus className="h-5 w-5" />
-                  咨询卖家
-                </button>
+              <div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className={
+                      leaveMsgTarget.quote.price_jpy === undefined
+                        ? "flex flex-col items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-400"
+                        : "flex flex-col items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-medium text-orange-700"
+                    }
+                    onClick={() => setLeaveMsgType("bargain")}
+                    disabled={leaveMsgTarget.quote.price_jpy === undefined}
+                    data-testid="leave-msg-type-bargain"
+                  >
+                    <HandCoins className="h-5 w-5" />
+                    帮我砍价
+                  </button>
+                  <button
+                    type="button"
+                    className="flex flex-col items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-medium text-orange-700"
+                    onClick={() => setLeaveMsgType("question")}
+                    data-testid="leave-msg-type-question"
+                  >
+                    <MessageSquarePlus className="h-5 w-5" />
+                    咨询卖家
+                  </button>
+                </div>
+                {leaveMsgTarget.quote.price_jpy === undefined ? (
+                  <p className="mt-2 text-[11px] leading-4 text-slate-400">
+                    暂未获取到商品现价，无法代砍价，可先咨询卖家。
+                  </p>
+                ) : null}
               </div>
             ) : leaveMsgType === "bargain" ? (
               <div>
