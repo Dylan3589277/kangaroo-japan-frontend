@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 
 import { getH5UidSignature, getNumericH5UserId } from "./identity";
+import { CANDY_THEME_CSS } from "../candy-theme";
 
 type ChatItem = {
   id?: string;
@@ -960,23 +961,6 @@ function getWecomKefuChatUrl() {
 // [data-theme="candy"] 祖先选择器覆盖这些 utility class 编译出的固定颜色，
 // 不改任何组件结构/逻辑，老皮（无 data-theme 属性）零变化。
 // 色值：主色 #EF8632 / 深 #D96E1E / 浅底 #FFF0E0 / 页面底 #FFFBF5 / 文字墨色 #4A3426。
-const CANDY_THEME_CSS = `
-[data-theme="candy"] [class~="bg-[#f5f7fb]"] { background-color: #FFFBF5 !important; }
-[data-theme="candy"] .bg-orange-500 { background-color: #EF8632 !important; }
-[data-theme="candy"] .bg-orange-500:disabled,
-[data-theme="candy"] .disabled\\:bg-orange-200:disabled { background-color: #F6CBA0 !important; }
-[data-theme="candy"] .bg-orange-50,
-[data-theme="candy"] .bg-orange-100 { background-color: #FFF0E0 !important; }
-[data-theme="candy"] .border-orange-100,
-[data-theme="candy"] .border-orange-200 { border-color: #F7CDA0 !important; }
-[data-theme="candy"] .text-orange-400,
-[data-theme="candy"] .text-orange-500,
-[data-theme="candy"] .text-orange-600,
-[data-theme="candy"] .text-orange-700 { color: #D96E1E !important; }
-[data-theme="candy"] .accent-orange-500 { accent-color: #EF8632 !important; }
-[data-theme="candy"] .focus\\:border-orange-400:focus { border-color: #EF8632 !important; }
-[data-theme="candy"] .text-slate-900 { color: #4A3426 !important; }
-`;
 
 export default function MiniProgramSupportH5Page() {
   const params = useParams<{ lang?: string }>();
@@ -1852,14 +1836,22 @@ export default function MiniProgramSupportH5Page() {
     );
   }
 
-  // 雅虎竞拍「去出价」：小程序内跳竞拍详情页（出价/押金在该页操作）；
-  // 跳不动（网页端等）则引导回小程序——竞拍出价是小程序专属流程。
-  function goYahooBid(itemId?: string) {
-    if (itemId && navigateToMiniProgramYahooBid(itemId, isCandyTheme)) return;
-    setHumanTransferVisible(true);
-    setHumanTransferNote(
-      "雅虎竞拍的出价与押金请在袋鼠君小程序内操作（打开该商品出价）。",
-    );
+  // 雅虎竞拍「去出价」：H5 内闭环跳详情/出价页（不再跳小程序 yahoo_detail）。
+  // 游客（user_id 非纯数字）没有签名身份，出价接口验不过签名，直接提示回登录态。
+  function goYahooBid(itemId?: string, goodsNameZh?: string) {
+    if (!itemId) return;
+    if (!userId) {
+      setHumanTransferVisible(true);
+      setHumanTransferNote("请先登录小程序后再参与竞拍出价。");
+      return;
+    }
+    const qs = new URLSearchParams();
+    qs.set("user_id", userId);
+    if (uidSignature.ts) qs.set("ts", uidSignature.ts);
+    if (uidSignature.sig) qs.set("sig", uidSignature.sig);
+    if (isCandyTheme) qs.set("theme", "candy");
+    if (goodsNameZh) qs.set("zh", goodsNameZh);
+    router.push(`/${lang}/support/auction/${encodeURIComponent(itemId)}?${qs.toString()}`);
   }
 
   // 煤炉竞拍「确认竞拍」：点按钮不再直接发消息，先展开最终确认面板（记录 item_id），
@@ -2370,7 +2362,7 @@ export default function MiniProgramSupportH5Page() {
               <button
                 type="button"
                 className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
-                onClick={() => goYahooBid(quote.item_id)}
+                onClick={() => goYahooBid(quote.item_id, quote.goods_name_zh)}
                 disabled={loading}
                 data-testid="support-quote-auction-btn-bid"
               >
