@@ -52,7 +52,7 @@ type AuctionDetail = {
   seller_address?: string;
   rate_num?: number;
   rate_percent?: string;
-  extras?: Record<string, string>;
+  extras?: Array<{ name: string; value: string }>;
   content?: string;
   url?: string;
   deposit?: DepositInfo;
@@ -110,6 +110,7 @@ export default function SupportAuctionDetailPage() {
   }, [userId, ts, sig, isCandyTheme]);
 
   const [detail, setDetail] = useState<AuctionDetail | null>(null);
+  const [fetchedAt, setFetchedAt] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [now, setNow] = useState(() => Date.now());
@@ -152,6 +153,7 @@ export default function SupportAuctionDetailPage() {
           return;
         }
         setDetail(root.data as AuctionDetail);
+        setFetchedAt(Date.now());
         setLoadError("");
       } catch {
         setLoadError("网络异常，请重试");
@@ -181,12 +183,13 @@ export default function SupportAuctionDetailPage() {
   }, []);
 
   const leftSeconds = useMemo(() => {
-    if (!detail?.end_timestamp && !detail?.left_timestamp) return undefined;
+    if (!detail?.end_timestamp && detail?.left_timestamp === undefined) return undefined;
     if (detail?.end_timestamp) {
       return Math.floor(detail.end_timestamp - now / 1000);
     }
-    return detail?.left_timestamp;
-  }, [detail, now]);
+    const elapsed = Math.floor((now - fetchedAt) / 1000);
+    return Math.max(0, (detail?.left_timestamp ?? 0) - elapsed);
+  }, [detail, now, fetchedAt]);
 
   const isEnded = leftSeconds !== undefined && leftSeconds <= 0;
   const isFastpriceOnly = !!detail?.fastprice && !detail?.bid_price;
@@ -348,12 +351,12 @@ export default function SupportAuctionDetailPage() {
               ) : null}
             </div>
 
-            {detail.extras && Object.keys(detail.extras).length > 0 ? (
+            {Array.isArray(detail.extras) && detail.extras.length > 0 ? (
               <div className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-500">
-                {Object.entries(detail.extras).map(([k, v]) => (
-                  <p key={k} className="flex justify-between py-0.5">
-                    <span className="text-slate-400">{k}</span>
-                    <span>{v}</span>
+                {detail.extras.map((row, idx) => (
+                  <p key={`${row.name}-${idx}`} className="flex justify-between py-0.5">
+                    <span className="text-slate-400">{row.name}</span>
+                    <span>{row.value}</span>
                   </p>
                 ))}
               </div>
@@ -410,7 +413,7 @@ export default function SupportAuctionDetailPage() {
             disabled={isEnded || isFastpriceOnly}
             data-testid="support-auction-open-bid-btn"
           >
-            {isEnded ? "竞拍已结束" : isFastpriceOnly ? "该商品仅支持即決购买" : "出价"}
+            {isEnded ? "竞拍已结束" : isFastpriceOnly ? "该商品仅支持即決，请在聊天中联系客服代购" : "出价"}
           </button>
         </div>
       ) : null}
