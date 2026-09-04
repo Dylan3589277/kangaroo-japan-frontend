@@ -121,6 +121,7 @@ export default function SupportAuctionDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [bidding, setBidding] = useState(false);
   const [bidError, setBidError] = useState("");
+  const [buyoutLoading, setBuyoutLoading] = useState(false);
 
   const signBody = useCallback(
     (extra: Record<string, unknown>) => ({
@@ -192,8 +193,6 @@ export default function SupportAuctionDetailPage() {
   }, [detail, now, fetchedAt]);
 
   const isEnded = leftSeconds !== undefined && leftSeconds <= 0;
-  const isFastpriceOnly = !!detail?.fastprice && !detail?.bid_price;
-
   function openBidPanel() {
     const defaultAmount = (detail?.bid_price ?? 0) + 10;
     setBidAmountInput(String(defaultAmount));
@@ -234,6 +233,55 @@ export default function SupportAuctionDetailPage() {
       setBidError("网络异常，请重试");
     } finally {
       setBidding(false);
+    }
+  }
+
+  async function doBuyout() {
+    if (!itemId || buyoutLoading) return;
+    setBuyoutLoading(true);
+    try {
+      const buyoutRes = await fetch("/api/support/yahoo/buyout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(signBody({ id: itemId })),
+      });
+      const buyoutPayload = await buyoutRes.json().catch(() => null);
+      const buyoutRoot = getRecord(buyoutPayload);
+      if (buyoutRoot.code !== 0) {
+        toast.error((buyoutRoot.errmsg as string) || "下单失败，请重试");
+        return;
+      }
+      const buyoutData = getRecord(buyoutRoot.data);
+      if (buyoutData.action === "contact_kefu") {
+        toast.error((buyoutData.reason as string) || "该商品需联系客服下单");
+        return;
+      }
+      const orderId = buyoutData.order_id;
+      if (!orderId) {
+        toast.error("下单失败，请重试");
+        return;
+      }
+
+      // 建单成功后单独发起收款（两步：与代购下单/收款分离的现成模式一致），
+      // 收款发起失败时订单已建，引导去待支付页而不是报错。
+      const payRes = await fetch("/api/support/yahoo/buypay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(signBody({ order_id: orderId })),
+      });
+      const payPayload = await payRes.json().catch(() => null);
+      const payRoot = getRecord(payPayload);
+      const payData = getRecord(payRoot.data);
+      const payUrl = payData.pay_url as string | undefined;
+      if (payRoot.code === 0 && payUrl) {
+        window.location.href = payUrl;
+        return;
+      }
+      toast.warning("下单成功，收款发起失败，请稍后在订单中重试支付");
+    } catch {
+      toast.error("网络异常，请重试");
+    } finally {
+      setBuyoutLoading(false);
     }
   }
 
@@ -406,15 +454,31 @@ export default function SupportAuctionDetailPage() {
           className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-100 bg-white px-3 py-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
         >
-          <button
-            type="button"
-            className="w-full rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
-            onClick={openBidPanel}
-            disabled={isEnded || isFastpriceOnly}
-            data-testid="support-auction-open-bid-btn"
-          >
-            {isEnded ? "竞拍已结束" : isFastpriceOnly ? "该商品仅支持即決，请在聊天中联系客服代购" : "出价"}
-          </button>
+          {detail.fastprice ? (
+            <button
+              type="button"
+              className="w-full rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
+              onClick={doBuyout}
+              disabled={isEnded || buyoutLoading}
+              data-testid="support-auction-buyout-btn"
+            >
+              {isEnded
+                ? "竞拍已结束"
+                : buyoutLoading
+                  ? "处理中…"
+                  : `即決价直接买 ¥${detail.fastprice.toLocaleString("ja-JP")}`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="w-full rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
+              onClick={openBidPanel}
+              disabled={isEnded}
+              data-testid="support-auction-open-bid-btn"
+            >
+              {isEnded ? "竞拍已结束" : "出价"}
+            </button>
+          )}
         </div>
       ) : null}
 

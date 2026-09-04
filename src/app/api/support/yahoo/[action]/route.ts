@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { parseRequestJsonObject } from "@/lib/request-json";
 
-// 客服 H5 雅虎竞拍闭环（详情/出价/我的竞拍）透传路由。前端不持有任何密钥，
-// 三个 action 原样转发到老后台 PHP，老后台自行校验 user_id/ts/sig。
+// 客服 H5 雅虎竞拍闭环（详情/出价/我的竞拍/即決价直接买/发起收款）透传路由。前端不持有任何密钥，
+// 各 action 原样转发到老后台 PHP，老后台自行校验 user_id/ts/sig。
 const LEGACY_API_BASE_URL =
   process.env.LEGACY_API_BASE_URL || "https://app.kangaroo-japan.com";
 const REQUEST_TIMEOUT_MS = 8_000;
@@ -13,6 +13,8 @@ const ACTION_TO_LEGACY_PATH: Record<string, string> = {
   detail: "/api/yahoo/h5detail",
   bid: "/api/yahoo/h5bid",
   bids: "/api/yahoo/h5bids",
+  buyout: "/api/yahoo/h5buyout",
+  buypay: "/api/yahoo/h5pay",
 };
 
 function busyResponse() {
