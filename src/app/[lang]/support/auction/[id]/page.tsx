@@ -454,29 +454,57 @@ export default function SupportAuctionDetailPage() {
           className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-100 bg-white px-3 py-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
         >
-          {detail.fastprice ? (
+          {isEnded ? (
+            <button
+              type="button"
+              className="w-full rounded-md bg-orange-200 py-3 text-sm font-semibold text-white"
+              disabled
+              data-testid="support-auction-buyout-btn"
+            >
+              竞拍已结束
+            </button>
+          ) : detail.bid_price && detail.fastprice ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="w-1/2 rounded-md bg-slate-800 py-3 text-sm font-semibold text-white disabled:bg-slate-300"
+                onClick={openBidPanel}
+                data-testid="support-auction-open-bid-btn"
+              >
+                出价
+              </button>
+              <button
+                type="button"
+                className="w-1/2 rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
+                onClick={doBuyout}
+                disabled={buyoutLoading}
+                data-testid="support-auction-buyout-btn"
+              >
+                {buyoutLoading
+                  ? "处理中…"
+                  : `即決价直接买 ¥${detail.fastprice.toLocaleString("ja-JP")}`}
+              </button>
+            </div>
+          ) : detail.fastprice ? (
             <button
               type="button"
               className="w-full rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
               onClick={doBuyout}
-              disabled={isEnded || buyoutLoading}
+              disabled={buyoutLoading}
               data-testid="support-auction-buyout-btn"
             >
-              {isEnded
-                ? "竞拍已结束"
-                : buyoutLoading
-                  ? "处理中…"
-                  : `即決价直接买 ¥${detail.fastprice.toLocaleString("ja-JP")}`}
+              {buyoutLoading
+                ? "处理中…"
+                : `即決价直接买 ¥${detail.fastprice.toLocaleString("ja-JP")}`}
             </button>
           ) : (
             <button
               type="button"
               className="w-full rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
               onClick={openBidPanel}
-              disabled={isEnded}
               data-testid="support-auction-open-bid-btn"
             >
-              {isEnded ? "竞拍已结束" : "出价"}
+              出价
             </button>
           )}
         </div>
