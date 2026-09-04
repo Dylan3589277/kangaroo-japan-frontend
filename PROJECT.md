@@ -4,6 +4,15 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-09-04 客服H5竞拍页套壳修复：EMBEDDED_SUPPORT_PREFIXES 加 /support/auction（519d69d，已部署ECS，回滚锚点旧镜像 b3d818874d97）
+
+- **为什么**：客服H5雅虎竞拍页（`/zh/support/auction/[id]` 与 `/mine`，袋鼠君小程序 webview 内打开）被套上了 jp-buy 站点的 SiteHeader/SiteFooter/客服浮窗，页脚链接在小程序域名下无 nginx 代理会 404，且排版难看，不适合内嵌 webview 场景。
+- **逻辑**：`src/lib/embedded-support-paths.ts` 的 `EMBEDDED_SUPPORT_PREFIXES` 是 SiteHeader/SiteFooter/ChatWidgetGate 共用的同一判断——命中前缀的路径不套站点头尾和客服浮窗。加入 `"/support/auction"` 后，该前缀下的页面回到纯内嵌样式。
+- **改动**：仅 `src/lib/embedded-support-paths.ts`。
+- **验证**：docker-image run 33831109519 绿；ECS 已拉新镜像重启；实测 `/zh/support/auction/[id]` 与 `/mine` 两页 HTML 均无 `<footer>`。
+- **未做**：未做端到端截图验证，仅用 HTML grep 验证 `<footer>` 不存在。
+- **教训**：新增内嵌 H5 页面要同时做两件事——nginx 白名单 location（否则 404）+ `EMBEDDED_SUPPORT_PREFIXES` 白名单（否则被套壳），缺一个就分别出对应问题。
+
 ### 2026-08-27 客服转人工从 53kf 切企业微信客服（b3aa103，已部署ECS，回滚锚点镜像 rollback-20260827，旧镜像 8aca676c68c2）
 
 - **为什么**：客服团队 8/31 离职，统一切企业微信客服接待，不再用 53kf。
