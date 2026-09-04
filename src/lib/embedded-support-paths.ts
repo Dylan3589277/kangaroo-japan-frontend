@@ -5,9 +5,10 @@
  * （SiteHeader 导航 / 全站客服浮窗 TcgChatWidget）。usePathname（next-intl）
  * 返回去掉语言前缀后的路径，因此前缀判断与语言无关，zh/en 一致。
  *
- * 仅精确匹配这两个路径段本身及其子路径，不影响 /support 下的其它公开页面。
+ * 仅精确匹配这些路径段本身及其子路径，不影响 /support 下的其它公开页面。
+ * /support/auction 为客服H5雅虎竞拍详情/我的竞拍页（2026-09-04）。
  */
-export const EMBEDDED_SUPPORT_PREFIXES = ["/support/h5", "/support/messages"] as const;
+export const EMBEDDED_SUPPORT_PREFIXES = ["/support/h5", "/support/messages", "/support/auction"] as const;
 
 export function isEmbeddedSupportPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
