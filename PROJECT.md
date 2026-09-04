@@ -44,7 +44,7 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **改动**：`src/app/[lang]/support/h5/page.tsx`，commits `7135846`/`988e109`/`916e4e3`，已合入 main `6108728`。
 - **验证**：`tsc` 0 错、`next build` 通过；线上包 `/_next/static/chunks/0~t9f.r50c~h3.js` 含「确认出价/去充押金/default_bid_jpy」字样确认已发布。已部署 ECS，回滚镜像锚点 `sha256:864535c12a610ccc77bb923022d46a9a94ea3dcaa86857222c8e8879f22e2b71`。
 - **未做**：真机小程序内点击「去充押金」深链是否正确跳转支付页，待花哥实测确认。
-- 2026-08-23 | 客服报价卡不显示图片 | 生产 CSP img-src 缺新站图床；next.config.ts IMG_HOSTS+remotePatterns 加 _.techorus-cdn.com(animate)/_.amiami.jp/_.cardrush_.jp/www.suruga-ya.jp/*.imgz.jp | next.config.ts (commit a1ca5d1，已部署 ECS，回滚锚点镜像 0721a35e18fb)
+- 2026-08-23 | 客服报价卡不显示图片 | 生产 CSP img-src 缺新站图床；next.config.ts IMG*HOSTS+remotePatterns 加 *.techorus-cdn.com(animate)/_.amiami.jp/_.cardrush\_.jp/www.suruga-ya.jp/*.imgz.jp | next.config.ts (commit a1ca5d1，已部署 ECS，回滚锚点镜像 0721a35e18fb)
 
 ### 2026-08-23 智能客服报价卡标题中文化 + 图片/标题点击跳商品详情（c7013b3）
 
@@ -83,3 +83,11 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 改动A（**已部署**，c21f594+1a873cd，ECS 已上线）：`src/app/[lang]/support/h5/page.tsx` 报价卡加「留言给卖家」按钮（仅 mercari），弹窗砍价/咨询两模式；新增 `src/app/api/support/seller-messages/route.ts` 代理。回滚锚点：旧镜像 `60badac7c5a7`。
 - 改动B（**未部署**，分支 `feat/h5-leave-msg-card` commit `f8c5528`，已推 origin）：渲染 bridge 回包 root/data 层 `leave_msg_ref`（7字段契约），出 `support-leavemsg-ref-card` 双按钮卡（帮我砍价/咨询卖家，mode_hint 决定高亮，price_jpy 缺失时砍价按钮置灰）+ 4 条预设问题 chips 直点填入；`openLeaveMsgModal` 加可选 opts（floorPriceJpy/link/initialType/prefillAmountJpy），原报价卡按钮不传 opts 行为不变。已知备忘：page.tsx:3363/:1969 文案硬编码「现价的80%」，当前与 floor_price_jpy 契约（ceil(price\*0.8)）恒等无实害，floor 定义变更时需同步文案。
 - 验证：`npm run build` 绿 + `tsc --noEmit` 无错 + 对抗审查 7 攻击向量未攻破 [中枢自验]。改动B上线需花哥明确「推」令。
+
+### 2026-09-04 · 客服H5雅虎竞拍闭环上线（merge feat/auction-h5 a8e3c09，ECS 已部署）
+
+- 为什么：客服H5竞拍卡此前只能跳老版小程序详情页出价，无法在H5内直接看详情/出价/查我的竞拍；配合老后台新增 h5detail/h5bid/h5bids 三接口落地闭环。
+- 逻辑：新增 `/zh/support/auction/[id]` 详情+出价页、`/zh/support/auction/mine` 我的竞拍页（竞拍中/已中标/已结束），`src/app/api/support/yahoo/[action]/route.ts` 透传到老后台 `${LEGACY_API_BASE_URL}/api/yahoo/h5{action}`（前端不持密钥）；h5 竞拍卡改 router.push 到详情页并带 user_id/ts/sig/theme。
+- 改动：`src/app/[lang]/support/auction/[id]/page.tsx`、`.../auction/mine/page.tsx`、`src/app/[lang]/support/candy-theme.ts`、`src/app/api/support/yahoo/[action]/route.ts`、`h5/page.tsx`；ECS nginx `daishujun.conf` 同步新增 `location ^~ /zh/support/auction/` 代理（否则新页面 404，教训见下）。
+- 教训：app.kangaroo-japan.com 只精确代理白名单路径，新增 H5 子页面必须同步加 nginx location；H5 page query 参数名是 `user_id` 不是 `uid`。
+- 回滚：前端旧镜像 sha256:f6f0b0a0…；nginx 备份 `daishujun.conf.bak-auction-h5-20260904`。
