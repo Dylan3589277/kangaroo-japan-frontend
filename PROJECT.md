@@ -13,6 +13,13 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - **未做**：未做端到端截图验证，仅用 HTML grep 验证 `<footer>` 不存在。
 - **教训**：新增内嵌 H5 页面要同时做两件事——nginx 白名单 location（否则 404）+ `EMBEDDED_SUPPORT_PREFIXES` 白名单（否则被套壳），缺一个就分别出对应问题。
 
+### 2026-09-04 客服H5雅虎详情页新增「即決价直接买」按钮（a3cde6e，已刷容器上线，新镜像d19c2c72fd4b，回滚锚点旧镜像b855c0fd40d2）
+
+- **为什么**：客服H5雅虎竞拍详情页有即決价（fastprice）的商品，客户希望不出价、直接按即決价下单支付，配合老后台新增 h5buyout/h5pay 接口闭环。
+- **逻辑**：`src/app/[lang]/support/auction/[id]/page.tsx` 在有 fastprice 时，「出价」按钮旁增加「即決价直接买 ¥xxx」按钮（`data-testid=support-auction-buyout-btn`）；点击先调 Next.js 路由 `/api/support/yahoo/buyout`（body 带 id + user_id/ts/sig 签名）成功建单，再调 `/api/support/yahoo/buypay`（order_id）完成支付。
+- **改动**：`src/app/[lang]/support/auction/[id]/page.tsx`（+37/-9）。
+- **验证**：E2E 用带签名 URL 打开有即決价商品（d1243160980）的详情页，渲染出「出价」+「即決价直接买 ¥4,250」两个按钮；无即決价商品（u1242834900）只显示「出价」。未真实点击购买（会真下单花钱）。
+
 ### 2026-08-27 客服转人工从 53kf 切企业微信客服（b3aa103，已部署ECS，回滚锚点镜像 rollback-20260827，旧镜像 8aca676c68c2）
 
 - **为什么**：客服团队 8/31 离职，统一切企业微信客服接待，不再用 53kf。
