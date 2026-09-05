@@ -107,3 +107,10 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 改动：`src/app/[lang]/support/auction/[id]/page.tsx`、`.../auction/mine/page.tsx`、`src/app/[lang]/support/candy-theme.ts`、`src/app/api/support/yahoo/[action]/route.ts`、`h5/page.tsx`；ECS nginx `daishujun.conf` 同步新增 `location ^~ /zh/support/auction/` 代理（否则新页面 404，教训见下）。
 - 教训：app.kangaroo-japan.com 只精确代理白名单路径，新增 H5 子页面必须同步加 nginx location；H5 page query 参数名是 `user_id` 不是 `uid`。
 - 回滚：前端旧镜像 sha256:f6f0b0a0…；nginx 备份 `daishujun.conf.bak-auction-h5-20260904`。
+
+### 2026-09-05 · 客服H5竞拍页 P2修复 + 「我的竞拍」卡（main f45fcbc，ECS 已部署 c1cff581675e）
+
+- 为什么：竞拍详情/出价页缺出价档位规则、轮询有 bug、签名过期识别过窄；聊天页缺「我的竞拍」入口。
+- 改动（6d80833/118062f P2 修复 + 7a9e47f「我的竞拍」卡）：雅虎出价档位表 `yahooBidIncrement`（<1000:10,<5000:100,<10000:250,<50000:500,<100000:1000,<1e6:5000,否则10000）+ 默认出价=当前价+一档 + 快捷 +1/+2/+5 档 + 低于最小加价拦截；轮询 10 分钟内 10s 否则 60s、结束停轮询、页面不可见不轮询（修复一个 bug：effect 依赖 `leftSeconds` 导致 interval 永不触发）；押金不足/超额度按钮置灰+红字原因；签名过期识别改为 `签名`/`链接已过期` 开头（原 `过期` 过宽）。`h5/page.tsx` 欢迎语下方新增「我的竞拍」卡，仅数字 userId+sig 存在时渲染，跳 `/support/auction/mine`。
+- 教训：分身交付被中枢审出两处 bug（轮询依赖 leftSeconds 导致不触发、过期文案匹配过宽），收尾前必须自验+对抗审查。
+- 回滚：ECS 镜像 `c1cff581675e`，回滚锚点旧镜像 `832d83f9c67d`。
