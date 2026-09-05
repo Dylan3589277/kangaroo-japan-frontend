@@ -66,13 +66,15 @@ const FILTER_TABS: { key: FilterKey; label: string; statuses?: string[] }[] = [
 
 // 状态胶囊配色：processing/sent=琥珀（进行中）、replied=蓝、agreed=绿、
 // rejected/closed=灰（已结束）。未知状态回落灰色，缺 status_text 用本地兜底文案。
+// 本地兜底文案与后端 status_text 对齐（2026-09-05）：processing/sent/agreed 三条为
+// 后端固定文案；closed 后端按原因下发多种文案，本地兜底保留通用「已结束」。
 const STATUS_PILLS: Record<string, { label: string; className: string }> = {
   processing: {
-    label: "处理中",
+    label: "审核中，待发出",
     className: "border-amber-200 bg-amber-50 text-amber-700",
   },
   sent: {
-    label: "已发给卖家",
+    label: "已发出，等待卖家回复",
     className: "border-amber-200 bg-amber-50 text-amber-700",
   },
   replied: {
@@ -80,7 +82,7 @@ const STATUS_PILLS: Record<string, { label: string; className: string }> = {
     className: "border-blue-200 bg-blue-50 text-blue-700",
   },
   agreed: {
-    label: "卖家已同意",
+    label: "卖家已同意，可下单",
     className: "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
   rejected: {
@@ -97,6 +99,12 @@ const FALLBACK_PILL = {
   label: "处理中",
   className: "border-slate-200 bg-slate-100 text-slate-500",
 };
+
+// 已结束且可转人工时展示的客服入口：与 support/h5/page.tsx 的
+// WECOM_KEFU_CHAT_URL 保持同一 env 覆盖名与默认兜底链接，避免两处配置打架。
+const WECOM_KEFU_CHAT_URL =
+  process.env.NEXT_PUBLIC_KF53_CHAT_URL ||
+  "https://work.weixin.qq.com/kfid/kfcdd40f1f6c4b4b499";
 
 // 平台徽章：当前只有煤炉（mercari）走留言服务；其它平台展示原样兜底，零回归。
 const PLATFORM_BADGES: Record<string, string> = {
@@ -443,6 +451,9 @@ export default function SellerMessagesH5Page() {
     const view = detail?.data ?? task;
     const isAgreed = task.customer_status === "agreed";
     const isRejected = task.customer_status === "rejected";
+    const canTransferHuman =
+      task.customer_status === "closed" &&
+      Boolean(task.status_text?.includes("可转人工"));
 
     return (
       <div
@@ -551,6 +562,21 @@ export default function SellerMessagesH5Page() {
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
             <span>这条留言没有发出：{task.reject_reason_zh}</span>
           </div>
+        ) : null}
+
+        {/* 卖家未回复已结束：给一个转人工入口，别让顾客卡在这里没办法 */}
+        {canTransferHuman ? (
+          <a
+            href={WECOM_KEFU_CHAT_URL}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-medium text-[#F97E2F]"
+            data-testid={`seller-messages-human-kefu-${key}`}
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            联系人工客服
+          </a>
         ) : null}
 
         {/* 底部行：时间 + 商品链接 + 展开指示 */}

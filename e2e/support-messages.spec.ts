@@ -14,7 +14,7 @@ const TASK_AGREED = {
   item_url: "https://jp.mercari.com/item/m11100001",
   message_type: "bargain",
   customer_status: "agreed",
-  status_text: "卖家已同意",
+  status_text: "卖家已同意，可下单",
   customer_request_zh: "希望能便宜一点，诚心想要",
   target_price_jpy: 9500,
   listing_price_jpy: 12000,
@@ -32,7 +32,7 @@ const TASK_PROCESSING = {
   item_url: "https://jp.mercari.com/item/m22200002",
   message_type: "question",
   customer_status: "processing",
-  status_text: "处理中",
+  status_text: "审核中，待发出",
   customer_request_zh: "请问卡片表面有没有划痕？",
   created_at: "2026-07-02T09:00:00+09:00",
 };
@@ -52,12 +52,24 @@ const TASK_REJECTED = {
   created_at: "2026-07-02T11:00:00+09:00",
 };
 
+const TASK_CLOSED_TRANSFER = {
+  id: 104,
+  platform: "mercari",
+  goods_no: "m44400004",
+  item_url: "https://jp.mercari.com/item/m44400004",
+  message_type: "question",
+  customer_status: "closed",
+  status_text: "卖家未回复，已结束（可转人工）",
+  customer_request_zh: "请问还有货吗",
+  created_at: "2026-07-03T09:00:00+09:00",
+};
+
 const LIST_PAYLOAD = {
   code: 0,
   data: {
-    list: [TASK_AGREED, TASK_PROCESSING, TASK_REJECTED],
+    list: [TASK_AGREED, TASK_PROCESSING, TASK_REJECTED, TASK_CLOSED_TRANSFER],
     page: 1,
-    total: 3,
+    total: 4,
   },
 };
 
@@ -67,7 +79,7 @@ const DETAIL_102_PAYLOAD = {
   data: {
     ...TASK_PROCESSING,
     customer_status: "sent",
-    status_text: "已发给卖家",
+    status_text: "已发出，等待卖家回复",
     sent_at: "2026-07-02T09:10:00+09:00",
   },
 };
@@ -124,10 +136,19 @@ test.describe("留言中心 H5（/zh/support/messages）", () => {
 
     await page.goto("/zh/support/messages?uid=7&ts=1751500000&sig=e2e-sig");
 
-    // 三张卡都在
+    // 四张卡都在
     await expect(page.getByTestId("seller-messages-card-101")).toBeVisible();
     await expect(page.getByTestId("seller-messages-card-102")).toBeVisible();
     await expect(page.getByTestId("seller-messages-card-103")).toBeVisible();
+    await expect(page.getByTestId("seller-messages-card-104")).toBeVisible();
+
+    // closed 且可转人工 → 卡片上出现「联系人工客服」入口
+    await expect(
+      page.getByTestId("seller-messages-human-kefu-104"),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("seller-messages-human-kefu-103"),
+    ).toHaveCount(0);
 
     // 砍价成功横幅（agreed 高亮）+ 目标价 + 卖家回复块 + 拒绝原因块
     await expect(
@@ -143,17 +164,18 @@ test.describe("留言中心 H5（/zh/support/messages）", () => {
       page.getByTestId("seller-messages-reject-103"),
     ).toContainText("砍价目标价低于标价八折");
 
-    // 点卡 102 → 内联展开详情：detail 请求带 id=102，时间线出现「已发给卖家」
+    // 点卡 102 → 内联展开详情：detail 请求带 id=102，时间线出现「已发出，等待卖家回复」
     await page.getByTestId("seller-messages-card-102").click();
     const detail = page.getByTestId("seller-messages-detail-102");
     await expect(detail).toBeVisible();
     await expect(detail).toContainText("提交留言");
-    await expect(detail).toContainText("已发给卖家");
+    await expect(detail).toContainText("已发出，等待卖家回复");
     expect(detailActions).toContainEqual(102);
 
-    // 过滤：已结束 → 只剩 rejected 卡；进行中 → 只剩 processing 卡；全部 → 三张全回
+    // 过滤：已结束 → 剩 rejected + closed 两张卡；进行中 → 只剩 processing 卡；全部 → 四张全回
     await page.getByTestId("seller-messages-tab-closed").click();
     await expect(page.getByTestId("seller-messages-card-103")).toBeVisible();
+    await expect(page.getByTestId("seller-messages-card-104")).toBeVisible();
     await expect(page.getByTestId("seller-messages-card-101")).toHaveCount(0);
     await expect(page.getByTestId("seller-messages-card-102")).toHaveCount(0);
 
@@ -169,6 +191,7 @@ test.describe("留言中心 H5（/zh/support/messages）", () => {
     await expect(page.getByTestId("seller-messages-card-101")).toBeVisible();
     await expect(page.getByTestId("seller-messages-card-102")).toBeVisible();
     await expect(page.getByTestId("seller-messages-card-103")).toBeVisible();
+    await expect(page.getByTestId("seller-messages-card-104")).toBeVisible();
   });
 
   test("列表加载失败 → 错误态带重试按钮，点重试恢复", async ({ page }) => {
