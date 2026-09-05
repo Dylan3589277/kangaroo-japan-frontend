@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   callLegacyH5,
   getLegacyUidFromRequest,
+  legacyCreateTimeToIso,
   legacyStatusCodeToName,
 } from "@/lib/server/mercari-auction-legacy";
 
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
       status_txt: row.status_txt,
       end_time_text: row.end_time_text,
       deposit_hold_cny: row.deposit_hold_cny,
-      created_at: String(row.create_time),
+      created_at: legacyCreateTimeToIso(row.create_time),
     })),
     totalPages: data?.totalPages ?? 0,
   });

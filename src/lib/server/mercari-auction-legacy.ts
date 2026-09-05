@@ -150,3 +150,15 @@ const STATUS_NAME: Record<number, string> = Object.fromEntries(
 export function legacyStatusCodeToName(code: number): string {
   return STATUS_NAME[code] ?? String(code);
 }
+
+/**
+ * 老后台 create_time 是 Unix 秒整数（非毫秒），页面用 `new Date(created_at)` 解析，
+ * 直传原始秒数字符串会得到 Invalid Date。转成 ISO 字符串；非法值原样回退为字符串。
+ */
+export function legacyCreateTimeToIso(createTime: number | string): string {
+  const seconds = Number(createTime);
+  if (!Number.isFinite(seconds)) {
+    return String(createTime);
+  }
+  return new Date(seconds * 1000).toISOString();
+}
