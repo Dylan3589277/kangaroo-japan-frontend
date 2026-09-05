@@ -23,6 +23,7 @@
       "maxBidInvalid": "Please enter a positive whole-yen amount",
       "generic": "Submission failed, please try again later",
       "network": "Network error, please try again later",
+      "noLegacyUid": "Please link your membership in the Kangaroo Kun mini-program first",
       "insufficientDepositSuffix": " (needs {required}, available {available})",
       "dailyCapSuffix": " (used {dailyUsed} today, daily cap {dailyCap})"
     }

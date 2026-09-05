@@ -23,6 +23,7 @@
       "maxBidInvalid": "请填写正整数日元金额",
       "generic": "提交失败，请稍后重试",
       "network": "网络异常，请稍后重试",
+      "noLegacyUid": "请先在袋鼠君小程序绑定会员后再使用竞拍功能",
       "insufficientDepositSuffix": "（需{required}，可用{available}）",
       "dailyCapSuffix": "（今日已用{dailyUsed}，日限{dailyCap}）"
     }
