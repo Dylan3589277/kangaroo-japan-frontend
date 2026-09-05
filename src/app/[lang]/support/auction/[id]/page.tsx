@@ -189,8 +189,10 @@ export default function SupportAuctionDetailPage() {
     if (detail?.end_timestamp) {
       return Math.floor(detail.end_timestamp - now / 1000);
     }
+    const raw = detail?.left_timestamp ?? 0;
+    if (raw <= 0) return raw;            // 0=后端未知, 负数=后端判定已结束
     const elapsed = Math.floor((now - fetchedAt) / 1000);
-    return Math.max(0, (detail?.left_timestamp ?? 0) - elapsed);
+    return Math.max(-1, raw - elapsed);  // 正常倒计时走完 → -1 视为已结束
   }, [detail, now, fetchedAt]);
 
   const isEnded = leftSeconds !== undefined && leftSeconds < 0;
