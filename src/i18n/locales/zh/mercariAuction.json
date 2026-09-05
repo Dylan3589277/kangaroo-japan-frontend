@@ -19,6 +19,7 @@
     "errors": {
       "itemUrlRequired": "请填写商品链接",
       "itemUrlInvalid": "请填写有效的链接（需以 http/https 开头）",
+      "invalidItemUrl": "无法识别的商品链接，请确认是 jp.mercari.com 的商品页面链接",
       "maxBidRequired": "请填写出价上限",
       "maxBidInvalid": "请填写正整数日元金额",
       "generic": "提交失败，请稍后重试",

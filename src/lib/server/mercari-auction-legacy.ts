@@ -124,9 +124,18 @@ export async function callLegacyH5<T = unknown>(
   }
 }
 
-/** goods_url → goods_no（mercari item id，形如 mNNNNNNNNNNN）。解不出返回 null。 */
+/** goods_url → goods_no（mercari item id，形如 mNNNNNNNNNNN）。与 NestJS 校验对齐：只接受 jp.mercari.com（可带 www.）的 /item/mNNNNNNNNNNN 路径，解不出返回 null。 */
 export function parseGoodsNoFromUrl(url: string): string | null {
-  const match = url.match(/\/item\/(m\d+)/) || url.match(/\b(m\d{9,13})\b/);
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.hostname !== "jp.mercari.com" && parsed.hostname !== "www.jp.mercari.com") {
+    return null;
+  }
+  const match = parsed.pathname.match(/^\/item\/(m\d{11})$/);
   return match ? match[1] : null;
 }
 

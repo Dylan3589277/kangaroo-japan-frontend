@@ -19,6 +19,7 @@
     "errors": {
       "itemUrlRequired": "Please enter the item link",
       "itemUrlInvalid": "Please enter a valid link (must start with http/https)",
+      "invalidItemUrl": "Unable to recognize this item link. Please make sure it's a jp.mercari.com item page link",
       "maxBidRequired": "Please enter a max bid",
       "maxBidInvalid": "Please enter a positive whole-yen amount",
       "generic": "Submission failed, please try again later",

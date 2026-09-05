@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   const goodsNo = parseGoodsNoFromUrl(itemUrl);
   if (!goodsNo) {
     return NextResponse.json(
-      { errmsg: "无法识别的商品链接", code: "invalid_param" },
+      { errcode: "invalid_item_url", errmsg: "无法识别的商品链接" },
       { status: 200 },
     );
   }

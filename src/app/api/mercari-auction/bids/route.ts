@@ -30,15 +30,22 @@ interface LegacyBidsListData {
 // GET /api/mercari-auction/bids?status=&page=
 // 代理老后台 POST api/mercari/h5bids，字段映射到页面既有的 MercariAuctionBidListItem 形状
 // （item_id/item_url/item_title/created_at 等命名与老后台 goods_no/goods_url/goods_name/create_time 不同源，这里转一层）。
+//
+// 页面传来的 status 是 tab 桶值（"0"/"2"/"3"），不是 PHP 单一精确状态，两者不能直接透传：
+//   0 → pending_deposit/bidding/leading/outbid (状态码 [0,1,2,3]，进行中)
+//   2 → won_unpaid/won_paid (状态码 [4,5]，已中标)
+//   3 → lost/ended_early/cancel_requested/cancelled (状态码 [6,7,8,9]，已结束)
+// 因此这里把页面 status 作为 bucket 参数转发给老后台，不再传 status；
+// PHP 端 bidsListData 将新增 bucket 支持（另卡）。
 export async function GET(request: NextRequest) {
   const uid = await getLegacyUidFromRequest(request);
   if (!uid) {
     return NextResponse.json({ message: "NO_LEGACY_UID" }, { status: 409 });
   }
 
-  const status = request.nextUrl.searchParams.get("status") || "";
+  const bucket = request.nextUrl.searchParams.get("status") || "";
   const page = request.nextUrl.searchParams.get("page") || "1";
-  const result = await callLegacyH5<LegacyBidsListData>("h5bids", uid, { status, page });
+  const result = await callLegacyH5<LegacyBidsListData>("h5bids", uid, { bucket, page });
   if (!result.ok) {
     return NextResponse.json({ message: result.message }, { status: result.status });
   }

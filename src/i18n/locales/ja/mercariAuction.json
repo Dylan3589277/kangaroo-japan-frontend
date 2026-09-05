@@ -19,6 +19,7 @@
     "errors": {
       "itemUrlRequired": "商品リンクを入力してください",
       "itemUrlInvalid": "有効なリンクを入力してください（http/httpsで始まる必要があります）",
+      "invalidItemUrl": "商品リンクを認識できません。jp.mercari.comの商品ページリンクか確認してください",
       "maxBidRequired": "上限金額を入力してください",
       "maxBidInvalid": "正の整数（円）を入力してください",
       "generic": "送信に失敗しました。しばらくしてからお試しください",

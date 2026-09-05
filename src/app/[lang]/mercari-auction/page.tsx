@@ -112,6 +112,7 @@ interface MercariAuctionBidSubmitSuccess {
 // errmsg 字段自己判断真假成功，不能只看 res.success（详见下方 isSubmitFailure）。
 interface MercariAuctionBidSubmitFailure {
   errmsg: string;
+  errcode?: string;
   code?: string;
   required?: number;
   available?: number;
@@ -407,7 +408,10 @@ export default function MercariAuctionPage() {
       }
 
       if (payload && isSubmitFailure(payload)) {
-        let msg = payload.errmsg || t("submit.errors.generic");
+        let msg =
+          payload.errcode === "invalid_item_url"
+            ? t("submit.errors.invalidItemUrl")
+            : payload.errmsg || t("submit.errors.generic");
         if (
           payload.code === "insufficient_deposit" &&
           payload.required !== undefined &&

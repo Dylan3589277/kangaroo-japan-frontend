@@ -25,9 +25,19 @@ test("parseGoodsNoFromUrl extracts goods_no from a standard item URL", () => {
   assert.equal(parseGoodsNoFromUrl(url), "m12345678901");
 });
 
-test("parseGoodsNoFromUrl falls back to bare mNNN pattern and returns null when absent", () => {
-  assert.equal(parseGoodsNoFromUrl("https://example.com/foo/m987654321?x=1"), "m987654321");
+test("parseGoodsNoFromUrl accepts www. prefix", () => {
+  assert.equal(parseGoodsNoFromUrl("https://www.jp.mercari.com/item/m12345678901"), "m12345678901");
+});
+
+test("parseGoodsNoFromUrl rejects non jp.mercari.com hosts", () => {
+  assert.equal(parseGoodsNoFromUrl("https://evil.example.com/item/m12345678901"), null);
+});
+
+test("parseGoodsNoFromUrl rejects non-exact item paths", () => {
+  assert.equal(parseGoodsNoFromUrl("https://jp.mercari.com/search?x=m12345678901"), null);
+  assert.equal(parseGoodsNoFromUrl("https://jp.mercari.com/item/m123456789012"), null);
   assert.equal(parseGoodsNoFromUrl("https://example.com/no-id-here"), null);
+  assert.equal(parseGoodsNoFromUrl("not a url"), null);
 });
 
 test("legacyCreateTimeToIso converts Unix seconds to ISO string", () => {
