@@ -101,7 +101,7 @@ function yahooBidIncrement(price: number) {
 
 function isSignatureExpiredMessage(msg?: string) {
   if (!msg) return false;
-  return msg.includes("签名") || msg.includes("过期");
+  return msg.includes("签名") || msg.startsWith("链接已过期");
 }
 
 export default function SupportAuctionDetailPage() {
@@ -208,16 +208,17 @@ export default function SupportAuctionDetailPage() {
   }, [detail, now, fetchedAt]);
 
   const isEnded = leftSeconds !== undefined && leftSeconds < 0;
+  const isUrgent = leftSeconds !== undefined && leftSeconds <= 600;
 
   // 根据剩余时间动态调节轮询频率（仅页面可见时；已结束停止轮询）。
   useEffect(() => {
     if (isEnded) return;
-    const intervalMs = leftSeconds !== undefined && leftSeconds <= 600 ? 10_000 : 60_000;
+    const intervalMs = isUrgent ? 10_000 : 60_000;
     const timer = setInterval(() => {
       if (document.visibilityState === "visible" && !document.hidden) void loadDetail(true);
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [loadDetail, leftSeconds, isEnded]);
+  }, [loadDetail, isUrgent, isEnded]);
 
   function openBidPanel() {
     const bidPrice = detail?.bid_price ?? 0;
