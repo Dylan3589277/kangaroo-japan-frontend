@@ -96,7 +96,10 @@ export default function SupportAuctionMinePage() {
             ? (root.data as BidItem[])
             : [];
         setItems((prev) => (append ? [...prev, ...list] : list));
-        setHasMore(list.length > 0 && Boolean(data.has_more));
+        const totalPages = Number(data.totalPages ?? data.total_pages ?? 0);
+        setHasMore(
+          list.length > 0 && (targetPage < totalPages || Boolean(data.has_more)),
+        );
         setLoadError("");
         setPage(targetPage);
       } catch {
