@@ -109,7 +109,7 @@ const WECOM_KEFU_CHAT_URL =
   process.env.NEXT_PUBLIC_KF53_CHAT_URL ||
   "https://work.weixin.qq.com/kfid/kfcdd40f1f6c4b4b499";
 
-// 平台徽章：当前只有煤炉（mercari）走留言服务；其它平台展示原样兜底，零回归。
+// 平台徽章：煤炉 / ラクマ / PayPayフリマ 走留言服务（2026-09 多平台）；未知平台展示原样兜底。
 const PLATFORM_BADGES: Record<string, string> = {
   mercari: "煤炉",
   rakuma: "ラクマ",
