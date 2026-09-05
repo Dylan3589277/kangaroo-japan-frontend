@@ -84,6 +84,42 @@ const DETAIL_102_PAYLOAD = {
   },
 };
 
+// can_transfer_human 字段场景（新后端已下发该字段，优先于 status_text 子串判断）。
+const TASK_NEW_BACKEND_TRANSFER = {
+  id: 105,
+  platform: "mercari",
+  goods_no: "m55500005",
+  item_url: "https://jp.mercari.com/item/m55500005",
+  message_type: "question",
+  customer_status: "closed",
+  status_text: "商品已售出，留言结束；如需协助可联系客服",
+  can_transfer_human: true,
+  customer_request_zh: "还有货吗",
+  created_at: "2026-07-04T09:00:00+09:00",
+};
+
+const TASK_NEW_BACKEND_NO_TRANSFER = {
+  id: 106,
+  platform: "mercari",
+  goods_no: "m66600006",
+  item_url: "https://jp.mercari.com/item/m66600006",
+  message_type: "question",
+  customer_status: "closed",
+  status_text: "已结束",
+  can_transfer_human: false,
+  customer_request_zh: "还有货吗",
+  created_at: "2026-07-04T10:00:00+09:00",
+};
+
+const LIST_PAYLOAD_NEW_BACKEND = {
+  code: 0,
+  data: {
+    list: [TASK_NEW_BACKEND_TRANSFER, TASK_NEW_BACKEND_NO_TRANSFER],
+    page: 1,
+    total: 2,
+  },
+};
+
 function json(route: Route, body: unknown) {
   return route.fulfill({
     status: 200,
@@ -234,5 +270,25 @@ test.describe("留言中心 H5（/zh/support/messages）", () => {
     const empty = page.getByTestId("seller-messages-empty");
     await expect(empty).toBeVisible();
     await expect(empty).toContainText("去商品页点「留言」");
+  });
+
+  test("新后端下发 can_transfer_human 字段：优先于 status_text 子串判断", async ({
+    page,
+  }) => {
+    await blockThirdParty(page);
+    await page.route("**/api/support/seller-messages", (route) =>
+      json(route, LIST_PAYLOAD_NEW_BACKEND),
+    );
+
+    await page.goto("/zh/support/messages?uid=7&ts=1751500000&sig=e2e-sig");
+
+    // can_transfer_human=true：即便 status_text 不含「可转人工」也要给入口
+    await expect(
+      page.getByTestId("seller-messages-human-kefu-105"),
+    ).toBeVisible();
+    // can_transfer_human=false：即便 closed 也不给入口
+    await expect(
+      page.getByTestId("seller-messages-human-kefu-106"),
+    ).toHaveCount(0);
   });
 });

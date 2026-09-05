@@ -47,6 +47,9 @@ type VisitorTask = {
   // queue_state_text 徽章，不按 role/rank 再分支。
   queue_role?: string;
   queue_state_text?: string;
+  // 后端下发的转人工判定（新版后端才有）；undefined 时（老后端）退回按
+  // status_text 文案子串判断。
+  can_transfer_human?: boolean;
 };
 
 type DetailState = {
@@ -164,6 +167,10 @@ function parseTask(value: unknown): VisitorTask | null {
     queue_rank: getNumber(record.queue_rank),
     queue_role: getString(record.queue_role),
     queue_state_text: getString(record.queue_state_text),
+    can_transfer_human:
+      typeof record.can_transfer_human === "boolean"
+        ? record.can_transfer_human
+        : undefined,
   };
 }
 
@@ -452,8 +459,12 @@ export default function SellerMessagesH5Page() {
     const isAgreed = task.customer_status === "agreed";
     const isRejected = task.customer_status === "rejected";
     const canTransferHuman =
-      task.customer_status === "closed" &&
-      Boolean(task.status_text?.includes("可转人工"));
+      task.can_transfer_human === true
+        ? true
+        : task.can_transfer_human === undefined
+          ? task.customer_status === "closed" &&
+            Boolean(task.status_text?.includes("可转人工"))
+          : false;
 
     return (
       <div
