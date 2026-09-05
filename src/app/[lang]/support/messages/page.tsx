@@ -459,12 +459,9 @@ export default function SellerMessagesH5Page() {
     const isAgreed = task.customer_status === "agreed";
     const isRejected = task.customer_status === "rejected";
     const canTransferHuman =
-      task.can_transfer_human === true
-        ? true
-        : task.can_transfer_human === undefined
-          ? task.customer_status === "closed" &&
-            Boolean(task.status_text?.includes("可转人工"))
-          : false;
+      typeof task.can_transfer_human === "boolean"
+        ? task.can_transfer_human
+        : task.customer_status === "closed";
 
     return (
       <div
