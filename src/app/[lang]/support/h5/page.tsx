@@ -3152,41 +3152,11 @@ export default function MiniProgramSupportH5Page() {
           );
           // 自动报价开场卡紧跟欢迎语（items[0]）渲染，独立于 items：
           // 历史轮询的 setItems 整体替换 items 时永远碰不到它，报价卡稳定留存。
-          const myAuctionsCard =
-            index === 0 && userId && uidSignature.sig ? (
-              <div
-                key="my-auctions-card"
-                className="rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
-                data-testid="support-h5-mine-card"
-              >
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between text-left"
-                  onClick={goMyAuctions}
-                >
-                  <span className="text-sm font-medium text-orange-700">
-                    我的竞拍
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    查看雅虎竞拍出价记录
-                  </span>
-                </button>
-              </div>
-            ) : null;
           if (index === 0 && autoQuoteOpening) {
             return (
               <Fragment key="welcome-with-auto-quote">
                 {node}
-                {myAuctionsCard}
                 {renderChatItem(autoQuoteOpening, "auto-quote-opening")}
-              </Fragment>
-            );
-          }
-          if (myAuctionsCard) {
-            return (
-              <Fragment key="welcome-with-mine-card">
-                {node}
-                {myAuctionsCard}
               </Fragment>
             );
           }
@@ -3252,6 +3222,17 @@ export default function MiniProgramSupportH5Page() {
             快捷问题
           </div>
           <div className="grid grid-cols-2 gap-2">
+            {userId && uidSignature.sig ? (
+              <button
+                type="button"
+                className="rounded-md border border-orange-100 bg-orange-50 px-2 py-2 text-left text-xs text-orange-700"
+                onClick={goMyAuctions}
+                disabled={loading}
+                data-testid="support-h5-mine-button"
+              >
+                我的竞拍
+              </button>
+            ) : null}
             {QUICK_QUESTIONS.map((question) => (
               <button
                 key={question}
