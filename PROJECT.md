@@ -4,6 +4,12 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-09-05 留言中心多平台角标核查（无代码改动）
+
+- **为什么**：核查留言中心（`support/messages`）与 rakuma/yahoofrima 详情页是否漏配 rakuma/yahoofrima 的角标与平台标识。
+- **逻辑**：`support/messages/page.tsx` 的 `PLATFORM_BADGES` 已含 `rakuma: "ラクマ"`、`yahoofrima: "PayPayフリマ"`，页面全程无 en/zh 分支（纯中日文硬编码），无需改动。RakumaDetail(Classic/DesignA)、YahoofrimaDetail(Classic/DesignA) 四处 `openWithProduct({ platform: "mercari", ... })` 并非提交给后端的下单/报价字段，而是 TCG 客服浮窗（`src/components/tcg/ChatProvider.tsx`）的 `ChatProduct.platform`，类型为闭合联合 `"mercari" | "yahoo" | "amazon"`，仅用于浮窗商品卡角标文案（`TcgChatWidget.tsx` 三元判断），不含 rakuma/yahoofrima 分支、不参与任何后端请求。改成字面量 `"rakuma"`/`"yahoofrima"` 会直接导致 tsc 类型报错（不在联合类型内）；同类模式在 toretoku/cardrush/torecacamp/cardmuseum 四个平台详情页也存在，均是同一 widget 复用，非本次任务范围。
+- **改动**：无代码改动，本条仅记录核查结论，供后续若要真正支持 rakuma/yahoofrima 客服角标时参考（需先扩展 `ChatProduct.platform` 联合类型并给 widget 补分支）。
+
 ### 2026-09-05 「我的竞拍」页煤炉行显示 goods_image 封面图
 
 - **为什么**：`/support/auction/mine` 煤炉（mercari）行此前只有占位灰块+红色「煤炉」角标，没显示商品图，老后台接口其实返回了 `goods_image`。
