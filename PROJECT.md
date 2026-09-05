@@ -4,6 +4,13 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-09-05 「我的竞拍」页煤炉行显示 goods_image 封面图
+
+- **为什么**：`/support/auction/mine` 煤炉（mercari）行此前只有占位灰块+红色「煤炉」角标，没显示商品图，老后台接口其实返回了 `goods_image`。
+- **逻辑**：`fetchMercari` 映射老后台行时取 `raw.goods_image`，仅当以 `http(s)://` 开头才写入 `cover`，否则维持占位。列表渲染新增通用的 `onError` 回落（`brokenImages` 状态集合，按 item key 记录加载失败的图，失败后回落灰色占位块），雅虎/煤炉共用同一套逻辑，未改雅虎映射本身。
+- **改动**：仅 `src/app/[lang]/support/auction/mine/page.tsx`。
+- **验证**：`npx tsc --noEmit -p .` 无本次相关新增错误（仅预存 fe-mine/、mercari-auction-legacy.test.ts 的 TS5097）；`npm run build` 通过。
+
 ### 2026-09-04 客服H5竞拍页套壳修复：EMBEDDED_SUPPORT_PREFIXES 加 /support/auction（519d69d，已部署ECS，回滚锚点旧镜像 b3d818874d97）
 
 - **为什么**：客服H5雅虎竞拍页（`/zh/support/auction/[id]` 与 `/mine`，袋鼠君小程序 webview 内打开）被套上了 jp-buy 站点的 SiteHeader/SiteFooter/客服浮窗，页脚链接在小程序域名下无 nginx 代理会 404，且排版难看，不适合内嵌 webview 场景。

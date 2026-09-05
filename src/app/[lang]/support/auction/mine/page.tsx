@@ -77,6 +77,7 @@ export default function SupportAuctionMinePage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
 
   const activeStatus =
     STATUS_TABS.find((tab) => tab.key === activeTab)?.status ?? 0;
@@ -142,17 +143,23 @@ export default function SupportAuctionMinePage() {
       const data = getRecord(root.data);
       const list = Array.isArray(data.list) ? (data.list as Record<string, unknown>[]) : [];
       const totalPages = Number(data.totalPages ?? data.total_pages ?? 0);
-      const mapped: BidItem[] = list.map((raw) => ({
-        source: "mercari" as const,
-        id: raw.id as number | string | undefined,
-        status: raw.status as number | undefined,
-        status_txt: raw.status_txt as string | undefined,
-        order_id: raw.order_id as string | undefined,
-        goods_no: raw.goods_no as string | undefined,
-        goods_name: raw.goods_name as string | undefined,
-        price: raw.max_bid_jpy as number | undefined,
-        create_time: raw.create_time as string | undefined,
-      }));
+      const mapped: BidItem[] = list.map((raw) => {
+        const image = raw.goods_image;
+        const cover =
+          typeof image === "string" && /^https?:\/\//.test(image) ? image : undefined;
+        return {
+          source: "mercari" as const,
+          id: raw.id as number | string | undefined,
+          status: raw.status as number | undefined,
+          status_txt: raw.status_txt as string | undefined,
+          order_id: raw.order_id as string | undefined,
+          goods_no: raw.goods_no as string | undefined,
+          goods_name: raw.goods_name as string | undefined,
+          cover,
+          price: raw.max_bid_jpy as number | undefined,
+          create_time: raw.create_time as string | undefined,
+        };
+      });
       return {
         list: mapped,
         hasMore:
@@ -336,9 +343,12 @@ export default function SupportAuctionMinePage() {
           {loadError ? (
             <p className="px-1 text-xs text-amber-600">{loadError}</p>
           ) : null}
-          {items.map((item) => (
+          {items.map((item) => {
+            const itemKey = `${item.source}-${item.id ?? item.order_id ?? item.goods_no}`;
+            const showCover = Boolean(item.cover) && !brokenImages.has(itemKey);
+            return (
             <button
-              key={`${item.source}-${item.id ?? item.order_id ?? item.goods_no}`}
+              key={itemKey}
               type="button"
               className="flex w-full items-center gap-3 rounded-lg bg-white p-3 text-left shadow-sm"
               data-source={item.source}
@@ -353,12 +363,15 @@ export default function SupportAuctionMinePage() {
               data-testid="support-auction-mine-item"
             >
               <div className="relative h-14 w-14 flex-none">
-                {item.cover ? (
+                {showCover ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={item.cover}
                     alt={item.goods_name || "商品图片"}
                     className="h-14 w-14 rounded-md object-cover"
+                    onError={() =>
+                      setBrokenImages((prev) => new Set(prev).add(itemKey))
+                    }
                   />
                 ) : (
                   <div className="h-14 w-14 rounded-md bg-slate-100" />
@@ -394,7 +407,8 @@ export default function SupportAuctionMinePage() {
                 </p>
               </div>
             </button>
-          ))}
+            );
+          })}
 
           {hasMore ? (
             <button
