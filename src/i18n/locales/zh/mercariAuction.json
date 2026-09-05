@@ -19,10 +19,12 @@
     "errors": {
       "itemUrlRequired": "请填写商品链接",
       "itemUrlInvalid": "请填写有效的链接（需以 http/https 开头）",
+      "invalidItemUrl": "无法识别的商品链接，请确认是 jp.mercari.com 的商品页面链接",
       "maxBidRequired": "请填写出价上限",
       "maxBidInvalid": "请填写正整数日元金额",
       "generic": "提交失败，请稍后重试",
       "network": "网络异常，请稍后重试",
+      "noLegacyUid": "请先在袋鼠君小程序绑定会员后再使用竞拍功能",
       "insufficientDepositSuffix": "（需{required}，可用{available}）",
       "dailyCapSuffix": "（今日已用{dailyUsed}，日限{dailyCap}）"
     }

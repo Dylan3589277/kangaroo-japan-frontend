@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +35,58 @@ import { toast } from "sonner";
  * 以 /quota 返回的 rateJpyPerCny 为准）。
  */
 
+// ── 同源 Next.js 路由代理老后台 PHP（/api/mercari-auction/...），与 api.ts 的
+// 固定 /api/backend 基址分开，token 读取逻辑与 api.ts 的 getAccessToken 保持一致。
+interface LegacyApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: { code: string; message: string };
+}
+
+function getAccessTokenForLegacy(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem("auth-storage");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed?.state?.accessToken ?? null;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+async function callLegacyRoute<T>(
+  path: string,
+  init?: { method?: string; body?: unknown },
+): Promise<LegacyApiResponse<T>> {
+  const token = getAccessTokenForLegacy();
+  try {
+    const res = await fetch(`/api/mercari-auction${path}`, {
+      method: init?.method || "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: init?.body ? JSON.stringify(init.body) : undefined,
+    });
+    const data = await res.json().catch(() => null);
+    if (res.status === 409 && data?.message === "NO_LEGACY_UID") {
+      return { success: false, error: { code: "NO_LEGACY_UID", message: "NO_LEGACY_UID" } };
+    }
+    if (!res.ok) {
+      return {
+        success: false,
+        error: { code: String(res.status), message: data?.message || "request_failed" },
+      };
+    }
+    return { success: true, data: data as T };
+  } catch {
+    return { success: false, error: { code: "NETWORK", message: "network_error" } };
+  }
+}
+
 // ── 类型（严格对齐已定死的 API 契约，字段名不与 yahoo/bids 等其它端点混用） ──
 
 interface MercariAuctionQuota {
@@ -61,6 +112,7 @@ interface MercariAuctionBidSubmitSuccess {
 // errmsg 字段自己判断真假成功，不能只看 res.success（详见下方 isSubmitFailure）。
 interface MercariAuctionBidSubmitFailure {
   errmsg: string;
+  errcode?: string;
   code?: string;
   required?: number;
   available?: number;
@@ -198,14 +250,17 @@ export default function MercariAuctionPage() {
     setQuotaError(null);
     const money = Number(raw);
     const timer = window.setTimeout(() => {
-      api
-        .request<MercariAuctionQuota>(`/mercari-auction/quota?maxBidJpy=${money}`)
+      callLegacyRoute<MercariAuctionQuota>(`/quota?maxBidJpy=${money}`)
         .then((res) => {
           if (res.success && res.data) {
             setQuota(res.data);
           } else {
             setQuota(null);
-            setQuotaError(res.error?.message || t("submit.quotaFailed"));
+            setQuotaError(
+              res.error?.code === "NO_LEGACY_UID"
+                ? t("submit.errors.noLegacyUid")
+                : res.error?.message || t("submit.quotaFailed"),
+            );
           }
         })
         .catch(() => {
@@ -224,8 +279,8 @@ export default function MercariAuctionPage() {
       else setLoadingMore(true);
 
       try {
-        const res = await api.request<MercariAuctionBidListData>(
-          `/mercari-auction/bids/list?status=${tabValue}&page=${pageNum}`,
+        const res = await callLegacyRoute<MercariAuctionBidListData>(
+          `/bids?status=${tabValue}&page=${pageNum}`,
         );
         if (res.success && res.data) {
           const data = res.data;
@@ -330,13 +385,10 @@ export default function MercariAuctionPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await api.request<MercariAuctionBidSubmitResult>(
-        "/mercari-auction/bid",
-        {
-          method: "POST",
-          body: { itemUrl: itemUrl.trim(), maxBidJpy: money },
-        },
-      );
+      const res = await callLegacyRoute<MercariAuctionBidSubmitResult>("/bid", {
+        method: "POST",
+        body: { itemUrl: itemUrl.trim(), maxBidJpy: money },
+      });
 
       // 见文件顶部注释：res.success 在软失败下也可能是 true，必须用
       // payload 里有没有 errmsg 字段来判定，不能只看 res.success。
@@ -356,7 +408,10 @@ export default function MercariAuctionPage() {
       }
 
       if (payload && isSubmitFailure(payload)) {
-        let msg = payload.errmsg || t("submit.errors.generic");
+        let msg =
+          payload.errcode === "invalid_item_url"
+            ? t("submit.errors.invalidItemUrl")
+            : payload.errmsg || t("submit.errors.generic");
         if (
           payload.code === "insufficient_deposit" &&
           payload.required !== undefined &&
@@ -380,7 +435,11 @@ export default function MercariAuctionPage() {
         return;
       }
 
-      setSubmitError(res.error?.message || t("submit.errors.generic"));
+      setSubmitError(
+        res.error?.code === "NO_LEGACY_UID"
+          ? t("submit.errors.noLegacyUid")
+          : res.error?.message || t("submit.errors.generic"),
+      );
     } catch (error) {
       console.error("Failed to submit mercari-auction bid:", error);
       setSubmitError(t("submit.errors.network"));
@@ -394,8 +453,8 @@ export default function MercariAuctionPage() {
     if (!cancelTarget || cancelling) return;
     setCancelling(true);
     try {
-      const res = await api.request<MercariAuctionCancelResult>(
-        `/mercari-auction/bid/${cancelTarget.id}/cancel`,
+      const res = await callLegacyRoute<MercariAuctionCancelResult>(
+        `/bid/${cancelTarget.id}/cancel`,
         { method: "POST" },
       );
       const payload = res.data;
@@ -414,7 +473,13 @@ export default function MercariAuctionPage() {
       }
 
       const errMsg = payload && isCancelFailure(payload) ? payload.errmsg : undefined;
-      toast.error(errMsg || res.error?.message || t("my.cancelFailed"));
+      toast.error(
+        errMsg ||
+          (res.error?.code === "NO_LEGACY_UID"
+            ? t("submit.errors.noLegacyUid")
+            : res.error?.message) ||
+          t("my.cancelFailed"),
+      );
     } catch (error) {
       console.error("Failed to cancel mercari-auction bid:", error);
       toast.error(t("my.cancelFailed"));
