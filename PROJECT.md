@@ -114,3 +114,11 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 改动（6d80833/118062f P2 修复 + 7a9e47f「我的竞拍」卡）：雅虎出价档位表 `yahooBidIncrement`（<1000:10,<5000:100,<10000:250,<50000:500,<100000:1000,<1e6:5000,否则10000）+ 默认出价=当前价+一档 + 快捷 +1/+2/+5 档 + 低于最小加价拦截；轮询 10 分钟内 10s 否则 60s、结束停轮询、页面不可见不轮询（修复一个 bug：effect 依赖 `leftSeconds` 导致 interval 永不触发）；押金不足/超额度按钮置灰+红字原因；签名过期识别改为 `签名`/`链接已过期` 开头（原 `过期` 过宽）。`h5/page.tsx` 欢迎语下方新增「我的竞拍」卡，仅数字 userId+sig 存在时渲染，跳 `/support/auction/mine`。
 - 教训：分身交付被中枢审出两处 bug（轮询依赖 leftSeconds 导致不触发、过期文案匹配过宽），收尾前必须自验+对抗审查。
 - 回滚：ECS 镜像 `c1cff581675e`，回滚锚点旧镜像 `832d83f9c67d`。
+
+### 2026-09-05 · 客服H5「我的竞拍」入口搬入快捷问题 + 煤炉雅虎合并列表（main 8329f4e，ECS 已部署 a55f3d6be1d9）
+
+- 为什么：欢迎语下方独立「我的竞拍」卡片占位大，且原「我的竞拍」页只有雅虎出价，缺煤炉委托记录。
+- 改动：①`src/app/[lang]/support/h5/page.tsx` 删除顶部「我的竞拍」卡片，改为「快捷问题」格子里加按钮（`data-testid support-h5-mine-button`，仅 userId+sig 存在时渲染）；②新增代理 `src/app/api/support/mercari/bids/route.ts`，POST 转发老后台 `/api/mercari/h5bids`（8s 超时，code 101=签名无效）；③`src/app/[lang]/support/auction/mine/page.tsx` 合并煤炉委托（h5bids, bucket）+ 雅虎出价（h5bids yahoo, status），按 create_time 倒序、各来源独立翻页；图左上角角标区分蓝「雅虎」/红「煤炉」，煤炉无封面图（mercari_auction_bids 表无 image 列）用占位图+角标，煤炉行显示「出价上限 ¥max_bid_jpy」且不可点击；单来源失败显示「雅虎/煤炉记录加载失败」，签名失效显示「请从客服对话重新进入」。
+- 待办：煤炉委托存商品图（PHP createBid + bridge 传 image）另开卡。
+- 验证：浏览器实测 h5 页出现「我的竞拍」按钮；mine 页坏签名显示「请从客服对话重新进入」；curl 新路由坏签名返回 `{"code":101,"errmsg":"签名无效"}`。
+- 回滚：ECS 镜像 `a55f3d6be1d9`，回滚锚点旧镜像 `88defb59f38f`。
