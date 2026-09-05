@@ -134,3 +134,9 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 - 为什么：后端新增代留言任务 closedAt/closeReason/can_transfer_human 字段（sold/timeout/manual 三种关闭原因），前端留言中心此前无法展示关闭状态与转人工入口。
 - 改动：留言中心加 closed 标签/细分文案，新增「人工客服」入口；`canTransferHuman` 优先读后端下发字段，后端未下发时兜底按 `customer_status==='closed'` 判断。commit d9bebc8、9c6f6cd，已与 main 同步。
+
+### 2026-09-05 · 客服H5「审核模式」只藏三个竞拍快捷问题按钮（未部署，本地未推）
+
+- 为什么：小程序送审期间老后台会打开「审核模式」开关（`GET /api/config/reviewmode`），期间只隐藏智能客服里竞拍相关的**问答展示**，竞拍功能本身（报价卡、确认竞拍、我的竞拍页、竞拍详情页、链接处理）一律不动、正常可用。
+- 改动：①新增同源转发路由 `src/app/api/support/review-mode/route.ts`（GET，5s 硬超时，任何失败一律回落 `{review_mode:false}`，`Cache-Control: no-store`）；②新增客户端 hook `src/app/[lang]/support/h5/review-mode.ts`（`useReviewMode()` 返回 `{loading, reviewMode}`，失败按 false 处理）；③`h5/page.tsx` 快捷问题格子里「我的竞拍」「怎么参与雅虎竞拍？」「雅虎中标想弃标」三个按钮在审核模式下不渲染（加载中也不渲染，防闪现）。`auction/mine`、`auction/[id]` 页面与报价卡逻辑未改。
+- 验证：新增测试 `src/app/api/support/review-mode/route.test.ts`（`node:test`，覆盖 fetch 抛错/非 200/code!=0/data 缺失/正常 true 五种情形）全绿；`npx tsc --noEmit` 除仓库既有预存在 TS5097 错误外无新增；eslint 零输出；`npm run build` 通过。

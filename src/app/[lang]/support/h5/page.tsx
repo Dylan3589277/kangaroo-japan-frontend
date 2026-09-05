@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 
 import { getH5UidSignature, getNumericH5UserId } from "./identity";
+import { useReviewMode } from "./review-mode";
 import { CANDY_THEME_CSS } from "../candy-theme";
 
 type ChatItem = {
@@ -967,6 +968,9 @@ export default function MiniProgramSupportH5Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = params?.lang || "zh";
+  // 小程序送审期间老后台「审核模式」开关：true 时隐藏一切竞拍相关内容。
+  // loading 期间三个竞拍按钮先不渲染（防审核模式下闪现），失败按 false（不隐藏）处理。
+  const { loading: reviewModeLoading, reviewMode } = useReviewMode();
   // 新版小程序换肤参数：?theme=candy。缺省/其它值一律按原皮渲染，零回归。
   const isCandyTheme = searchParams.get("theme") === "candy";
   const initialSessionId = searchParams.get("session_id") || undefined;
@@ -3222,7 +3226,7 @@ export default function MiniProgramSupportH5Page() {
             快捷问题
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {userId && uidSignature.sig ? (
+            {userId && uidSignature.sig && !reviewModeLoading && !reviewMode ? (
               <button
                 type="button"
                 className="rounded-md border border-orange-100 bg-orange-50 px-2 py-2 text-left text-xs text-orange-700"
@@ -3233,7 +3237,13 @@ export default function MiniProgramSupportH5Page() {
                 我的竞拍
               </button>
             ) : null}
-            {QUICK_QUESTIONS.map((question) => (
+            {QUICK_QUESTIONS.filter(
+              (question) =>
+                !(
+                  (reviewModeLoading || reviewMode) &&
+                  (question === "怎么参与雅虎竞拍？" || question === "雅虎中标想弃标")
+                ),
+            ).map((question) => (
               <button
                 key={question}
                 type="button"
