@@ -89,6 +89,21 @@ function formatCountdown(leftSeconds: number) {
   return `${m}分${s}秒`;
 }
 
+function yahooBidIncrement(price: number) {
+  if (price < 1000) return 10;
+  if (price < 5000) return 100;
+  if (price < 10000) return 250;
+  if (price < 50000) return 500;
+  if (price < 100000) return 1000;
+  if (price < 1000000) return 5000;
+  return 10000;
+}
+
+function isSignatureExpiredMessage(msg?: string) {
+  if (!msg) return false;
+  return msg.includes("签名") || msg.includes("过期");
+}
+
 export default function SupportAuctionDetailPage() {
   const params = useParams<{ lang?: string; id?: string }>();
   const router = useRouter();
@@ -151,7 +166,12 @@ export default function SupportAuctionDetailPage() {
           return;
         }
         if (root.code !== 0) {
-          setLoadError((root.errmsg as string) || "加载失败，请重试");
+          const errmsg = root.errmsg as string | undefined;
+          setLoadError(
+            isSignatureExpiredMessage(errmsg)
+              ? "链接已过期，请回到小程序重新打开智能客服"
+              : errmsg || "加载失败，请重试",
+          );
           return;
         }
         setDetail(root.data as AuctionDetail);
@@ -168,14 +188,6 @@ export default function SupportAuctionDetailPage() {
 
   useEffect(() => {
     void loadDetail();
-  }, [loadDetail]);
-
-  // 每 30s 静默刷新（仅页面可见时）。
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void loadDetail(true);
-    }, 30_000);
-    return () => clearInterval(timer);
   }, [loadDetail]);
 
   // 本地倒计时 tick。
@@ -196,8 +208,20 @@ export default function SupportAuctionDetailPage() {
   }, [detail, now, fetchedAt]);
 
   const isEnded = leftSeconds !== undefined && leftSeconds < 0;
+
+  // 根据剩余时间动态调节轮询频率（仅页面可见时；已结束停止轮询）。
+  useEffect(() => {
+    if (isEnded) return;
+    const intervalMs = leftSeconds !== undefined && leftSeconds <= 600 ? 10_000 : 60_000;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible" && !document.hidden) void loadDetail(true);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [loadDetail, leftSeconds, isEnded]);
+
   function openBidPanel() {
-    const defaultAmount = (detail?.bid_price ?? 0) + 10;
+    const bidPrice = detail?.bid_price ?? 0;
+    const defaultAmount = bidPrice + yahooBidIncrement(bidPrice);
     setBidAmountInput(String(defaultAmount));
     setAgreed(false);
     setBidError("");
@@ -208,6 +232,12 @@ export default function SupportAuctionDetailPage() {
     const amount = Number(bidAmountInput);
     if (!Number.isInteger(amount) || amount <= 0) {
       setBidError("请输入正确的整数金额");
+      return;
+    }
+    const bidPrice = detail?.bid_price ?? 0;
+    const minAmount = bidPrice + yahooBidIncrement(bidPrice);
+    if (amount < minAmount) {
+      setBidError(`出价须至少 ¥${minAmount.toLocaleString("ja-JP")}`);
       return;
     }
     if (!agreed) {
@@ -225,7 +255,12 @@ export default function SupportAuctionDetailPage() {
       const payload = await res.json().catch(() => null);
       const root = getRecord(payload);
       if (root.code !== 0) {
-        setBidError((root.errmsg as string) || "出价失败，请重试");
+        const errmsg = root.errmsg as string | undefined;
+        setBidError(
+          isSignatureExpiredMessage(errmsg)
+            ? "链接已过期，请回到小程序重新打开智能客服"
+            : errmsg || "出价失败，请重试",
+        );
         return;
       }
       toast.success("出价成功");
@@ -251,7 +286,12 @@ export default function SupportAuctionDetailPage() {
       const buyoutPayload = await buyoutRes.json().catch(() => null);
       const buyoutRoot = getRecord(buyoutPayload);
       if (buyoutRoot.code !== 0) {
-        toast.error((buyoutRoot.errmsg as string) || "下单失败，请重试");
+        const errmsg = buyoutRoot.errmsg as string | undefined;
+        toast.error(
+          isSignatureExpiredMessage(errmsg)
+            ? "链接已过期，请回到小程序重新打开智能客服"
+            : errmsg || "下单失败，请重试",
+        );
         return;
       }
       const buyoutData = getRecord(buyoutRoot.data);
@@ -301,6 +341,23 @@ export default function SupportAuctionDetailPage() {
     if (navigateToMiniProgramDepositPay(suggest)) return;
     toast.error("请在袋鼠君小程序内充值");
   }
+
+  const depositInsufficient = detail?.deposit?.state === "insufficient";
+  const maxBidAllowedJpy = detail?.deposit?.max_bid_allowed_jpy;
+  const bidOverLimit =
+    maxBidAllowedJpy !== undefined && (detail?.bid_price ?? 0) > maxBidAllowedJpy;
+  const buyoutOverLimit =
+    maxBidAllowedJpy !== undefined && (detail?.fastprice ?? 0) > maxBidAllowedJpy;
+  const bidBlockReason = depositInsufficient
+    ? "押金不足，请先充值"
+    : bidOverLimit
+      ? `超出可出价上限 ¥${(maxBidAllowedJpy ?? 0).toLocaleString("ja-JP")}`
+      : "";
+  const buyoutBlockReason = depositInsufficient
+    ? "押金不足，请先充值"
+    : buyoutOverLimit
+      ? `超出可出价上限 ¥${(maxBidAllowedJpy ?? 0).toLocaleString("ja-JP")}`
+      : "";
 
   const themeAttr = isCandyTheme ? "candy" : undefined;
 
@@ -467,48 +524,71 @@ export default function SupportAuctionDetailPage() {
               竞拍已结束
             </button>
           ) : detail.bid_price && detail.fastprice ? (
-            <div className="flex gap-2">
+            <div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="w-1/2 rounded-md bg-slate-800 py-3 text-sm font-semibold text-white disabled:bg-slate-300"
+                  onClick={openBidPanel}
+                  disabled={Boolean(bidBlockReason)}
+                  title={bidBlockReason || undefined}
+                  data-testid="support-auction-open-bid-btn"
+                >
+                  出价
+                </button>
+                <button
+                  type="button"
+                  className="w-1/2 rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
+                  onClick={doBuyout}
+                  disabled={buyoutLoading || Boolean(buyoutBlockReason)}
+                  title={buyoutBlockReason || undefined}
+                  data-testid="support-auction-buyout-btn"
+                >
+                  {buyoutLoading
+                    ? "处理中…"
+                    : `即決价直接买 ¥${detail.fastprice.toLocaleString("ja-JP")}`}
+                </button>
+              </div>
+              {bidBlockReason || buyoutBlockReason ? (
+                <p className="mt-1.5 text-center text-xs text-red-500">
+                  {bidBlockReason || buyoutBlockReason}
+                </p>
+              ) : null}
+            </div>
+          ) : detail.fastprice ? (
+            <div>
               <button
                 type="button"
-                className="w-1/2 rounded-md bg-slate-800 py-3 text-sm font-semibold text-white disabled:bg-slate-300"
-                onClick={openBidPanel}
-                data-testid="support-auction-open-bid-btn"
-              >
-                出价
-              </button>
-              <button
-                type="button"
-                className="w-1/2 rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
+                className="w-full rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
                 onClick={doBuyout}
-                disabled={buyoutLoading}
+                disabled={buyoutLoading || Boolean(buyoutBlockReason)}
+                title={buyoutBlockReason || undefined}
                 data-testid="support-auction-buyout-btn"
               >
                 {buyoutLoading
                   ? "处理中…"
                   : `即決价直接买 ¥${detail.fastprice.toLocaleString("ja-JP")}`}
               </button>
+              {buyoutBlockReason ? (
+                <p className="mt-1.5 text-center text-xs text-red-500">{buyoutBlockReason}</p>
+              ) : null}
             </div>
-          ) : detail.fastprice ? (
-            <button
-              type="button"
-              className="w-full rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
-              onClick={doBuyout}
-              disabled={buyoutLoading}
-              data-testid="support-auction-buyout-btn"
-            >
-              {buyoutLoading
-                ? "处理中…"
-                : `即決价直接买 ¥${detail.fastprice.toLocaleString("ja-JP")}`}
-            </button>
           ) : (
-            <button
-              type="button"
-              className="w-full rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
-              onClick={openBidPanel}
-              data-testid="support-auction-open-bid-btn"
-            >
-              出价
-            </button>
+            <div>
+              <button
+                type="button"
+                className="w-full rounded-md bg-orange-500 py-3 text-sm font-semibold text-white disabled:bg-orange-200"
+                onClick={openBidPanel}
+                disabled={Boolean(bidBlockReason)}
+                title={bidBlockReason || undefined}
+                data-testid="support-auction-open-bid-btn"
+              >
+                出价
+              </button>
+              {bidBlockReason ? (
+                <p className="mt-1.5 text-center text-xs text-red-500">{bidBlockReason}</p>
+              ) : null}
+            </div>
           )}
         </div>
       ) : null}
@@ -542,18 +622,22 @@ export default function SupportAuctionDetailPage() {
               data-testid="support-auction-bid-amount-input"
             />
             <div className="mt-2 flex gap-2">
-              {[100, 500, 1000].map((step) => (
+              {[1, 2, 5].map((tiers) => (
                 <button
-                  key={step}
+                  key={tiers}
                   type="button"
                   className="rounded-md border border-orange-200 px-2.5 py-1 text-xs font-medium text-orange-600"
                   onClick={() =>
-                    setBidAmountInput((prev) =>
-                      String((Number(prev) || 0) + step),
-                    )
+                    setBidAmountInput((prev) => {
+                      let amount = Number(prev) || 0;
+                      for (let i = 0; i < tiers; i += 1) {
+                        amount += yahooBidIncrement(amount);
+                      }
+                      return String(amount);
+                    })
                   }
                 >
-                  +{step}
+                  +{tiers}档
                 </button>
               ))}
             </div>
