@@ -146,3 +146,9 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 为什么：小程序送审期间老后台会打开「审核模式」开关（`GET /api/config/reviewmode`），期间只隐藏智能客服里竞拍相关的**问答展示**，竞拍功能本身（报价卡、确认竞拍、我的竞拍页、竞拍详情页、链接处理）一律不动、正常可用。
 - 改动：①新增同源转发路由 `src/app/api/support/review-mode/route.ts`（GET，5s 硬超时，任何失败一律回落 `{review_mode:false}`，`Cache-Control: no-store`）；②新增客户端 hook `src/app/[lang]/support/h5/review-mode.ts`（`useReviewMode()` 返回 `{loading, reviewMode}`，失败按 false 处理）；③`h5/page.tsx` 快捷问题格子里「我的竞拍」「怎么参与雅虎竞拍？」「雅虎中标想弃标」三个按钮在审核模式下不渲染（加载中也不渲染，防闪现）。`auction/mine`、`auction/[id]` 页面与报价卡逻辑未改。
 - 验证：新增测试 `src/app/api/support/review-mode/route.test.ts`（`node:test`，覆盖 fetch 抛错/非 200/code!=0/data 缺失/正常 true 五种情形）全绿；`npx tsc --noEmit` 除仓库既有预存在 TS5097 错误外无新增；eslint 零输出；`npm run build` 通过。
+
+### 2026-09-05 · 代留言多平台扩展：留言中心平台徽章注释同步（网页留言发起入口后做）
+
+- **为什么**：配合后端/M4/candy 的 rakuma/yahoofrima 代留言扩展做上下文同步；花哥拍板网页端「留言发起」入口本轮不做，仅先做小程序端。
+- **逻辑/改动**：仅注释/文档同步（留言中心平台徽章说明），无功能代码改动。
+- **未做/观察**：commits d4423a5/e3b901c，**未推远端、未合 main**。网页留言发起入口待花哥后续排期。
