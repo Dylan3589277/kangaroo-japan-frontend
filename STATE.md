@@ -288,6 +288,26 @@
 
 ## 变更记录
 
+### 2026-09-05 · 煤炉竞拍网页改走老后台 PHP 签名代理（281f350）
+
+**为什么**：`/[lang]/mercari-auction` 竞拍网页原直打 NestJS 写 PG，而竞价执行器只读老后台
+PHP，两边数据不通形成「脑裂」；花哥拍板方向是现代后台今后不留、增量归老后台 PHP，此改
+动是该方向下第一块落地。
+
+**怎么做**：新增同源 Next.js API 路由 `src/app/api/mercari-auction/{quota,bids,bid,cancel}/route.ts`，
+核心逻辑在 `src/lib/server/mercari-auction-legacy.ts`：先用 Bearer JWT 打 NestJS
+`GET /api/v1/users/me` 取 `legacyMemberUid`，再用服务端密钥 `H5_UID_SIGN_SECRET` 对
+`${uid}.${ts}` 做 HMAC-SHA256 签出短时令牌，直连老后台 `Mercari.php` 的 `h5quota/h5bids/
+h5bid/h5cancel`；`parseGoodsNoFromUrl` 严格校验仅 `jp.mercari.com`/`www.jp.mercari.com`
+主机 + `/item/m+11位数字`；全链路 8s 硬超时。老后台同日配合改 `bidsListData` 新增
+`bucket` 参数对齐网页三 tab（0→[0,1,2,3]、2→[4,5]、3→[6,7,8,9]），ECS 提交 `fc78e4b`。
+
+**风险或遗留**：前端合并提交 `281f350`（11 文件 +506/−18），镜像已换 `fb93367f6e26`，
+回滚锚点旧镜像 `d19c2c72fd4b`；验活 jp-buy.com 主页/`/zh/mercari-auction` 200、未登录
+`/api/mercari-auction/quota` 返 409 NO_LEGACY_UID。撤 NestJS `src/mercari-auction/*` 及
+`cron-jobs.sh` 残留 case（卡 I）移交「后台转写现代👉php」会话随退役排期执行；PHP
+`createBid` 未加事务/行锁，并发下配额可能超发，待补。
+
 ### 2026-08-05 · 仓储费/汇率口径全线对齐后台真值（`ca962e9` + 老后台 KEFU_RULE）
 
 **为什么**：花哥核对权益文案时确认 `over_time_fee=100`（**日元/天**）是真值，而前端四处
