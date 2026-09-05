@@ -1836,6 +1836,17 @@ export default function MiniProgramSupportH5Page() {
     );
   }
 
+  // 「我的竞拍」快捷入口：跳雅虎竞拍出价记录页，参数拼法与 goYahooBid 一致。
+  // 仅登录态（userId 纯数字 + 有签名）展示，游客没有签名身份不显示。
+  function goMyAuctions() {
+    const qs = new URLSearchParams();
+    qs.set("user_id", userId!);
+    if (uidSignature.ts) qs.set("ts", uidSignature.ts);
+    qs.set("sig", uidSignature.sig!);
+    if (isCandyTheme) qs.set("theme", "candy");
+    router.push(`/${lang}/support/auction/mine?${qs.toString()}`);
+  }
+
   // 雅虎竞拍「去出价」：H5 内闭环跳详情/出价页（不再跳小程序 yahoo_detail）。
   // 游客（user_id 非纯数字）没有签名身份，出价接口验不过签名，直接提示回登录态。
   function goYahooBid(itemId?: string, goodsNameZh?: string) {
@@ -3141,11 +3152,41 @@ export default function MiniProgramSupportH5Page() {
           );
           // 自动报价开场卡紧跟欢迎语（items[0]）渲染，独立于 items：
           // 历史轮询的 setItems 整体替换 items 时永远碰不到它，报价卡稳定留存。
+          const myAuctionsCard =
+            index === 0 && userId && uidSignature.sig ? (
+              <div
+                key="my-auctions-card"
+                className="rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+                data-testid="support-h5-mine-card"
+              >
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between text-left"
+                  onClick={goMyAuctions}
+                >
+                  <span className="text-sm font-medium text-orange-700">
+                    我的竞拍
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    查看雅虎竞拍出价记录
+                  </span>
+                </button>
+              </div>
+            ) : null;
           if (index === 0 && autoQuoteOpening) {
             return (
               <Fragment key="welcome-with-auto-quote">
                 {node}
+                {myAuctionsCard}
                 {renderChatItem(autoQuoteOpening, "auto-quote-opening")}
+              </Fragment>
+            );
+          }
+          if (myAuctionsCard) {
+            return (
+              <Fragment key="welcome-with-mine-card">
+                {node}
+                {myAuctionsCard}
               </Fragment>
             );
           }
