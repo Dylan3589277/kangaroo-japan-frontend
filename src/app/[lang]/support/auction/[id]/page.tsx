@@ -78,7 +78,8 @@ function stripHtml(html?: string) {
 }
 
 function formatCountdown(leftSeconds: number) {
-  if (leftSeconds <= 0) return "已结束";
+  if (leftSeconds < 0) return "已结束";
+  if (leftSeconds === 0) return "剩余时间未知";
   const d = Math.floor(leftSeconds / 86400);
   const h = Math.floor((leftSeconds % 86400) / 3600);
   const m = Math.floor((leftSeconds % 3600) / 60);
@@ -192,7 +193,7 @@ export default function SupportAuctionDetailPage() {
     return Math.max(0, (detail?.left_timestamp ?? 0) - elapsed);
   }, [detail, now, fetchedAt]);
 
-  const isEnded = leftSeconds !== undefined && leftSeconds <= 0;
+  const isEnded = leftSeconds !== undefined && leftSeconds < 0;
   function openBidPanel() {
     const defaultAmount = (detail?.bid_price ?? 0) + 10;
     setBidAmountInput(String(defaultAmount));
