@@ -122,3 +122,8 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 待办：煤炉委托存商品图（PHP createBid + bridge 传 image）另开卡。
 - 验证：浏览器实测 h5 页出现「我的竞拍」按钮；mine 页坏签名显示「请从客服对话重新进入」；curl 新路由坏签名返回 `{"code":101,"errmsg":"签名无效"}`。
 - 回滚：ECS 镜像 `a55f3d6be1d9`，回滚锚点旧镜像 `88defb59f38f`。
+
+### 2026-09-05 · 留言中心关闭态标签/文案 + 「人工客服」入口
+
+- 为什么：后端新增代留言任务 closedAt/closeReason/can_transfer_human 字段（sold/timeout/manual 三种关闭原因），前端留言中心此前无法展示关闭状态与转人工入口。
+- 改动：留言中心加 closed 标签/细分文案，新增「人工客服」入口；`canTransferHuman` 优先读后端下发字段，后端未下发时兜底按 `customer_status==='closed'` 判断。commit d9bebc8、9c6f6cd，已与 main 同步。
