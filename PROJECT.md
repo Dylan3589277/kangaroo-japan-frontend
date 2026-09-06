@@ -4,6 +4,11 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-09-06 H5 报价卡点封面/标题改跳 H5 竞拍详情页（b65960e，已推 main，ECS 待部署）
+- 为什么：399e055 只改了卡按钮，`openQuoteDetail`（点封面/标题）仍调 `navigateToMiniProgramYahooBid` 跳小程序 yahoo_detail，新版小程序无该页=死路（对抗审查小尾巴）。
+- 改动：`src/app/[lang]/support/h5/page.tsx` 雅虎分支统一走 `goYahooBid(itemId, goods_name_zh)`；删除 `navigateToMiniProgramYahooBid`（+4/-16）。
+- 验证：diff 审核 + 无其他引用（grep 0）。
+
 ### 2026-09-06 雅虎一口价报价卡「去小程序购买」改跳 H5 竞拍详情页（399e055，已部署）
 
 - **为什么**：新版小程序已无雅虎页面，报价卡按钮跳小程序 yahoo_detail 是死路；09-03 ef76bb3 做 H5 闭环只加了详情页「即決价直接买」按钮，漏改卡上入口。
