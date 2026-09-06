@@ -4,6 +4,14 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-09-06 雅虎一口价报价卡「去小程序购买」改跳 H5 竞拍详情页（399e055，已部署）
+
+- **为什么**：新版小程序已无雅虎页面，报价卡按钮跳小程序 yahoo_detail 是死路；09-03 ef76bb3 做 H5 闭环只加了详情页「即決价直接买」按钮，漏改卡上入口。
+- **逻辑**：sokketsu 卡按钮 onClick 改为 `goYahooBid(item_id, goods_name_zh)`（与竞拍卡「去出价」同一目标页 `/support/auction/<id>`），文案「去小程序购买」→「去购买」；`buyQuote` 雅虎分支兜底改为转人工提示。`openQuoteDetail` 点封面仍引用 `navigateToMiniProgramYahooBid`，待清。
+- **改动**：仅 `src/app/[lang]/support/h5/page.tsx`。
+- **验证**：tsc 仅剩预存 TS5097；ghcr docker-image 绿；ECS 容器已刷（回滚锚点 tag `rollback-20260906`=828f41887e8f）；jp-buy.com/zh 与 /zh/support/h5 均 200。
+- **教训**：链路地图 chain-16 只登记了详情页按钮、没登记报价卡入口，导致漏改；已补⑩点位+必查条。
+
 ### 2026-09-05 「我的竞拍」页煤炉行显示 goods_image 封面图
 
 - **为什么**：`/support/auction/mine` 煤炉（mercari）行此前只有占位灰块+红色「煤炉」角标，没显示商品图，老后台接口其实返回了 `goods_image`。
