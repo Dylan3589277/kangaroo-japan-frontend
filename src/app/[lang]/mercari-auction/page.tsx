@@ -213,6 +213,7 @@ export default function MercariAuctionPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [justSubmitted, setJustSubmitted] = useState(false);
 
   // ── 我的委托块状态 ──
   const [tabValue, setTabValue] = useState("0");
@@ -396,6 +397,7 @@ export default function MercariAuctionPage() {
 
       if (res.success && payload && !isSubmitFailure(payload)) {
         toast.success(t("submit.submitSuccess"));
+        setJustSubmitted(true);
         setItemUrl("");
         setMaxBidInput("");
         setQuota(null);
@@ -610,6 +612,14 @@ export default function MercariAuctionPage() {
           >
             {submitting ? t("submit.submitting") : t("submit.submitButton")}
           </Button>
+
+          {justSubmitted && (
+            <p className="text-xs text-muted-foreground">
+              <Link href={`/${lang}/mnp`} className="underline underline-offset-2">
+                绑定公众号可免费收到被超提醒
+              </Link>
+            </p>
+          )}
         </CardContent>
       </Card>
 
