@@ -494,3 +494,19 @@ TCG 内容）；约 20 个页面全站零入口，只能手敲 URL。同时站�
 ---
 
 > ⚠️ **事实层**：此文档为唯一真相源，所有展示层（飞书等）由此同步生成。
+
+---
+
+### 2026-09-06 · 客服H5「去充值」按钮改用 build-arg 注入路径（commit 67ff98f）
+
+- **为什么**：`src/app/[lang]/support/h5/page.tsx:258` 读 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH`，
+  未配置时按钮禁用；从日拍小程序历史 commit（`daishujunApp` 仓 `3a71b3a^` 的 pages.json）反查得
+  路径 `/pages/daishujun/mine/deposit`。Next.js `NEXT_PUBLIC_*` 是构建期内联，容器运行时改
+  docker-compose environment 不生效，必须走 Dockerfile ARG + CI build-args。
+- **逻辑**：Dockerfile 新增 ARG/ENV 传递该变量到 build 阶段；`.github/workflows/docker-image.yml`
+  的 docker build-args 里补上对应值。
+- **改动**：`Dockerfile`、`.github/workflows/docker-image.yml`。
+- **验证**：GH Actions run 34039991493 成功；ECS 已 `docker pull` 新镜像；容器重建（
+  `bash /opt/kangaroo-backend/run-frontend.sh`）待花哥执行，真机「去充值」跳转未实测。
+- **关联**：同日客服H5 `/zh/mnp` 静态二维码页改动记在 `daishujun-legacy-backend/PROJECT.md`
+  （无本仓关联代码，纯 ECS nginx + 静态文件）。
