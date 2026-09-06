@@ -431,7 +431,8 @@ function buildWelcomeItem(extra: string, reviewMode = false): ChatItem {
     ? { ...WELCOME_ITEM, content: stripReviewModeWording(WELCOME_ITEM.content) }
     : WELCOME_ITEM;
   if (!extra) return base;
-  return { ...base, content: `${base.content}\n${extra}` };
+  const content = `${base.content}\n${extra}`;
+  return { ...base, content: reviewMode ? stripReviewModeWording(content) : content };
 }
 
 function getRecord(value: unknown): Record<string, unknown> {
