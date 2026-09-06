@@ -421,8 +421,9 @@ const WELCOME_ITEM: ChatItem = {
 // 审核模式：欢迎语里去掉竞拍出价 / 押金退款字样（送审期间不展示）。
 function stripReviewModeWording(content: string): string {
   return content
-    .replace("、帮你下单/竞拍出价", "、帮你下单")
-    .replace("\n💳 押金退款申请与查询", "");
+    .replace(/、帮你下单\/竞拍出价/gu, "、帮你下单")
+    .replace("\n💳 押金退款申请与查询", "")
+    .replace(/代拍/gu, "代购");
 }
 
 function buildWelcomeItem(extra: string, reviewMode = false): ChatItem {
@@ -966,6 +967,12 @@ export default function MiniProgramSupportH5Page() {
   // 小程序送审期间老后台「审核模式」开关：true 时隐藏一切竞拍相关内容。
   // loading 期间三个竞拍按钮先不渲染（防审核模式下闪现），失败按 false（不隐藏）处理。
   const { loading: reviewModeLoading, reviewMode } = useReviewMode();
+  // teaser effect（挂载即发、只跑一次）需要读到「当下最新」的 reviewMode，
+  // 而不是挂载那一刻闭包里永远是 false 的值；ref 与 state 同步更新，供该 effect 兜底读取。
+  const reviewModeRef = useRef(reviewMode);
+  useEffect(() => {
+    reviewModeRef.current = reviewMode;
+  }, [reviewMode]);
   // 新版小程序换肤参数：?theme=candy。缺省/其它值一律按原皮渲染，零回归。
   const isCandyTheme = searchParams.get("theme") === "candy";
   const initialSessionId = searchParams.get("session_id") || undefined;
@@ -1107,7 +1114,7 @@ export default function MiniProgramSupportH5Page() {
         setItems((current) =>
           current.map((item, index) =>
             index === 0 && item.role === "assistant"
-              ? buildWelcomeItem(teaser, reviewMode)
+              ? buildWelcomeItem(teaser, reviewModeRef.current)
               : item,
           ),
         );
