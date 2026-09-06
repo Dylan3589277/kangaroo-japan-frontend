@@ -4,6 +4,7 @@ import { unstable_rethrow } from "next/navigation";
 import { NextRequest, NextResponse } from "next/server";
 
 import { parseRequestJsonObject } from "@/lib/request-json";
+import { getReviewMode } from "@/lib/review-mode";
 
 const SUPPORT_API_BASE_URL =
   process.env.SUPPORT_API_BASE_URL ||
@@ -24,7 +25,7 @@ const QUICK_REPLY_SOURCE_ID = "local-quick-reply";
 const FIRST_TIME_NO_JAPANESE_REPLY =
   "不会日语完全没关系哦～\n\n我们小程序提供了简单的翻译功能，浏览商品时点击页面下方的【中文】按钮即可切换为中文查看。若仍有不理解的商品描述、卖家说明或注意事项，也可以随时联系人工客服帮您确认。\n\n第一次使用的话，购买流程很简单：\n1. 在小程序里提交你想买的商品（比如你现在看的这个 Mercari 商品）。\n2. 按系统显示的金额付款。\n3. 袋鼠君帮你在日本平台下单或出价。\n4. 商品到达日本仓库后，你在小程序申请国际发货。\n5. 等待收货就好啦。\n\n费用一般包括：商品价格、日本国内运费、服务费、国际运费，以及可能产生的关税。多件商品可以等一起到仓库后合并发货，更省钱哦！";
 const PROXY_FEE_REPLY =
-  "代拍费用一般包含以下部分：商品本身价格、平台运费或日本国内运费、平台支付手续费、袋鼠君服务费、日本仓相关费用（如需打包等）、国际运费，以及目的地可能产生的关税或税费。每一单的具体金额以系统结算为准，费用明细会在下单和发货环节展示。";
+  "代购费用一般包含以下部分：商品本身价格、平台运费或日本国内运费、平台支付手续费、袋鼠君服务费、日本仓相关费用（如需打包等）、国际运费，以及目的地可能产生的关税或税费。每一单的具体金额以系统结算为准，费用明细会在下单和发货环节展示。";
 
 type QuickReply =
   | {
@@ -57,18 +58,18 @@ const QUICK_REPLIES = new Map<string, QuickReply>([
   ],
   // source: 01_代购流程与下单.md, customer-service-kb-v0.1-20260601
   [
-    normalizeQuickQuestion("代拍流程是什么？"),
+    normalizeQuickQuestion("代购流程是什么？"),
     {
       action: "answered",
       sourceId: "01_代购流程与下单.md",
       sourceVersion: "customer-service-kb-v0.1-20260601",
       reply:
-        "代拍流程一般是：在小程序提交商品或订单并支付所需金额，袋鼠君按平台规则购买或竞拍；商品到达日本仓后，再由你提交国际发货。",
+        "代购流程一般是：在小程序提交商品或订单并支付所需金额，袋鼠君按平台规则购买或竞拍；商品到达日本仓后，再由你提交国际发货。",
     },
   ],
   // source: 02_费用支付押金.md v0.4, 2026-06-10
   [
-    normalizeQuickQuestion("代拍费用如何计算？"),
+    normalizeQuickQuestion("代购费用如何计算？"),
     {
       action: "answered",
       sourceId: "02_费用支付押金.md",
@@ -286,7 +287,7 @@ const TCG_GREETING_KEYWORDS = [
 ];
 
 const BUSINESS_SCOPE_REPLY =
-  "袋鼠酱只负责代拍代购、费用、订单、仓库、物流、平台商品这些业务问题哦～你可以换个和订单或商品有关的问题问我。";
+  "袋鼠酱只负责代购、费用、订单、仓库、物流、平台商品这些业务问题哦～你可以换个和订单或商品有关的问题问我。";
 const PRIVACY_AND_SECRET_REPLY =
   "这个内容袋鼠酱不能透露哦。涉及内部信息、商业机密、其他客户资料或账号安全的内容，都需要保护起来。你有自己的订单问题的话，可以告诉我具体场景，我再帮你转人工客服确认～";
 
@@ -502,17 +503,31 @@ function sanitizeCustomerReply(reply: string) {
     .replace(/\bHermes\b/giu, "袋鼠酱");
 }
 
+// 审核模式兜底：bridge.py 的 review_mode_instruction 只是提示词，LLM 自由回复仍可能说出
+// 「竞拍/代拍」。这里对所有审核模式下回给前端的助手文本做一次文案替换，不依赖 LLM 听话。
+function sanitizeReviewModeReply(text: string) {
+  return text
+    .replace(/代拍/gu, "代购")
+    .replace(/竞拍出价/gu, "代购")
+    .replace(/或竞拍/gu, "")
+    .replace(/竞拍/gu, "代购");
+}
+
 function transferHumanResponse(
   reason: string,
   reply = HUMAN_TRANSFER_REPLY,
   answeredBy = "bridge_fail_closed",
+  reviewMode = false,
 ) {
+  const cleanedReply = sanitizeCustomerReply(reply);
   return NextResponse.json({
     code: 0,
     data: {
       action: "transfer_human",
       type: "transfer_human",
-      reply: sanitizeCustomerReply(reply),
+      reply: reviewMode
+        ? sanitizeReviewModeReply(cleanedReply)
+        : cleanedReply,
       reason,
       sourceIds: [],
       // "53kf" is a legacy field value; the actual handoff destination is now
@@ -577,7 +592,10 @@ function shouldPassPersonalizedStatusToBridge(
   );
 }
 
-function personalizedStatusFallbackResponse(kind: PersonalizedStatusKind) {
+function personalizedStatusFallbackResponse(
+  kind: PersonalizedStatusKind,
+  reviewMode: boolean,
+) {
   const replyByKind: Record<PersonalizedStatusKind, string> = {
     warehouse:
       "商品是否入库需要以小程序订单状态为准。若你已经登录并从订单入口进入客服，袋鼠酱可以继续帮你核对；未登录时请联系人工客服确认。",
@@ -586,13 +604,14 @@ function personalizedStatusFallbackResponse(kind: PersonalizedStatusKind) {
     deposit:
       "押金退款状态需要结合你的登录身份和押金记录核对。未登录或无法确认身份时，会转人工客服继续处理。",
   };
+  const reply = replyByKind[kind];
 
   return NextResponse.json({
     code: 0,
     data: {
       action: "answered",
       type: "answered",
-      reply: replyByKind[kind],
+      reply: reviewMode ? sanitizeReviewModeReply(reply) : reply,
       reason: "quick_question_identity_required",
       sourceIds: [QUICK_REPLY_SOURCE_ID, "identity-required-status-fallback"],
       answeredBy: QUICK_REPLY_SOURCE_ID,
@@ -602,14 +621,21 @@ function personalizedStatusFallbackResponse(kind: PersonalizedStatusKind) {
   });
 }
 
-function quickReplyResponse(message: string, body: Record<string, unknown>) {
+function quickReplyResponse(
+  message: string,
+  body: Record<string, unknown>,
+  reviewMode: boolean,
+) {
   if (!isQuickReplyEnabled()) return null;
   const personalizedStatusKind = getPersonalizedStatusKind(message);
   if (shouldPassPersonalizedStatusToBridge(message, body)) return null;
 
   const quickReply = QUICK_REPLIES.get(normalizeQuickQuestion(message));
   if (!quickReply && personalizedStatusKind) {
-    return personalizedStatusFallbackResponse(personalizedStatusKind);
+    return personalizedStatusFallbackResponse(
+      personalizedStatusKind,
+      reviewMode,
+    );
   }
   if (!quickReply) return null;
 
@@ -619,7 +645,9 @@ function quickReplyResponse(message: string, body: Record<string, unknown>) {
       data: {
         action: "transfer_human",
         type: "transfer_human",
-        reply: HUMAN_TRANSFER_REPLY,
+        reply: reviewMode
+          ? sanitizeReviewModeReply(HUMAN_TRANSFER_REPLY)
+          : HUMAN_TRANSFER_REPLY,
         reason: quickReply.reason,
         sourceIds: [QUICK_REPLY_SOURCE_ID, quickReply.sourceId],
         sourceVersion: quickReply.sourceVersion,
@@ -637,7 +665,9 @@ function quickReplyResponse(message: string, body: Record<string, unknown>) {
     data: {
       action: "answered",
       type: "answered",
-      reply: quickReply.reply,
+      reply: reviewMode
+        ? sanitizeReviewModeReply(quickReply.reply)
+        : quickReply.reply,
       reason: "quick_question_answered",
       sourceIds: [QUICK_REPLY_SOURCE_ID, quickReply.sourceId],
       sourceVersion: quickReply.sourceVersion,
@@ -648,13 +678,13 @@ function quickReplyResponse(message: string, body: Record<string, unknown>) {
   });
 }
 
-function guardedReply(reason: string, reply: string) {
+function guardedReply(reason: string, reply: string, reviewMode = false) {
   return NextResponse.json({
     code: 0,
     data: {
       action: "answered",
       type: "answered",
-      reply,
+      reply: reviewMode ? sanitizeReviewModeReply(reply) : reply,
       reason,
       sourceIds: ["local-customer-service-guardrail"],
       answeredBy: "kangaroo-chan-guardrail",
@@ -669,7 +699,17 @@ function includesAnyKeyword(message: string, keywords: string[]) {
   return keywords.some((keyword) => normalized.includes(keyword.toLowerCase()));
 }
 
-function guardCustomerServiceScope(body: Record<string, unknown>) {
+// 审核模式：小程序送审期间不支持雅虎竞拍链接，命中就固定回复、不转发 bridge
+// （不让 LLM/bridge 有机会顺着链接聊出竞拍相关内容）。
+const YAHOO_AUCTION_LINK_PATTERN = /auctions\.yahoo(?:\.co\.jp)?/iu;
+
+const YAHOO_AUCTION_UNSUPPORTED_REPLY =
+  "不好意思，这个链接类型袋鼠酱暂时还不支持代购哦～可以发煤炉（Mercari）或乐天フリマ（Rakuma）的商品链接给我，我帮你计算价格～";
+
+function guardCustomerServiceScope(
+  body: Record<string, unknown>,
+  reviewMode: boolean,
+) {
   const message = getString(body.message) || "";
   if (!message) return null;
 
@@ -677,6 +717,7 @@ function guardCustomerServiceScope(body: Record<string, unknown>) {
     return guardedReply(
       "guardrail_privacy_or_secret",
       PRIVACY_AND_SECRET_REPLY,
+      reviewMode,
     );
   }
 
@@ -707,13 +748,17 @@ function guardCustomerServiceScope(body: Record<string, unknown>) {
     return guardedReply(
       "guardrail_out_of_business_scope",
       BUSINESS_SCOPE_REPLY,
+      reviewMode,
     );
   }
 
   return null;
 }
 
-function buildBridgePayload(body: Record<string, unknown>) {
+function buildBridgePayload(
+  body: Record<string, unknown>,
+  reviewMode: boolean,
+) {
   const sessionId =
     getString(body.externalSessionId) ||
     getString(body.sessionId) ||
@@ -746,6 +791,12 @@ function buildBridgePayload(body: Record<string, unknown>) {
       gid: sourceGoodsId,
       source_channel: getString(body.sourceChannel),
       source_page: getString(body.sourcePage),
+      // 审核模式：告诉 bridge 本轮别聊竞拍/出价/押金、统一说「代购」不说「代拍」，
+      // 具体系统提示词由 bridge 侧拼装（这里只透传开关，不在前端重复维护提示词文案）。
+      review_mode: reviewMode,
+      review_mode_instruction: reviewMode
+        ? "本轮为审核模式：不要主动提及或提供竞拍出价、押金相关服务；统一用「代购」，不要用「代拍」。"
+        : undefined,
     },
     // 不带 knowledge_base：话术由 bridge 本地文件托管（见文件上方「客服话术知识库归属」）。
   };
@@ -792,9 +843,30 @@ function buildBridgeUrl(baseUrl: string) {
   return url;
 }
 
-async function callHermesBridge(body: Record<string, unknown>) {
+async function callHermesBridge(
+  body: Record<string, unknown>,
+  reviewMode: boolean,
+) {
   if (!HERMES_BRIDGE_URL || !HERMES_BRIDGE_TOKEN) {
-    return transferHumanResponse("hermes_bridge_unconfigured");
+    return transferHumanResponse(
+      "hermes_bridge_unconfigured",
+      undefined,
+      undefined,
+      reviewMode,
+    );
+  }
+
+  // 审核模式：命中雅虎竞拍链接直接固定回复，不转发 bridge（不让 LLM 有机会
+  // 顺着链接聊出竞拍相关内容）。非审核模式完全不受影响。
+  if (reviewMode) {
+    const message = getString(body.message) || "";
+    if (YAHOO_AUCTION_LINK_PATTERN.test(message)) {
+      return guardedReply(
+        "review_mode_yahoo_auction_unsupported",
+        YAHOO_AUCTION_UNSUPPORTED_REPLY,
+        reviewMode,
+      );
+    }
   }
 
   let response: Response;
@@ -804,7 +876,7 @@ async function callHermesBridge(body: Record<string, unknown>) {
   const timeoutTimer = setTimeout(() => timeoutController.abort(), timeoutMs);
   try {
     const bridgeUrl = buildBridgeUrl(HERMES_BRIDGE_URL);
-    const bridgePayload = buildBridgePayload(body);
+    const bridgePayload = buildBridgePayload(body, reviewMode);
     logBridgePayloadDiagnostic(bridgePayload, body);
     response = await fetch(bridgeUrl, {
       method: "POST",
@@ -820,14 +892,19 @@ async function callHermesBridge(body: Record<string, unknown>) {
     const reason = timeoutController.signal.aborted
       ? "bridge_timeout"
       : "bridge_unreachable";
-    return transferHumanResponse(reason);
+    return transferHumanResponse(reason, undefined, undefined, reviewMode);
   } finally {
     clearTimeout(timeoutTimer);
   }
 
   const payload = await response.json().catch(() => null);
   if (!response.ok || !payload) {
-    return transferHumanResponse(`hermes_bridge_http_${response.status}`);
+    return transferHumanResponse(
+      `hermes_bridge_http_${response.status}`,
+      undefined,
+      undefined,
+      reviewMode,
+    );
   }
 
   const bridge = getRecord(payload);
@@ -852,18 +929,32 @@ async function callHermesBridge(body: Record<string, unknown>) {
   const proxyBuyPay = bridge.proxy_buy_pay;
 
   if (action === "transfer_human") {
-    return transferHumanResponse(reason || "hermes_transfer_human", reply);
+    return transferHumanResponse(
+      reason || "hermes_transfer_human",
+      reply,
+      undefined,
+      reviewMode,
+    );
   }
 
   if (!reply || (action !== "answered" && action !== "ask_clarify")) {
-    return transferHumanResponse("hermes_bridge_invalid_response");
+    return transferHumanResponse(
+      "hermes_bridge_invalid_response",
+      undefined,
+      undefined,
+      reviewMode,
+    );
   }
+
+  const cleanedBridgeReply = sanitizeCustomerReply(reply);
 
   return NextResponse.json({
     code: 0,
     data: {
       action,
-      reply: sanitizeCustomerReply(reply),
+      reply: reviewMode
+        ? sanitizeReviewModeReply(cleanedBridgeReply)
+        : cleanedBridgeReply,
       reason,
       order_ref: orderRef,
       quote_ref: quoteRef,
@@ -1090,9 +1181,15 @@ export async function POST(request: NextRequest) {
       return tcgFaqChatResponse(parsedBody.data);
     }
 
+    const reviewMode = await getReviewMode();
+
     const message = getString(parsedBody.data.message);
     if (message) {
-      const response = quickReplyResponse(message, parsedBody.data);
+      const response = quickReplyResponse(
+        message,
+        parsedBody.data,
+        reviewMode,
+      );
       if (response) {
         return response;
       }
@@ -1101,13 +1198,13 @@ export async function POST(request: NextRequest) {
     const guardrailResponse =
       message && shouldPassPersonalizedStatusToBridge(message, parsedBody.data)
         ? null
-        : guardCustomerServiceScope(parsedBody.data);
+        : guardCustomerServiceScope(parsedBody.data, reviewMode);
     if (guardrailResponse) {
       return guardrailResponse;
     }
 
     if (HERMES_BRIDGE_URL || HERMES_BRIDGE_TOKEN) {
-      return callHermesBridge(parsedBody.data);
+      return callHermesBridge(parsedBody.data, reviewMode);
     }
 
     const response = await fetch(`${SUPPORT_API_BASE_URL}/support/chat`, {

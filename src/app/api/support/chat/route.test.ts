@@ -7,12 +7,12 @@ import { NextRequest } from "next/server";
 // in this file; must stay byte-identical to BUSINESS_SCOPE_REPLY /
 // PRIVACY_AND_SECRET_REPLY).
 const BUSINESS_SCOPE_REPLY =
-  "袋鼠酱只负责代拍代购、费用、订单、仓库、物流、平台商品这些业务问题哦～你可以换个和订单或商品有关的问题问我。";
+  "袋鼠酱只负责代购、费用、订单、仓库、物流、平台商品这些业务问题哦～你可以换个和订单或商品有关的问题问我。";
 const PRIVACY_AND_SECRET_REPLY =
   "这个内容袋鼠酱不能透露哦。涉及内部信息、商业机密、其他客户资料或账号安全的内容，都需要保护起来。你有自己的订单问题的话，可以告诉我具体场景，我再帮你转人工客服确认～";
 
 const PROXY_FEE_REPLY =
-  "代拍费用一般包含以下部分：商品本身价格、平台运费或日本国内运费、平台支付手续费、袋鼠君服务费、日本仓相关费用（如需打包等）、国际运费，以及目的地可能产生的关税或税费。每一单的具体金额以系统结算为准，费用明细会在下单和发货环节展示。";
+  "代购费用一般包含以下部分：商品本身价格、平台运费或日本国内运费、平台支付手续费、袋鼠君服务费、日本仓相关费用（如需打包等）、国际运费，以及目的地可能产生的关税或税费。每一单的具体金额以系统结算为准，费用明细会在下单和发货环节展示。";
 const FIRST_TIME_NO_JAPANESE_REPLY =
   "不会日语完全没关系哦～\n\n我们小程序提供了简单的翻译功能，浏览商品时点击页面下方的【中文】按钮即可切换为中文查看。若仍有不理解的商品描述、卖家说明或注意事项，也可以随时联系人工客服帮您确认。\n\n第一次使用的话，购买流程很简单：\n1. 在小程序里提交你想买的商品（比如你现在看的这个 Mercari 商品）。\n2. 按系统显示的金额付款。\n3. 袋鼠君帮你在日本平台下单或出价。\n4. 商品到达日本仓库后，你在小程序申请国际发货。\n5. 等待收货就好啦。\n\n费用一般包括：商品价格、日本国内运费、服务费、国际运费，以及可能产生的关税。多件商品可以等一起到仓库后合并发货，更省钱哦！";
 
@@ -24,14 +24,14 @@ const QUICK_QUESTIONS = [
     sourceId: "01_代购流程与下单.md",
   },
   {
-    message: "代拍流程是什么？",
+    message: "代购流程是什么？",
     action: "answered",
     reply:
-      "代拍流程一般是：在小程序提交商品或订单并支付所需金额，袋鼠君按平台规则购买或竞拍；商品到达日本仓后，再由你提交国际发货。",
+      "代购流程一般是：在小程序提交商品或订单并支付所需金额，袋鼠君按平台规则购买或竞拍；商品到达日本仓后，再由你提交国际发货。",
     sourceId: "01_代购流程与下单.md",
   },
   {
-    message: "代拍费用如何计算？",
+    message: "代购费用如何计算？",
     action: "answered",
     reply: PROXY_FEE_REPLY,
     sourceId: "02_费用支付押金.md",
@@ -148,7 +148,7 @@ test("quick question normalization remains exact and conservative", async () => 
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: "  代拍费用如何计算?  ",
+          message: "  代购费用如何计算?  ",
           language: "zh",
         }),
       },
@@ -164,7 +164,7 @@ test("quick question normalization remains exact and conservative", async () => 
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          message: "请问代拍费用如何计算？",
+          message: "请问代购费用如何计算？",
           language: "zh",
         }),
       },
@@ -203,7 +203,7 @@ test("quick reply switch can disable deterministic answers for rollback", async 
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: "代拍费用如何计算？",
+        message: "代购费用如何计算？",
         language: "zh",
       }),
     });
@@ -246,8 +246,8 @@ test("all quick-reply topics and their spoken logistics variants pass the busine
     const messages = [
       // ① the 10 canonical QUICK_REPLIES questions verbatim (incl. the 6 H5 buttons)
       "我是第一次用，不会日语，应该怎么买？",
-      "代拍流程是什么？",
-      "代拍费用如何计算？",
+      "代购流程是什么？",
+      "代购费用如何计算？",
       "国际运费怎么查？",
       "商品多久能到仓库？",
       "入库了吗？",

@@ -237,7 +237,7 @@ const QUICK_QUESTIONS = [
   //      _classify_cancel_intent 两者都要，缺一返回 None（实测「我要弃标」不命中）。
   // 当前文案实测：前端闸门放行（含"雅虎"）+ bridge 判 yahoo_default 进弃标流程。
   "雅虎中标想弃标",
-  "代拍费用怎么算？",
+  "代购费用怎么算？",
   "会产生关税吗？",
   "我要转人工客服",
 ];
@@ -418,9 +418,19 @@ const WELCOME_ITEM: ChatItem = {
 // （见 loadWelcomeTeaser 副作用），不再和客服话术库分裂维护。teaser 拼在固定的
 // WELCOME_ITEM 正文之后；拿不到（未加载/超时/失败/空值）时 extra 传空串，原样
 // 回落纯文本欢迎语，零回归。
-function buildWelcomeItem(extra: string): ChatItem {
-  if (!extra) return WELCOME_ITEM;
-  return { ...WELCOME_ITEM, content: `${WELCOME_ITEM.content}\n${extra}` };
+// 审核模式：欢迎语里去掉竞拍出价 / 押金退款字样（送审期间不展示）。
+function stripReviewModeWording(content: string): string {
+  return content
+    .replace("、帮你下单/竞拍出价", "、帮你下单")
+    .replace("\n💳 押金退款申请与查询", "");
+}
+
+function buildWelcomeItem(extra: string, reviewMode = false): ChatItem {
+  const base = reviewMode
+    ? { ...WELCOME_ITEM, content: stripReviewModeWording(WELCOME_ITEM.content) }
+    : WELCOME_ITEM;
+  if (!extra) return base;
+  return { ...base, content: `${base.content}\n${extra}` };
 }
 
 function getRecord(value: unknown): Record<string, unknown> {
@@ -1069,12 +1079,12 @@ export default function MiniProgramSupportH5Page() {
         payload,
         autoQuoteMessageRef.current,
       );
-      setItems([buildWelcomeItem(welcomeTeaserRef.current), ...serverItems]);
+      setItems([buildWelcomeItem(welcomeTeaserRef.current, reviewMode), ...serverItems]);
       setPollingError("");
     } catch {
       setPollingError("消息同步暂时失败，请稍后重试或联系人工客服。");
     }
-  }, [conversationId]);
+  }, [conversationId, reviewMode]);
 
   // 活动 teaser 拉取（P0-1c，2026-08-06）：挂载时短超时（3s）请求 bridge 的
   // /v1/customer-service/welcome（经同源代理 /api/support/welcome，浏览器不能
@@ -1097,7 +1107,7 @@ export default function MiniProgramSupportH5Page() {
         setItems((current) =>
           current.map((item, index) =>
             index === 0 && item.role === "assistant"
-              ? buildWelcomeItem(teaser)
+              ? buildWelcomeItem(teaser, reviewMode)
               : item,
           ),
         );
@@ -1113,6 +1123,19 @@ export default function MiniProgramSupportH5Page() {
     };
     // 仅挂载时跑一次（effect 内只用到稳定的 setItems / 局部变量，无需依赖数组）。
   }, []);
+
+  // 审核模式确认为 true 后（异步，晚于挂载）再补一次欢迎语脱敏，避免上面
+  // 挂载即发的 teaser effect 因当时 reviewMode 还没读到而漏改。
+  useEffect(() => {
+    if (reviewModeLoading || !reviewMode) return;
+    setItems((current) =>
+      current.map((item, index) =>
+        index === 0 && item.role === "assistant"
+          ? { ...item, content: stripReviewModeWording(item.content) }
+          : item,
+      ),
+    );
+  }, [reviewModeLoading, reviewMode]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -1228,6 +1251,9 @@ export default function MiniProgramSupportH5Page() {
   // 但**不**追加 user 角色气泡（不显示"用户发了一条链接"）。失败则静默，不影响正常聊天。
   useEffect(() => {
     if (autoQuoteTriggeredRef.current) return;
+    // 审核模式：yahoo 竞拍链接不自动出报价卡，等 reviewMode 读到后再判断。
+    if (reviewModeLoading) return;
+    if (sourcePlatform === "yahoo" && reviewMode) return;
     // mercari 与 yahoo（即決+竞拍）从商品页进客服都自动弹卡；其它平台仍不触发。
     // 2026-08-08 放开 rakuma/yahoofrima：这两个平台的报价卡由 bridge 的
     // _emit_assisted_quote_card 走 internal/quote 出卡，链路本就支持，此前被这道门挡住
@@ -1346,9 +1372,10 @@ export default function MiniProgramSupportH5Page() {
     return () => {
       cancelled = true;
     };
-    // 仅挂载时跑一次：依赖刻意省略，配合 autoQuoteTriggeredRef 防 StrictMode 双挂载重复发。
+    // 其余依赖刻意省略，配合 autoQuoteTriggeredRef 防 StrictMode 双挂载重复发；
+    // 只加 reviewModeLoading/reviewMode 是因为它俩挂载时还没读到，得等 resolve 后重新判一次。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reviewModeLoading, reviewMode]);
 
   // extra：随购买意图等场景附带的结构化字段（如 selected_value_added_ids），
   // 仅在首条 /api/support/chat 请求体里透传（会话内 /messages 端点只收 content，不带）。
@@ -2111,7 +2138,7 @@ export default function MiniProgramSupportH5Page() {
         ) : null}
         {quote.fee_agent_jpy !== undefined ? (
           <div className="mt-1 text-xs leading-5 text-slate-500">
-            代拍手续费：¥
+            代购手续费：¥
             {quote.fee_agent_jpy.toLocaleString("ja-JP")} 日元
           </div>
         ) : null}
@@ -3242,7 +3269,10 @@ export default function MiniProgramSupportH5Page() {
               (question) =>
                 !(
                   (reviewModeLoading || reviewMode) &&
-                  (question === "怎么参与雅虎竞拍？" || question === "雅虎中标想弃标")
+                  (question === "怎么参与雅虎竞拍？" ||
+                    question === "雅虎中标想弃标" ||
+                    question === "代购费用怎么算？" ||
+                    question === "押金退款怎么申请？")
                 ),
             ).map((question) => (
               <button
@@ -3263,7 +3293,7 @@ export default function MiniProgramSupportH5Page() {
             <UserRoundCheck className="h-4 w-4" />
             袋鼠酱小提醒
           </div>
-          代拍流程、费用、关税这些常见问题袋鼠酱基本秒回；个别复杂问题可能需要十几秒整理，请稍等一下。如果遇到退款、改地址、投诉、支付异常，或者需要确认订单的事，我会帮你转给人工客服处理。
+          代购流程、费用、关税这些常见问题袋鼠酱基本秒回；个别复杂问题可能需要十几秒整理，请稍等一下。如果遇到退款、改地址、投诉、支付异常，或者需要确认订单的事，我会帮你转给人工客服处理。
         </div>
         <div ref={messagesBottomAnchorRef} />
       </section>
