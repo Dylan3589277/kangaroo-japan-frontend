@@ -5,6 +5,7 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 ## 变更记录
 
 ### 2026-09-06 H5 报价卡点封面/标题改跳 H5 竞拍详情页（b65960e，已推 main，ECS 待部署）
+
 - 为什么：399e055 只改了卡按钮，`openQuoteDetail`（点封面/标题）仍调 `navigateToMiniProgramYahooBid` 跳小程序 yahoo_detail，新版小程序无该页=死路（对抗审查小尾巴）。
 - 改动：`src/app/[lang]/support/h5/page.tsx` 雅虎分支统一走 `goYahooBid(itemId, goods_name_zh)`；删除 `navigateToMiniProgramYahooBid`（+4/-16）。
 - 验证：diff 审核 + 无其他引用（grep 0）。
@@ -153,3 +154,10 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 为什么：小程序送审期间老后台会打开「审核模式」开关（`GET /api/config/reviewmode`），期间只隐藏智能客服里竞拍相关的**问答展示**，竞拍功能本身（报价卡、确认竞拍、我的竞拍页、竞拍详情页、链接处理）一律不动、正常可用。
 - 改动：①新增同源转发路由 `src/app/api/support/review-mode/route.ts`（GET，5s 硬超时，任何失败一律回落 `{review_mode:false}`，`Cache-Control: no-store`）；②新增客户端 hook `src/app/[lang]/support/h5/review-mode.ts`（`useReviewMode()` 返回 `{loading, reviewMode}`，失败按 false 处理）；③`h5/page.tsx` 快捷问题格子里「我的竞拍」「怎么参与雅虎竞拍？」「雅虎中标想弃标」三个按钮在审核模式下不渲染（加载中也不渲染，防闪现）。`auction/mine`、`auction/[id]` 页面与报价卡逻辑未改。
 - 验证：新增测试 `src/app/api/support/review-mode/route.test.ts`（`node:test`，覆盖 fetch 抛错/非 200/code!=0/data 缺失/正常 true 五种情形）全绿；`npx tsc --noEmit` 除仓库既有预存在 TS5097 错误外无新增；eslint 零输出；`npm run build` 通过。
+
+### 2026-09-06 · 双审核开关按 app 区分 + 我的竞拍页押金栏（779868d，已上 ECS）
+
+- 为什么：老后台把审核开关拆成 legacy/candy 两个（id76/id77），前端需按 app 透传；押金充值/退款操作从小程序原生页搬到 H5「我的竞拍」页统一入口。
+- 改动：①`src/app/api/support/review-mode/route.ts` 透传 `app=legacy|candy` 查询参数到老后台 `/api/config/reviewmode`；②新增 `src/app/api/support/deposit/[action]/route.ts`，balance/records/refund 三个 action 映射老后台 h5deposit/h5depositrecords/h5depositrefund，POST 表单透传，8s 超时，失败统一回 `{code:1,msg:"系统繁忙，请稍后重试"}`，未知 action 404；③`src/app/[lang]/support/auction/mine/page.tsx` 新增押金栏：余额（两位小数）、明细列表、退款申请弹窗（支付宝账号/姓名/金额，金额不超余额）、「充值」按钮在小程序内用 `wx.miniProgram.navigateTo('/pages/pay/cashier?from=h5deposit')`跳小程序收银台，非小程序环境提示需在小程序内打开。
+- 验证：生产实测 `/api/support/review-mode?app=legacy` → true，`?app=candy` → false；`/zh/support/auction/mine` 200；`/api/support/deposit/*` 异常 action 400/404 符合预期。
+- 回滚锚点：旧镜像 `sha256:eb7a116e…`（新镜像 `3d974d78…`）。
