@@ -127,7 +127,7 @@ const QUICK_REPLIES = new Map<string, QuickReply>([
       sourceId: "02_费用支付押金.md",
       sourceVersion: "v0.4-20260610",
       reply:
-        "押金退款需要先确认是否还有待支付订单、竞拍中订单、欠款、负余额或挂账。请先在小程序内提交押金退款申请；如需进一步核对或出现异常，会由客服按只读核验流程辅助初核。最终是否可退、退款金额和到账处理仍以人工及财务审核为准。",
+        "押金退款需要先确认是否还有待支付订单、竞拍中订单、欠款、负余额或挂账。请在客服页右上角『我的竞拍』→『押金』栏提交退款申请；如需进一步核对或出现异常，会由客服按只读核验流程辅助初核。最终是否可退、退款金额和到账处理仍以人工及财务审核为准。",
     },
   ],
   [
@@ -137,7 +137,7 @@ const QUICK_REPLIES = new Map<string, QuickReply>([
       sourceId: "02_费用支付押金.md",
       sourceVersion: "v0.4-20260610",
       reply:
-        "押金退款状态需要结合你的登录身份和押金记录核对。未登录或无法确认身份时，会转人工客服继续处理。",
+        "押金余额和退款申请都在客服页右上角『我的竞拍』→『押金』栏可以查看；具体状态还需要结合你的登录身份和押金记录核对，未登录或无法确认身份时，会转人工客服继续处理。",
     },
   ],
   // source: 00_客服边界.md, customer-service-kb-v0.1-20260601
@@ -602,7 +602,7 @@ function personalizedStatusFallbackResponse(
     tracking:
       "订单当前状态需要以小程序里的订单和物流信息为准。若你已经登录并从订单入口进入客服，袋鼠酱可以继续帮你核对；未登录时请联系人工客服确认。",
     deposit:
-      "押金退款状态需要结合你的登录身份和押金记录核对。未登录或无法确认身份时，会转人工客服继续处理。",
+      "押金余额和退款申请都在客服页右上角『我的竞拍』→『押金』栏可以查看；具体状态还需要结合你的登录身份和押金记录核对，未登录或无法确认身份时，会转人工客服继续处理。",
   };
   const reply = replyByKind[kind];
 
@@ -1198,7 +1198,9 @@ export async function POST(request: NextRequest) {
       return tcgFaqChatResponse(parsedBody.data);
     }
 
-    const reviewMode = await getReviewMode();
+    const rawApp = getString(parsedBody.data.app);
+    const app = rawApp === "candy" ? "candy" : "legacy";
+    const reviewMode = await getReviewMode(app);
 
     const message = getString(parsedBody.data.message);
     if (message) {

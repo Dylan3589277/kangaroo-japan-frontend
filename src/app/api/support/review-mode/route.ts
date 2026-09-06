@@ -1,5 +1,5 @@
 import { unstable_rethrow } from "next/navigation";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // 小程序送审期间，老后台开「审核模式」时客服 H5 需要隐藏一切竞拍相关内容。
 // 只读透传老后台配置接口；任何失败都当作 review_mode=false（失败=不藏，别把
@@ -16,7 +16,10 @@ function offResponse() {
   );
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const rawApp = request.nextUrl.searchParams.get("app");
+  const app = rawApp === "candy" ? "candy" : "legacy";
+
   const timeoutController = new AbortController();
   const timeoutTimer = setTimeout(
     () => timeoutController.abort(),
@@ -25,7 +28,7 @@ export async function GET() {
 
   let response: Response;
   try {
-    response = await fetch(`${LEGACY_API_BASE_URL}${LEGACY_PATH}`, {
+    response = await fetch(`${LEGACY_API_BASE_URL}${LEGACY_PATH}?app=${app}`, {
       method: "GET",
       cache: "no-store",
       signal: timeoutController.signal,

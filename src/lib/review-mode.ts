@@ -16,26 +16,35 @@ const LEGACY_PATH = "/api/config/reviewmode";
 const REQUEST_TIMEOUT_MS = 3_000;
 const CACHE_TTL_MS = 60_000;
 
-let cachedValue = false;
-let cachedAt = 0;
+type H5App = "legacy" | "candy";
 
-/** 取审核模式开关；60 秒内复用上次结果，失败一律返回 false。 */
-export async function getReviewMode(): Promise<boolean> {
+// 审核开关按 app 分别控制，缓存也按 app 分别存一份。
+const cache: Record<H5App, { value: boolean; at: number }> = {
+  legacy: { value: false, at: 0 },
+  candy: { value: false, at: 0 },
+};
+
+/**
+ * 取审核模式开关；60 秒内复用上次结果，失败一律返回 false。
+ * app 缺省按 legacy 处理（H5 服务端调用应显式带 app）。
+ */
+export async function getReviewMode(app: H5App = "legacy"): Promise<boolean> {
   const now = Date.now();
-  if (now - cachedAt < CACHE_TTL_MS) {
-    return cachedValue;
+  const entry = cache[app];
+  if (now - entry.at < CACHE_TTL_MS) {
+    return entry.value;
   }
 
   try {
-    const res = await fetch(`${LEGACY_API_BASE_URL}${LEGACY_PATH}`, {
+    const res = await fetch(`${LEGACY_API_BASE_URL}${LEGACY_PATH}?app=${app}`, {
       method: "GET",
       cache: "no-store",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!res.ok) {
-      cachedValue = false;
-      cachedAt = now;
-      return cachedValue;
+      entry.value = false;
+      entry.at = now;
+      return entry.value;
     }
 
     const payload = await res.json().catch(() => null);
@@ -48,12 +57,12 @@ export async function getReviewMode(): Promise<boolean> {
         ? (root.data as Record<string, unknown>)
         : {};
 
-    cachedValue = data.review_mode === true;
-    cachedAt = now;
-    return cachedValue;
+    entry.value = data.review_mode === true;
+    entry.at = now;
+    return entry.value;
   } catch {
-    cachedValue = false;
-    cachedAt = now;
-    return cachedValue;
+    entry.value = false;
+    entry.at = now;
+    return entry.value;
   }
 }

@@ -51,6 +51,67 @@ function parseTime(value?: string): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+type DepositRecord = {
+  alipay_no?: string;
+  alipay_realname?: string;
+  status?: number | string;
+  money?: number | string;
+  result?: string;
+  type?: string;
+  create_time?: number | string;
+  type_txt?: string;
+  status_txt?: string;
+};
+
+function formatRmb(value: number | string | undefined): string {
+  const n = Number(value ?? 0);
+  return `¥${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
+}
+
+function formatDepositTime(value: number | string | undefined): string {
+  if (value === undefined || value === null || value === "") return "";
+  const n = Number(value);
+  if (Number.isFinite(n) && String(value).trim() !== "" && /^\d+$/.test(String(value).trim())) {
+    const d = new Date(n * 1000);
+    if (!Number.isNaN(d.getTime())) {
+      const pad = (x: number) => String(x).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(
+        d.getHours(),
+      )}:${pad(d.getMinutes())}`;
+    }
+  }
+  return String(value);
+}
+
+function maskAlipayNo(value?: string): string {
+  if (!value) return "";
+  if (value.length <= 4) return value;
+  const head = value.slice(0, 2);
+  const tail = value.slice(-2);
+  return `${head}${"*".repeat(Math.max(3, value.length - 4))}${tail}`;
+}
+
+const WX_JSSDK_URL = "https://res.wx.qq.com/open/js/jweixin-1.6.0.js";
+
+function loadJweixin(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") return reject(new Error("no window"));
+    if ((window as unknown as { wx?: unknown }).wx) return resolve();
+    const script = document.createElement("script");
+    script.src = WX_JSSDK_URL;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("jweixin load failed"));
+    document.head.appendChild(script);
+  });
+}
+
+function isInMiniProgram(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as { __wxjs_environment?: string };
+  if (w.__wxjs_environment === "miniprogram") return true;
+  return /miniProgram/i.test(navigator.userAgent);
+}
+
 export default function SupportAuctionMinePage() {
   const params = useParams<{ lang?: string }>();
   const router = useRouter();
@@ -60,6 +121,8 @@ export default function SupportAuctionMinePage() {
   const ts = searchParams.get("ts") || "";
   const sig = searchParams.get("sig") || "";
   const isCandyTheme = searchParams.get("theme") === "candy";
+  const rawApp = searchParams.get("app");
+  const h5App = rawApp === "candy" || (rawApp !== "legacy" && isCandyTheme) ? "candy" : "legacy";
 
   const originalQuery = useMemo(() => {
     const qs = new URLSearchParams();
@@ -67,10 +130,24 @@ export default function SupportAuctionMinePage() {
     if (ts) qs.set("ts", ts);
     if (sig) qs.set("sig", sig);
     if (isCandyTheme) qs.set("theme", "candy");
+    qs.set("app", h5App);
     return qs.toString();
-  }, [userId, ts, sig, isCandyTheme]);
+  }, [userId, ts, sig, isCandyTheme, h5App]);
 
-  const [activeTab, setActiveTab] = useState(STATUS_TABS[0].key);
+  const [activeTab, setActiveTab] = useState<string>(STATUS_TABS[0].key);
+  const [depositBalance, setDepositBalance] = useState<number>(0);
+  const [depositRefundCount, setDepositRefundCount] = useState<number>(0);
+  const [depositTipList, setDepositTipList] = useState<string[]>([]);
+  const [depositRecords, setDepositRecords] = useState<DepositRecord[]>([]);
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [depositError, setDepositError] = useState("");
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+  const [refundConfirmOpen, setRefundConfirmOpen] = useState(false);
+  const [refundMsg, setRefundMsg] = useState("");
+  const [refundAlipayNo, setRefundAlipayNo] = useState("");
+  const [refundAlipayName, setRefundAlipayName] = useState("");
+  const [refundMoney, setRefundMoney] = useState("");
+  const [rechargeMsg, setRechargeMsg] = useState("");
   const [items, setItems] = useState<BidItem[]>([]);
   const [yahooState, setYahooState] = useState<SourceState>(INITIAL_SOURCE_STATE);
   const [mercariState, setMercariState] = useState<SourceState>(INITIAL_SOURCE_STATE);
@@ -275,9 +352,144 @@ export default function SupportAuctionMinePage() {
   }, [fetchYahoo, fetchMercari, yahooState, mercariState]);
 
   useEffect(() => {
+    if (activeTab === "deposit") return;
     void loadTab();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  const fetchDepositBalance = useCallback(async () => {
+    const res = await fetch("/api/support/deposit/balance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, ts, sig }),
+    });
+    const payload = await res.json().catch(() => null);
+    const root = getRecord(payload);
+    if (root.code === 101) throw new SignatureError();
+    if (root.code !== 0) throw new Error((root.errmsg as string) || "押金信息加载失败");
+    const data = getRecord(root.data);
+    const balance = Number(data.deposit ?? 0);
+    setDepositBalance(Number.isFinite(balance) ? balance : 0);
+    setDepositRefundCount(Number(data.refund_count ?? 0));
+    setDepositTipList(Array.isArray(data.tipList) ? (data.tipList as string[]) : []);
+    return Number.isFinite(balance) ? balance : 0;
+  }, [userId, ts, sig]);
+
+  const fetchDepositRecords = useCallback(async () => {
+    const res = await fetch("/api/support/deposit/records", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, ts, sig }),
+    });
+    const payload = await res.json().catch(() => null);
+    const root = getRecord(payload);
+    if (root.code === 101) throw new SignatureError();
+    if (root.code !== 0) throw new Error((root.errmsg as string) || "押金明细加载失败");
+    const data = getRecord(root.data);
+    const list = Array.isArray(data.list) ? (data.list as DepositRecord[]) : [];
+    return list;
+  }, [userId, ts, sig]);
+
+  const loadDepositTab = useCallback(async () => {
+    setDepositLoading(true);
+    setDepositError("");
+    try {
+      const [balance, list] = await Promise.all([
+        fetchDepositBalance(),
+        fetchDepositRecords(),
+      ]);
+      setDepositRecords(list);
+      if (!refundMoney) setRefundMoney(balance ? balance.toFixed(2) : "");
+    } catch (err) {
+      if (err instanceof SignatureError) {
+        setDepositError("身份已过期，请从小程序重新打开");
+      } else {
+        setDepositError(err instanceof Error ? err.message : "押金信息加载失败");
+      }
+    } finally {
+      setDepositLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchDepositBalance, fetchDepositRecords]);
+
+  useEffect(() => {
+    if (activeTab !== "deposit") return;
+    void loadDepositTab();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "deposit") return;
+    function onVisible() {
+      if (document.visibilityState === "visible") void loadDepositTab();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  async function submitRefund() {
+    setRefundSubmitting(true);
+    setRefundMsg("");
+    try {
+      const res = await fetch("/api/support/deposit/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          ts,
+          sig,
+          alipay_no: refundAlipayNo,
+          alipay_realname: refundAlipayName,
+          money: refundMoney,
+        }),
+      });
+      const payload = await res.json().catch(() => null);
+      const root = getRecord(payload);
+      if (root.code === 101) {
+        setRefundMsg("身份已过期，请从小程序重新打开");
+      } else if (root.code === 0) {
+        const data = getRecord(root.data);
+        setRefundMsg(
+          (data.msg as string) || (root.errmsg as string) || "退款申请已提交",
+        );
+        void loadDepositTab();
+      } else {
+        setRefundMsg((root.errmsg as string) || "申请失败，请稍后重试");
+      }
+    } catch {
+      setRefundMsg("网络异常，请稍后重试");
+    } finally {
+      setRefundSubmitting(false);
+      setRefundConfirmOpen(false);
+    }
+  }
+
+  async function handleRecharge() {
+    setRechargeMsg("");
+    if (!isInMiniProgram()) {
+      setRechargeMsg("请在小程序内打开后充值");
+      return;
+    }
+    try {
+      const w = window as unknown as {
+        wx?: { miniProgram?: { navigateTo: (opts: { url: string }) => void } };
+      };
+      if (!w.wx?.miniProgram) {
+        await loadJweixin();
+      }
+      const w2 = window as unknown as {
+        wx?: { miniProgram?: { navigateTo: (opts: { url: string }) => void } };
+      };
+      if (w2.wx?.miniProgram) {
+        w2.wx.miniProgram.navigateTo({ url: "/pages/pay/cashier?from=h5deposit" });
+      } else {
+        setRechargeMsg("请在小程序内打开后充值");
+      }
+    } catch {
+      setRechargeMsg("请在小程序内打开后充值");
+    }
+  }
 
   function goBack() {
     if (window.history.length > 1) {
@@ -328,9 +540,187 @@ export default function SupportAuctionMinePage() {
             {tab.label}
           </button>
         ))}
+        <button
+          type="button"
+          className={`flex-1 py-2.5 text-sm font-medium ${
+            activeTab === "deposit"
+              ? "border-b-2 border-orange-500 text-orange-600"
+              : "text-slate-500"
+          }`}
+          onClick={() => setActiveTab("deposit")}
+          data-testid="support-auction-mine-tab-deposit"
+        >
+          押金
+        </button>
       </div>
 
-      {loading ? (
+      {activeTab === "deposit" ? (
+        <div className="space-y-3 px-3 py-3">
+          {depositLoading ? (
+            <div className="flex justify-center py-16 text-slate-400">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg bg-white p-4 shadow-sm">
+                <p className="text-xs text-slate-400">押金余额</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-800">
+                  {formatRmb(depositBalance)}
+                </p>
+                {depositRefundCount ? (
+                  <p className="mt-1 text-xs text-slate-400">
+                    已退款次数 {depositRefundCount}
+                  </p>
+                ) : null}
+                {depositTipList.length > 0 ? (
+                  <ul className="mt-2 space-y-1 text-xs text-amber-600">
+                    {depositTipList.map((tip, idx) => (
+                      <li key={idx}>{tip}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {depositError ? (
+                  <p className="mt-2 text-xs text-red-500">{depositError}</p>
+                ) : null}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    className="flex-1 rounded-md border border-orange-500 py-2 text-sm font-medium text-orange-600 disabled:opacity-50"
+                    onClick={() => void handleRecharge()}
+                    data-testid="support-deposit-recharge-button"
+                  >
+                    充值
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 rounded-md bg-orange-500 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    onClick={() => setRefundConfirmOpen(true)}
+                    disabled={refundSubmitting || !depositBalance}
+                    data-testid="support-deposit-refund-button"
+                  >
+                    申请退款
+                  </button>
+                </div>
+                {rechargeMsg ? (
+                  <p className="mt-2 text-xs text-slate-500">{rechargeMsg}</p>
+                ) : null}
+                {refundMsg ? (
+                  <p className="mt-2 text-xs text-slate-500">{refundMsg}</p>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <p className="px-1 text-xs text-slate-400">明细</p>
+                {depositRecords.length === 0 ? (
+                  <div className="rounded-lg bg-white px-4 py-8 text-center text-sm text-slate-400 shadow-sm">
+                    暂无记录
+                  </div>
+                ) : (
+                  depositRecords.map((record, idx) => (
+                    <div
+                      key={`${record.alipay_no || ""}-${record.create_time || idx}`}
+                      className="flex items-center justify-between rounded-lg bg-white p-3 shadow-sm"
+                      data-testid="support-deposit-record-item"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-800">
+                          {record.type_txt || "记录"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {formatDepositTime(record.create_time)}
+                        </p>
+                        {record.alipay_no ? (
+                          <p className="mt-1 text-xs text-slate-400">
+                            {maskAlipayNo(record.alipay_no)}
+                          </p>
+                        ) : null}
+                        {record.result ? (
+                          <p className="mt-1 text-xs text-slate-400">{record.result}</p>
+                        ) : null}
+                      </div>
+                      <div className="flex-none text-right">
+                        <p className="text-sm font-semibold text-orange-600">
+                          {formatRmb(record.money)}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {record.status_txt || ""}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+
+          {refundConfirmOpen ? (
+            <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-6">
+              <div className="w-full max-w-xs rounded-lg bg-white p-4">
+                <p className="text-sm font-medium text-slate-800">申请退还押金</p>
+                <div className="mt-3 space-y-2">
+                  <input
+                    type="text"
+                    inputMode="text"
+                    placeholder="支付宝账号"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                    value={refundAlipayNo}
+                    onChange={(e) => setRefundAlipayNo(e.target.value)}
+                    data-testid="support-deposit-refund-alipay-no"
+                  />
+                  <input
+                    type="text"
+                    placeholder="支付宝实名"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                    value={refundAlipayName}
+                    onChange={(e) => setRefundAlipayName(e.target.value)}
+                    data-testid="support-deposit-refund-alipay-name"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={depositBalance}
+                    placeholder="退款金额"
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                    value={refundMoney}
+                    onChange={(e) => setRefundMoney(e.target.value)}
+                    data-testid="support-deposit-refund-money"
+                  />
+                </div>
+                <p className="mt-3 text-sm text-slate-800">
+                  确认申请退还押金 {formatRmb(refundMoney)}？
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    className="flex-1 rounded-md border border-slate-200 py-2 text-sm text-slate-600"
+                    onClick={() => setRefundConfirmOpen(false)}
+                    disabled={refundSubmitting}
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 rounded-md bg-orange-500 py-2 text-sm text-white disabled:opacity-50"
+                    onClick={() => void submitRefund()}
+                    disabled={
+                      refundSubmitting ||
+                      !refundAlipayNo ||
+                      !refundAlipayName ||
+                      !refundMoney ||
+                      Number(refundMoney) <= 0 ||
+                      Number(refundMoney) > depositBalance
+                    }
+                    data-testid="support-deposit-refund-confirm"
+                  >
+                    {refundSubmitting ? "提交中…" : "确认申请"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : loading ? (
         <div className="flex justify-center py-16 text-slate-400">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>

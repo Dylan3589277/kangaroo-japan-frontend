@@ -1244,7 +1244,7 @@ test("deposit refund quick reply describes process without claiming verification
 
     const quickPayload = await (await POST(quickRequest)).json();
     const reply = quickPayload.data.reply as string;
-    assert.match(reply, /小程序内提交押金退款申请/);
+    assert.match(reply, /『我的竞拍』→『押金』栏提交退款申请/);
     assert.match(
       reply,
       /最终是否可退、退款金额和到账处理仍以人工及财务审核为准/,
@@ -2165,6 +2165,56 @@ test("非审核模式：「可以拍雅虎竞拍么」不受关键词兜底影�
       payload.data.reason,
       "review_mode_auction_topic_unsupported",
     );
+    assert.equal(payload.data.reply, "Bridge fallback");
+    assert.equal(bridgeCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    Date.now = originalDateNow;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("body.app='candy' 时 getReviewMode 按 candy 请求老后台开关（?app=candy）", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  // candy 缓存与前面用例的 legacy 缓存分开存放，理论上不需要拨表也不会撞缓存；
+  // 仍按本文件既有风格拨快 Date.now，避免同一 candy 缓存位在多次 test run 间复用。
+  const originalDateNow = Date.now;
+  Date.now = () => originalDateNow() + 244_000;
+  let reviewModeUrl = "";
+  let bridgeCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/config/reviewmode")) {
+      reviewModeUrl = url;
+      return Response.json({ data: { review_mode: false } });
+    }
+    bridgeCalls += 1;
+    return Response.json({
+      action: "answered",
+      reply: "Bridge fallback",
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "你好", language: "zh", app: "candy" }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.ok(reviewModeUrl.includes("app=candy"));
     assert.equal(payload.data.reply, "Bridge fallback");
     assert.equal(bridgeCalls, 1);
   } finally {

@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { getH5UidSignature, getNumericH5UserId } from "./identity";
+import { getH5App, getH5UidSignature, getNumericH5UserId } from "./identity";
 import { useReviewMode } from "./review-mode";
 import { CANDY_THEME_CSS } from "../candy-theme";
 
@@ -965,9 +965,12 @@ export default function MiniProgramSupportH5Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lang = params?.lang || "zh";
+  // 客服 H5 由两个小程序打开：老版（legacy）/ candy 版；PHP 侧 app 参数优先，
+  // 缺省按现有 theme=candy 换肤参数推断。
+  const h5App = getH5App(searchParams);
   // 小程序送审期间老后台「审核模式」开关：true 时隐藏一切竞拍相关内容。
   // loading 期间三个竞拍按钮先不渲染（防审核模式下闪现），失败按 false（不隐藏）处理。
-  const { loading: reviewModeLoading, reviewMode } = useReviewMode();
+  const { loading: reviewModeLoading, reviewMode } = useReviewMode(h5App);
   // teaser effect（挂载即发、只跑一次）需要读到「当下最新」的 reviewMode，
   // 而不是挂载那一刻闭包里永远是 false 的值；ref 与 state 同步更新，供该 effect 兜底读取。
   const reviewModeRef = useRef(reviewMode);
@@ -1340,6 +1343,7 @@ export default function MiniProgramSupportH5Page() {
             sourcePlatform,
             sourcePage:
               typeof window === "undefined" ? undefined : window.location.href,
+            app: h5App,
           }),
         });
         if (!response.ok) throw new Error("auto quote api failed");
@@ -1423,6 +1427,7 @@ export default function MiniProgramSupportH5Page() {
             sourcePlatform,
             sourcePage:
               typeof window === "undefined" ? undefined : window.location.href,
+            app: h5App,
             ...(Date.now() < consultActiveUntilRef.current
               ? { consult_active: true }
               : {}),
@@ -1883,6 +1888,7 @@ export default function MiniProgramSupportH5Page() {
     if (uidSignature.ts) qs.set("ts", uidSignature.ts);
     qs.set("sig", uidSignature.sig!);
     if (isCandyTheme) qs.set("theme", "candy");
+    qs.set("app", h5App);
     router.push(`/${lang}/support/auction/mine?${qs.toString()}`);
   }
 
