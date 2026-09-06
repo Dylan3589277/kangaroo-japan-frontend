@@ -1066,6 +1066,22 @@ export default function MiniProgramSupportH5Page() {
   }
 
   function contactHuman() {
+    // 转人工按钮点击回传（2026-09-06）：仅用于告警展示"顾客有没有真点过按钮"，
+    // 打点失败不能影响下面的跳转，fire-and-forget 不 await。
+    if (userId) {
+      const channel = isPcWechat() ? "pc_wechat" : "miniapp";
+      fetch("/api/support/transfer-click", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          user_id: userId,
+          session_id: conversationId || initialSessionId,
+          channel,
+        }),
+      }).catch(() => {});
+    }
+
     // PC 微信（WindowsWechat/MacWechat）跳过不可靠的小程序桥，直接走 53kf 网页人工客服。
     // 非 PC 微信（移动端小程序 webview）仍优先跳小程序内人工客服页。
     if (!isPcWechat() && navigateToMiniProgramHumanKefu()) return;
