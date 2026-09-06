@@ -2016,3 +2016,162 @@ test("补词止血：「包邮」等商品咨询词命中 BUSINESS_KEYWORDS，�
     delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
   }
 });
+
+// ---------------------------------------------------------------------------
+// 审核模式：纯文字提及竞拍/出价/押金等词（不只是雅虎链接）也必须被拦、不转发 bridge。
+// getReviewMode() 内部有 60s 内存缓存，这里用 fetch mock 按 URL 区分：命中
+// /api/config/reviewmode 时返回 review_mode 开关，命中 bridge 时返回正常应答。
+// 放在文件最末尾，避免污染的 cachedValue=true 影响后面其它用例。
+// ---------------------------------------------------------------------------
+
+test("审核模式：纯文字「可以拍雅虎竞拍么」被关键词兜底拦截，不转发 bridge", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  // getReviewMode() 内存缓存 60s；前面用例已把 cachedValue 定住为 false，这里把
+  // Date.now 拨快 61s 让缓存失效，保证本用例的 mock 真正生效。
+  const originalDateNow = Date.now;
+  Date.now = () => originalDateNow() + 61_000;
+  let bridgeCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/config/reviewmode")) {
+      return Response.json({ data: { review_mode: true } });
+    }
+    bridgeCalls += 1;
+    return Response.json({
+      action: "answered",
+      reply: "Bridge fallback",
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "可以拍雅虎竞拍么", language: "zh" }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(
+      payload.data.reason,
+      "review_mode_auction_topic_unsupported",
+    );
+    assert.ok(payload.data.reply.includes("暂时没有开通"));
+    assert.equal(bridgeCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    Date.now = originalDateNow;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("审核模式：「煤炉竞拍」同样被关键词兜底拦截，不转发 bridge", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  // 同上：拨快 Date.now 让 getReviewMode() 缓存失效，用本用例自己的 mock。
+  const originalDateNow = Date.now;
+  Date.now = () => originalDateNow() + 122_000;
+  let bridgeCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/config/reviewmode")) {
+      return Response.json({ data: { review_mode: true } });
+    }
+    bridgeCalls += 1;
+    return Response.json({
+      action: "answered",
+      reply: "Bridge fallback",
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "煤炉竞拍", language: "zh" }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(
+      payload.data.reason,
+      "review_mode_auction_topic_unsupported",
+    );
+    assert.ok(payload.data.reply.includes("暂时没有开通"));
+    assert.equal(bridgeCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    Date.now = originalDateNow;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});
+
+test("非审核模式：「可以拍雅虎竞拍么」不受关键词兜底影响，正常转发 bridge", async () => {
+  process.env.HERMES_BRIDGE_URL = "https://hermes.example.test";
+  process.env.KANGAROO_AGENT_TOKEN = "test-token";
+  delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+
+  const { POST } = await import("./route");
+  const originalFetch = globalThis.fetch;
+  // 同上：拨快 Date.now 让 getReviewMode() 缓存失效（上一用例把 cachedValue 定住
+  // 为 true），用本用例自己的 mock 得到 false。
+  const originalDateNow = Date.now;
+  Date.now = () => originalDateNow() + 183_000;
+  let bridgeCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/config/reviewmode")) {
+      return Response.json({ data: { review_mode: false } });
+    }
+    bridgeCalls += 1;
+    return Response.json({
+      action: "answered",
+      reply: "Bridge fallback",
+      answered_by: "m4-hermes-customer-support",
+    });
+  };
+
+  try {
+    const request = new NextRequest("http://localhost/api/support/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "可以拍雅虎竞拍么", language: "zh" }),
+    });
+
+    const response = await POST(request);
+    const payload = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.notEqual(
+      payload.data.reason,
+      "review_mode_auction_topic_unsupported",
+    );
+    assert.equal(payload.data.reply, "Bridge fallback");
+    assert.equal(bridgeCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    Date.now = originalDateNow;
+    delete process.env.HERMES_BRIDGE_URL;
+    delete process.env.KANGAROO_AGENT_TOKEN;
+    delete process.env.CUSTOMER_SERVICE_QUICK_REPLY_ENABLED;
+  }
+});

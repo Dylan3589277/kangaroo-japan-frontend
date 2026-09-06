@@ -706,6 +706,14 @@ const YAHOO_AUCTION_LINK_PATTERN = /auctions\.yahoo(?:\.co\.jp)?/iu;
 const YAHOO_AUCTION_UNSUPPORTED_REPLY =
   "不好意思，这个链接类型袋鼠酱暂时还不支持代购哦～可以发煤炉（Mercari）或乐天フリマ（Rakuma）的商品链接给我，我帮你计算价格～";
 
+// 审核模式：纯文字提及竞拍/出价/押金等词也要拦（不止链接），命中就固定回复、不转发
+// bridge，避免 LLM 顺着文字聊出竞拍相关内容。
+const REVIEW_MODE_AUCTION_KEYWORD_PATTERN =
+  /雅虎|yahoo|ヤフオク|日拍|竞拍|競拍|拍卖|拍賣|代拍|出价|出價|竞价|竞标|加价|押金|保证金|中标|截拍/iu;
+
+const REVIEW_MODE_AUCTION_TOPIC_REPLY =
+  "不好意思，这个业务袋鼠酱这边暂时没有开通哦～目前支持煤炉（Mercari）和乐天フリマ（Rakuma）等平台的商品代购，你可以把商品链接发给我，我帮你计算价格～";
+
 function guardCustomerServiceScope(
   body: Record<string, unknown>,
   reviewMode: boolean,
@@ -864,6 +872,15 @@ async function callHermesBridge(
       return guardedReply(
         "review_mode_yahoo_auction_unsupported",
         YAHOO_AUCTION_UNSUPPORTED_REPLY,
+        reviewMode,
+      );
+    }
+
+    // 审核模式：纯文字提及竞拍/出价/押金等业务词，同样直接固定回复、不转发 bridge。
+    if (REVIEW_MODE_AUCTION_KEYWORD_PATTERN.test(message)) {
+      return guardedReply(
+        "review_mode_auction_topic_unsupported",
+        REVIEW_MODE_AUCTION_TOPIC_REPLY,
         reviewMode,
       );
     }
