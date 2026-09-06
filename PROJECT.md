@@ -4,6 +4,12 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-09-06 客服 H5「去充值」按钮启用（build-arg 注入 path，禁碰 ECS）
+
+- 为什么：`src/app/[lang]/support/h5/page.tsx` 去充值按钮读 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH`（构建期内联），未配则禁用；反查真实值为小程序日拍老包押金页（自带充值押金弹窗）。
+- 改动：Dockerfile + `.github/workflows/docker-image.yml` build-args 加 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH=/pages/daishujun/mine/deposit`，path 来源为 daishujunApp 删雅虎前（3a71b3a^）deposit 页。
+- 验证：只改配置注入，未碰页面逻辑代码；ECS pull/重启不归本次改动。
+
 ### 2026-09-06 煤炉竞拍加价：详情页加价框 + `/api/support/mercari/raise` 代理（main 5e9a05a，ECS 已部署）
 
 - 为什么：委托一旦提交只能取消重下才能改上限，丢排队优先级；老后台新增 `h5raise` 加价接口后前端需要对应入口。
