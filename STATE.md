@@ -288,6 +288,28 @@
 
 ## 变更记录
 
+### 2026-09-06 · app 域 H5「绑定公众号」链接 404 修复（ECS nginx，无前端代码改动）
+
+**为什么**：日拍/candy 小程序客服 H5「我的竞拍」页链接「绑定公众号可免费收到被超提醒」
+（href `/zh/mnp`，源码 `src/app/[lang]/support/auction/mine/page.tsx:735`、
+`mercari/[id]/page.tsx:222`、`mercari-auction/page.tsx:619`）在小程序内点开 404。
+
+**怎么做**：H5 由 `app.kangaroo-japan.com` 域承载，根因是 ECS nginx vhost
+`/usr/local/nginx/conf/vhost/daishujun.conf`（443 server 块）只反代了
+`/zh/support/h5`、`/zh/support/auction/`、`/zh/support/messages`、`/_next/`、
+`/api/support/` 到 jp-buy.com，`/zh/mnp` 未在白名单内，落到 PHP 老后台 404。
+备份 `daishujun.conf.bak-mnp-20260906`，在 `location ^~ /_next/` 前插入
+`location = /zh/mnp { proxy_pass https://jp-buy.com/zh/mnp; ... }`（同 messages 块写法），
+`nginx -t` 通过，花哥手动 reload。
+
+**验证**：curl Mac 本地与 ECS 均 200，含页面内容。
+
+**遗留**：`/zh/mnp` 页二维码仍是占位图待换真图；充值按钮靠
+`NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH`，ECS 未配置，暂禁用。
+
+**教训**：H5 新增任何非 `/zh/support/` 前缀、面向小程序 web-view 的页面链接，
+都要同步检查 app 域 nginx 反代白名单，否则落 PHP 404。
+
 ### 2026-08-05 · 仓储费/汇率口径全线对齐后台真值（`ca962e9` + 老后台 KEFU_RULE）
 
 **为什么**：花哥核对权益文案时确认 `over_time_fee=100`（**日元/天**）是真值，而前端四处
