@@ -730,6 +730,11 @@ export default function SupportAuctionMinePage() {
         </div>
       ) : (
         <div className="space-y-2 px-3 py-3">
+          <p className="px-1 pb-1 text-xs text-slate-500">
+            <a href={`/${lang}/mnp`} className="underline underline-offset-2">
+              绑定公众号可免费收到被超提醒
+            </a>
+          </p>
           {loadError ? (
             <p className="px-1 text-xs text-amber-600">{loadError}</p>
           ) : null}
@@ -743,9 +748,18 @@ export default function SupportAuctionMinePage() {
               className="flex w-full items-center gap-3 rounded-lg bg-white p-3 text-left shadow-sm"
               data-source={item.source}
               onClick={() => {
-                if (item.source !== "yahoo" || !item.goods_no) return;
+                if (item.source === "yahoo") {
+                  if (!item.goods_no) return;
+                  router.push(
+                    `/${lang}/support/auction/${encodeURIComponent(item.goods_no)}${
+                      originalQuery ? "?" + originalQuery : ""
+                    }`,
+                  );
+                  return;
+                }
+                if (!item.id) return;
                 router.push(
-                  `/${lang}/support/auction/${encodeURIComponent(item.goods_no)}${
+                  `/${lang}/support/auction/mercari/${encodeURIComponent(String(item.id))}${
                     originalQuery ? "?" + originalQuery : ""
                   }`,
                 );
