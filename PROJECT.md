@@ -4,6 +4,13 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-09-06 煤炉竞拍加价：详情页加价框 + `/api/support/mercari/raise` 代理（main 5e9a05a，ECS 已部署）
+
+- 为什么：委托一旦提交只能取消重下才能改上限，丢排队优先级；老后台新增 `h5raise` 加价接口后前端需要对应入口。
+- 改动：新增 `src/app/api/support/mercari/raise/route.ts`（代理老后台 PHP h5raise，8s 超时）；新增详情页 `src/app/[lang]/support/auction/mercari/[id]/page.tsx`（读 `/api/support/mercari/bids` 找该 id，status∈{1,2,3} 显示加价输入框 min 旧+1 默认旧+100，错误码映射，成功跳回 mine；含公众号绑定链接 `/zh/mnp`；testid `support-auction-mercari-raise-input`/`-submit`）；`mine/page.tsx` 顶部加「绑定公众号可免费收到被超提醒」链接 → `/{lang}/mnp`，煤炉行可点进详情页（雅虎行不变）。
+- 验证：main `5e9a05a` 已推、ECS 已部署；回滚锚点旧镜像 `0eef3289689b`。
+- 未做：无。
+
 ### 2026-09-06 H5 报价卡点封面/标题改跳 H5 竞拍详情页（b65960e，已推 main，ECS 待部署）
 
 - 为什么：399e055 只改了卡按钮，`openQuoteDetail`（点封面/标题）仍调 `navigateToMiniProgramYahooBid` 跳小程序 yahoo_detail，新版小程序无该页=死路（对抗审查小尾巴）。
