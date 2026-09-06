@@ -161,3 +161,8 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 改动：①`src/app/api/support/review-mode/route.ts` 透传 `app=legacy|candy` 查询参数到老后台 `/api/config/reviewmode`；②新增 `src/app/api/support/deposit/[action]/route.ts`，balance/records/refund 三个 action 映射老后台 h5deposit/h5depositrecords/h5depositrefund，POST 表单透传，8s 超时，失败统一回 `{code:1,msg:"系统繁忙，请稍后重试"}`，未知 action 404；③`src/app/[lang]/support/auction/mine/page.tsx` 新增押金栏：余额（两位小数）、明细列表、退款申请弹窗（支付宝账号/姓名/金额，金额不超余额）、「充值」按钮在小程序内用 `wx.miniProgram.navigateTo('/pages/pay/cashier?from=h5deposit')`跳小程序收银台，非小程序环境提示需在小程序内打开。
 - 验证：生产实测 `/api/support/review-mode?app=legacy` → true，`?app=candy` → false；`/zh/support/auction/mine` 200；`/api/support/deposit/*` 异常 action 400/404 符合预期。
 - 回滚锚点：旧镜像 `sha256:eb7a116e…`（新镜像 `3d974d78…`）。
+
+### 2026-09-06 「我的留言」商品链接小程序内跳原生页（d5d92d2，已推 main，ECS 待部署）
+
+- 为什么：小程序「我的留言」页点商品链接，web-view 内直跳第三方域名（paypayfleamarket.yahoo.co.jp）被微信拦截「不支持打开」。
+- 改动：`src/app/[lang]/support/messages/page.tsx` 在小程序 web-view 内改用 jweixin SDK `wx.miniProgram.navigateTo` 跳回小程序原生商品页（mercari→`/pages/daishujun/index/mercari_detail?id=`，rakuma/yahoofrima→`/pages/bundle/sites/detail?platform=&id=`），不再直跳第三方域名。
