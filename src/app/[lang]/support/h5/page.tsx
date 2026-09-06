@@ -1754,15 +1754,11 @@ export default function MiniProgramSupportH5Page() {
       return;
     }
 
-    // 雅虎一口价：NestJS 新后端已退役，不再走网页结算页——改跳小程序雅虎详情页在老后台
-    // 下单（与 goYahooBid「去出价」同一目标页，一口价购买按钮由老后台按 sale_type 渲染）。
-    // 跳不动（非小程序 webview / PC 微信）回退人工提示，不落到已删除的结算页。
+    // 雅虎一口价：按钮已直接调用 goYahooBid 跳 H5 竞拍详情页（小程序已无雅虎页面），
+    // 不再经过这里；此分支理论上不会触发，仍保留兜底避免漏判静默落入下方 mercari 流程。
     if (quote.platform === "yahoo") {
-      if (navigateToMiniProgramYahooBid(itemId, isCandyTheme)) return;
       setHumanTransferVisible(true);
-      setHumanTransferNote(
-        "雅虎一口价购买请在袋鼠君小程序内操作（打开该商品详情页）。",
-      );
+      setHumanTransferNote("请点下方「转人工」，由客服协助购买。");
       return;
     }
 
@@ -2573,8 +2569,9 @@ export default function MiniProgramSupportH5Page() {
             </button>
           </div>
         ) : isYahooSokketsu && quote.purchasable !== false ? (
-          // 雅虎即決（一口价）：NestJS 新后端已退役，「去小程序购买」改跳袋鼠君小程序雅虎
-          // 详情页在老后台下单（方案①，2026-08-24），不再是纯联系客服文案。
+          // 雅虎即決（一口价）：小程序已无雅虎页面，「去小程序购买」死路——改跳 H5 竞拍
+          // 详情页（与竞拍卡「去出价」同一目标页 goYahooBid），一口价商品由该页只展示
+          // 「即決价直接买」面板（2026-09-06）。
           (() => {
             const riskBlocksBuy = Boolean(
               quote.seller_risk?.needs_confirm &&
@@ -2600,17 +2597,17 @@ export default function MiniProgramSupportH5Page() {
                   <button
                     type="button"
                     className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
-                    onClick={() => buyQuote(cardKey, quote)}
+                    onClick={() => goYahooBid(quote.item_id, quote.goods_name_zh)}
                     disabled={loading || riskBlocksBuy}
                     data-testid="support-quote-sokketsu-btn-buy"
                   >
                     <ShoppingBag className="h-4 w-4" />
-                    去小程序购买
+                    去购买
                   </button>
                 </div>
                 {riskBlocksBuy ? (
                   <p className="mt-1.5 text-[11px] leading-4 text-slate-400">
-                    请先在上方完成『高额订单风险确认』，再点『去小程序购买』。
+                    请先在上方完成『高额订单风险确认』，再点『去购买』。
                   </p>
                 ) : null}
               </div>
