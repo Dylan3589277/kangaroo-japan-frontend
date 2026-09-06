@@ -14,6 +14,74 @@ import {
 
 import { getH5UidSignature, getNumericH5UserId } from "../h5/identity";
 
+type MiniProgramWindow = Window & {
+  wx?: {
+    miniProgram?: {
+      navigateTo?: (options: { url: string }) => void;
+    };
+  };
+};
+
+function isMiniProgramWebview() {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  return Boolean(win.wx?.miniProgram?.navigateTo);
+}
+
+// 商品链接：小程序 webview 内第三方域名（mercari/fril.jp/paypayfleamarket）会被微信拦截
+// （"不支持打开该页面"），需改跳小程序原生商品详情页。与 support/h5 page.tsx 的
+// navigateToMiniProgramGoodsDetail 同构：mercari 走 mercari_detail，rakuma/yahoofrima
+// 走通用 bundle/sites/detail（onLoad 读 platform + id）。
+function navigateToMiniProgramGoodsDetail(platform: string, goodsNo: string) {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  const url =
+    platform === "mercari"
+      ? "/pages/daishujun/index/mercari_detail?id=" + encodeURIComponent(goodsNo)
+      : "/pages/bundle/sites/detail?platform=" +
+        encodeURIComponent(platform) +
+        "&id=" +
+        encodeURIComponent(goodsNo);
+  win.wx.miniProgram.navigateTo({ url });
+  return true;
+}
+
+// 从 item_url 兜底解析商品编号（task.goods_no 缺失时用）。
+function parseGoodsNoFromUrl(platform: string | undefined, url: string): string | undefined {
+  if (platform === "mercari") {
+    return url.match(/\/item\/(m\d+)/)?.[1];
+  }
+  if (platform === "rakuma") {
+    return url.match(/fril\.jp\/(?:[^/]+\/)?item\/([A-Za-z0-9]+)/)?.[1];
+  }
+  if (platform === "yahoofrima") {
+    return url.match(/paypayfleamarket\.yahoo\.co\.jp\/item\/([A-Za-z0-9]+)/)?.[1];
+  }
+  return undefined;
+}
+
+// jweixin SDK 按需加载（与 support/h5 page.tsx 同一 id、同一 CDN 地址，避免重复注入）。
+function ensureJweixinSdkLoaded(onReady: () => void) {
+  if (typeof window === "undefined") return;
+  const win = window as MiniProgramWindow;
+  if (win.wx?.miniProgram?.navigateTo) {
+    onReady();
+    return;
+  }
+  const existing = document.getElementById("jweixin-sdk");
+  if (existing) {
+    existing.addEventListener("load", onReady);
+    return;
+  }
+  const script = document.createElement("script");
+  script.id = "jweixin-sdk";
+  script.src = "https://res.wx.qq.com/open/js/jweixin-1.6.0.js";
+  script.async = true;
+  script.onload = onReady;
+  document.body.appendChild(script);
+}
+
 // ---------------------------------------------------------------------------
 // 留言中心 H5（袋鼠君小程序 webview 内嵌页）。
 // 顾客通过代留言服务给日本卖家发砍价/咨询留言，本页展示留言任务列表与进度。
@@ -271,6 +339,12 @@ export default function SellerMessagesH5Page() {
   // StrictMode 双挂载防重复拉取（与 support/h5 的 ref 防抖同款思路）。
   const initialLoadRef = useRef(false);
 
+  // 预加载 jweixin SDK，让点击「商品链接」时 wx.miniProgram.navigateTo 尽量已就绪
+  // （小程序 webview 内 wx 对象需要该脚本注入才可用；非小程序环境里此脚本无副作用）。
+  useEffect(() => {
+    ensureJweixinSdkLoaded(() => {});
+  }, []);
+
   const loadList = useCallback(
     async (targetPage: number, mode: "replace" | "append") => {
       if (!userId) return;
@@ -384,8 +458,24 @@ export default function SellerMessagesH5Page() {
     }
   }
 
-  // 商品链接：小程序 webview 安全跳转 —— 一律当前页跳转（location.assign），绝不 window.open。
-  function openItemUrl(url: string) {
+  // 商品链接：小程序 webview 内第三方域名会被拦截（"不支持打开该页面"），有 platform
+  // 时优先跳小程序原生商品详情页；否则/失败时按原行为当前页跳转（location.assign），
+  // 绝不 window.open。
+  function openItemUrl(url: string, task: VisitorTask) {
+    const platform = task.platform;
+    if (
+      isMiniProgramWebview() &&
+      (platform === "mercari" || platform === "rakuma" || platform === "yahoofrima")
+    ) {
+      const goodsNo = task.goods_no || parseGoodsNoFromUrl(platform, url);
+      if (goodsNo) {
+        try {
+          if (navigateToMiniProgramGoodsDetail(platform, goodsNo)) return;
+        } catch {
+          // 跳转异常兜底回原行为。
+        }
+      }
+    }
     window.location.assign(url);
   }
 
@@ -599,7 +689,7 @@ export default function SellerMessagesH5Page() {
                 className="flex items-center gap-1 rounded-md border border-orange-200 bg-white px-2 py-1 text-xs font-medium text-[#F97E2F]"
                 onClick={(event) => {
                   event.stopPropagation();
-                  openItemUrl(itemUrl);
+                  openItemUrl(itemUrl, task);
                 }}
                 data-testid={`seller-messages-item-link-${key}`}
               >
