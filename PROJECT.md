@@ -166,3 +166,9 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 - 为什么：小程序「我的留言」页点商品链接，web-view 内直跳第三方域名（paypayfleamarket.yahoo.co.jp）被微信拦截「不支持打开」。
 - 改动：`src/app/[lang]/support/messages/page.tsx` 在小程序 web-view 内改用 jweixin SDK `wx.miniProgram.navigateTo` 跳回小程序原生商品页（mercari→`/pages/daishujun/index/mercari_detail?id=`，rakuma/yahoofrima→`/pages/bundle/sites/detail?platform=&id=`），不再直跳第三方域名。
+
+### 2026-09-06 煤炉竞拍出价成功页提示绑定公众号（8bb9fe5，ECS 已上线）
+
+- 为什么：煤炉竞拍被超提醒改走公众号模板消息（老后台 adb47c4），未绑公众号的客户收不到；花哥定「不发短信，骚扰性太强」，改在出价成功页引导绑定。
+- 改动：`src/app/[lang]/mercari-auction/page.tsx` 出价提交成功后按钮下方显示「绑定公众号可免费收到被超提醒」，链到已有关注页 `/${lang}/mnp`。文案写死中文未走 i18n（煤炉竞拍仅 zh 站使用）。
+- 部署：main 8bb9fe5 → ghcr run 34027835995 绿 → ECS `docker pull` + `run-frontend.sh`（旧镜像 aef57a6d20fe 为回滚锚点，新镜像 0eef3289689b）；jp-buy.com/zh/mercari-auction 200、/zh/mnp 200，线上 chunk 0upuv7x36heua.js 含新文案。
