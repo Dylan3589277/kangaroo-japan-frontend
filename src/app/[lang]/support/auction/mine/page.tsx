@@ -43,6 +43,10 @@ type SourceState = {
 
 const INITIAL_SOURCE_STATE: SourceState = { page: 1, hasMore: false, errored: false };
 
+// 押金不足时「去充值」跳转的小程序充值页 path，日拍包无 pages/pay/cashier，env 可覆盖。
+const YAHOO_DEPOSIT_RECHARGE_PAGE_PATH =
+  process.env.NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH || "/pages/daishujun/mine/deposit";
+
 class SignatureError extends Error {}
 
 function parseTime(value?: string): number {
@@ -482,7 +486,7 @@ export default function SupportAuctionMinePage() {
         wx?: { miniProgram?: { navigateTo: (opts: { url: string }) => void } };
       };
       if (w2.wx?.miniProgram) {
-        w2.wx.miniProgram.navigateTo({ url: "/pages/pay/cashier?from=h5deposit" });
+        w2.wx.miniProgram.navigateTo({ url: YAHOO_DEPOSIT_RECHARGE_PAGE_PATH });
       } else {
         setRechargeMsg("请在小程序内打开后充值");
       }
