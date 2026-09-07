@@ -10,6 +10,11 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 逻辑：`support/messages/page.tsx` 改为 Server Component，服务端用 URL 的 uid|user_id+ts+sig 预取第一页 → `initialTasks` 交给 `MessagesClient.tsx`（原页面逻辑整体迁入，初始 loading=false 直接渲染；挂载后原刷新/翻页/详情逻辑不变）；取数逻辑抽到 `src/lib/seller-messages-visitor.ts`，BFF `api/support/seller-messages/route.ts` 与 SSR 共用（10s 硬超时保留）。
 - 验证：`npm run build` 通过；本地 mock 后端 + `next start`，`curl` 无 JS 首屏 HTML 含 `seller-messages-card-1`/`status_text`/`reply_zh` [实测，mock]。commit 780cc0c 已推 main；ECS 待拉镜像（需花哥「推」），真实旧机型端到端未验。
 
+### 2026-09-07 · 被拒留言也可隐藏（23b9bf7）
+
+- 为什么：后端 `hide()` 把可隐藏的 foldState 从只认 closed 扩到 closed|rejected，前端隐藏按钮此前只在 customer_status===closed 时渲染，被拒留言藏不掉。
+- 改动：`MessagesClient.tsx` 隐藏按钮渲染条件改为 `customer_status==='closed'||customer_status==='rejected'`。commit 23b9bf7，已随 780cc0c 一起推 main、ECS 09-07 已拉镜像上线。
+
 ### 2026-09-06 客服 H5「去充值」按钮启用（build-arg 注入 path，禁碰 ECS）
 
 - 为什么：`src/app/[lang]/support/h5/page.tsx` 去充值按钮读 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH`（构建期内联），未配则禁用；反查真实值为小程序日拍老包押金页（自带充值押金弹窗）。
