@@ -14,6 +14,7 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 - 为什么：后端 `hide()` 把可隐藏的 foldState 从只认 closed 扩到 closed|rejected，前端隐藏按钮此前只在 customer_status===closed 时渲染，被拒留言藏不掉。
 - 改动：`MessagesClient.tsx` 隐藏按钮渲染条件改为 `customer_status==='closed'||customer_status==='rejected'`。commit 23b9bf7，已随 780cc0c 一起推 main、ECS 09-07 已拉镜像上线。
+- 同日追加：agreed 段也可隐藏（`1bf5522`），`MessagesClient.tsx` 隐藏按钮渲染条件再加 `customer_status==='agreed'`，配合后端 `5834ece`，ECS 已上线。
 
 ### 2026-09-06 客服 H5「去充值」按钮启用（build-arg 注入 path，禁碰 ECS）
 
