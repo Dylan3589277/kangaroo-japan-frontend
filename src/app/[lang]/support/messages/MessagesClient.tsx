@@ -679,7 +679,8 @@ export default function SellerMessagesH5Page({
                 商品链接
               </button>
             ) : null}
-            {task.customer_status === "closed" ? (
+            {task.customer_status === "closed" ||
+            task.customer_status === "rejected" ? (
               <button
                 type="button"
                 className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-500"
