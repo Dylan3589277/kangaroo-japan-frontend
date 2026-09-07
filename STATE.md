@@ -520,3 +520,23 @@ TCG 内容）；约 20 个页面全站零入口，只能手敲 URL。同时站�
 - **验证**：`/zh/support/h5?platform=cardrush-main` 200 且响应含 `cardrush-main`。
 - **回滚**：`ghcr.io/dylan3589277/kangaroo-japan-frontend:rollback-20260822`(=旧镜像 6d93e098b650)。
 - **未做**：candy 端「立即购买」按钮（`feat/cardrush-main-cart`）待 Windows HBuilderX 发版；老后台 Index.php candy 入口覆盖待过审后再上。
+
+---
+
+### 2026-09-07 日拍「我的竞拍→押金→充值」不跳转修复
+
+- **为什么**：客服 H5「我的竞拍→押金→充值」点击无跳转无提示。根因：`src/app/[lang]/support/auction/mine/page.tsx`
+  `handleRecharge` 写死 `wx.miniProgram.navigateTo('/pages/pay/cashier?from=h5deposit')`，
+  而 `pages/pay/cashier` 是 daishujunApp candy 线 2026-09-06 commit `e704ebf` 才新增的页，
+  日拍线上包（candy 构建落在 `6ab5028` 之前）没有该页，小程序对不存在页面 `navigateTo` 静默失败、无报错。
+- **改动**：main `0bc6ce3`，改为读 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH`（兜底
+  `/pages/daishujun/mine/deposit`），与 kefu H5 对话「去充值」按钮同一 path 来源。
+  镜像 digest `sha256:3087e2fb…`，ECS 容器 `8c4129af` 已重建，bundle 内 `cashier` 命中数 0。
+- **验证**：花哥真机验证通过。
+- **教训**：ECS `/opt/kangaroo-backend/run-frontend.sh` 只 `rm+run`，**不含 `docker pull`**——
+  第一次重建空转仍是旧镜像 `33cee835`，之后必须先 `docker pull
+  ghcr.io/dylan3589277/kangaroo-japan-frontend:latest` 再跑该脚本。
+- **待办**：candy 新版（带 `pages/pay/cashier`）发布后，若想切回收银台，只需改 workflow
+  的 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH` build-arg，不必改代码。
+- **纠正**：此前记忆/链路卡「去充值可跳押金页（`67ff98f`）」只对 kefu H5 对话按钮成立，
+  「我的竞拍」押金 tab 那颗充值按钮当时并未通过，本次一并修复。
