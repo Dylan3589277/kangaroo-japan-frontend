@@ -4,6 +4,12 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-09-07 · 留言中心 H5 列表 SSR 首屏（兼容旧小程序 webview 无 JS）
+
+- 为什么：老「煤炉供销社」小程序（wx208645d960d3f104）/iOS 15.4.1 的 webview 不执行客户端 JS，原纯 Client 页永远停在加载中。
+- 逻辑：`support/messages/page.tsx` 改为 Server Component，服务端用 URL 的 uid|user_id+ts+sig 预取第一页 → `initialTasks` 交给 `MessagesClient.tsx`（原页面逻辑整体迁入，初始 loading=false 直接渲染；挂载后原刷新/翻页/详情逻辑不变）；取数逻辑抽到 `src/lib/seller-messages-visitor.ts`，BFF `api/support/seller-messages/route.ts` 与 SSR 共用（10s 硬超时保留）。
+- 验证：`npm run build` 通过；本地 mock 后端 + `next start`，`curl` 无 JS 首屏 HTML 含 `seller-messages-card-1`/`status_text`/`reply_zh` [实测，mock]。commit 780cc0c 已推 main；ECS 待拉镜像（需花哥「推」），真实旧机型端到端未验。
+
 ### 2026-09-06 客服 H5「去充值」按钮启用（build-arg 注入 path，禁碰 ECS）
 
 - 为什么：`src/app/[lang]/support/h5/page.tsx` 去充值按钮读 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH`（构建期内联），未配则禁用；反查真实值为小程序日拍老包押金页（自带充值押金弹窗）。
