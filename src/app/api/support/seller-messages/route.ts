@@ -2,18 +2,12 @@ import { unstable_rethrow } from "next/navigation";
 import { NextRequest, NextResponse } from "next/server";
 
 import { parseRequestJsonObject } from "@/lib/request-json";
+import { callVisitorBackend } from "@/lib/seller-messages-visitor";
 
 // 留言中心（给日本卖家砍价/咨询留言）BFF 中继：H5 页 → 本路由 → 现代后端 visitor 端点。
 // 身份 = user_id + ts + sig 三件套（无 JWT/登录态），从请求体原样透传给后端，由后端验签。
-// 后端 base：优先 BACKEND_API_BASE_URL，其次沿用现有 support 路由的
-// SUPPORT_API_BASE_URL 约定（默认值已含 /api/v1，见 chat/tickets 路由同款写法）。
-const RAW_BACKEND_BASE_URL =
-  process.env.BACKEND_API_BASE_URL ||
-  process.env.SUPPORT_API_BASE_URL ||
-  "https://kangaroo-japan-backend.vercel.app/api/v1";
-
-// 中继铁律：10s 硬超时（AbortController），慢后端不拖死 H5。
-const RELAY_TIMEOUT_MS = 10_000;
+// 打后端的公共逻辑（base 拼接/超时/解析）见 @/lib/seller-messages-visitor，
+// SSR 首屏（page.tsx）取列表数据也调它，避免两处各写一份。
 
 export const dynamic = "force-dynamic";
 
@@ -74,12 +68,6 @@ function isVisitorAction(value: unknown): value is VisitorAction {
 
 // 后端 base 归一化：SUPPORT_API_BASE_URL 约定 base 已含 /api/v1（chat/tickets 同款），
 // 若配置的是裸 origin（BACKEND_API_BASE_URL 可能只配到域名）则补上 /api/v1。
-function buildBackendUrl(backendPath: string) {
-  const base = RAW_BACKEND_BASE_URL.replace(/\/+$/, "");
-  const prefix = base.endsWith("/api/v1") ? base : `${base}/api/v1`;
-  return `${prefix}/${backendPath}`;
-}
-
 function friendlyErrorResponse(errmsg: string) {
   // 业务失败统一 HTTP 200 + {code:1, errmsg}：页面只看 code，不用解析 HTTP 错误页。
   return NextResponse.json({ code: 1, errmsg });
@@ -122,40 +110,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const timeoutController = new AbortController();
-    const timeoutTimer = setTimeout(
-      () => timeoutController.abort(),
-      RELAY_TIMEOUT_MS,
-    );
-
-    let response: Response;
+    let result;
     try {
-      response = await fetch(buildBackendUrl(ACTIONS[action].backendPath), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(backendBody),
-        cache: "no-store",
-        signal: timeoutController.signal,
-      });
+      result = await callVisitorBackend(ACTIONS[action].backendPath, backendBody);
     } catch (error) {
       unstable_rethrow(error);
       // 超时 / 网络不通：统一友好话术，不透传底层错误。
       return friendlyErrorResponse(ACTIONS[action].friendlyError);
-    } finally {
-      clearTimeout(timeoutTimer);
     }
-
-    const payload: unknown = await response.json().catch(() => null);
-    const payloadRecord =
-      payload && typeof payload === "object"
-        ? (payload as Record<string, unknown>)
-        : null;
 
     // 非 2xx 或后端 code!==0 → 默认一律友好失败，绝不把后端堆栈/网络错误漏给买家。
     // 例外：leave-message 的 400 校验类失败（如"该商品留言已达2次上限"）要把后端
     // 具体原因带给买家，否则买家不知道为什么提交不了；超时/网络/5xx 仍统一走友好话术。
-    if (!response.ok || !payloadRecord || payloadRecord.code !== 0) {
-      if (action === "leave-message" && response.status === 400 && payloadRecord) {
+    if (!result.ok) {
+      const payloadRecord = result.payloadRecord;
+      if (action === "leave-message" && result.status === 400 && payloadRecord) {
         const backendMessage = payloadRecord.message;
         const detail =
           typeof backendMessage === "string"
@@ -171,7 +140,7 @@ export async function POST(request: NextRequest) {
       return friendlyErrorResponse(ACTIONS[action].friendlyError);
     }
 
-    return NextResponse.json({ code: 0, data: payloadRecord.data ?? null });
+    return NextResponse.json({ code: 0, data: result.data ?? null });
   } catch (error) {
     unstable_rethrow(error);
 
