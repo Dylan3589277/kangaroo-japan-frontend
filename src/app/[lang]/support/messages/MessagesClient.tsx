@@ -680,7 +680,8 @@ export default function SellerMessagesH5Page({
               </button>
             ) : null}
             {task.customer_status === "closed" ||
-            task.customer_status === "rejected" ? (
+            task.customer_status === "rejected" ||
+            task.customer_status === "agreed" ? (
               <button
                 type="button"
                 className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-500"
