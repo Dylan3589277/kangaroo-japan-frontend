@@ -331,9 +331,14 @@ export default function SellerMessagesH5Page() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [listError, setListError] = useState("");
-  const [filter, setFilter] = useState<FilterKey>("all");
+  const [filter, setFilter] = useState<FilterKey>("active");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [detailByKey, setDetailByKey] = useState<Record<string, DetailState>>(
+    {},
+  );
+  // Feature A：查看已隐藏留言的开关（默认关，仅展示未隐藏记录）。
+  const [showHidden, setShowHidden] = useState(false);
+  const [hideErrorByKey, setHideErrorByKey] = useState<Record<string, string>>(
     {},
   );
   // StrictMode 双挂载防重复拉取（与 support/h5 的 ref 防抖同款思路）。
@@ -361,6 +366,7 @@ export default function SellerMessagesH5Page() {
         ts: uidSignature.ts,
         sig: uidSignature.sig,
         page: targetPage,
+        include_hidden: showHidden,
       });
 
       if (!result.ok) {
@@ -393,7 +399,7 @@ export default function SellerMessagesH5Page() {
       setLoading(false);
       setLoadingMore(false);
     },
-    [userId, uidSignature.ts, uidSignature.sig],
+    [userId, uidSignature.ts, uidSignature.sig, showHidden],
   );
 
   useEffect(() => {
@@ -405,6 +411,19 @@ export default function SellerMessagesH5Page() {
     const timer = window.setTimeout(() => void loadList(1, "replace"), 0);
     return () => window.clearTimeout(timer);
   }, [userId, loadList]);
+
+  // showHidden 切换后重新拉第一页（跳过首次挂载，避免和上面的首拉 effect 重复请求）。
+  const showHiddenMountedRef = useRef(false);
+  useEffect(() => {
+    if (!userId) return;
+    if (!showHiddenMountedRef.current) {
+      showHiddenMountedRef.current = true;
+      return;
+    }
+    // 同上：0ms 定时器挪出 effect 同步体（react-hooks/set-state-in-effect）。
+    const timer = window.setTimeout(() => void loadList(1, "replace"), 0);
+    return () => window.clearTimeout(timer);
+  }, [showHidden, userId, loadList]);
 
   const loadDetail = useCallback(
     async (task: VisitorTask) => {
@@ -477,6 +496,35 @@ export default function SellerMessagesH5Page() {
       }
     }
     window.location.assign(url);
+  }
+
+  // Feature A：隐藏已结束的留言（乐观移除，失败则回滚 + 内联报错）。
+  async function hideTask(task: VisitorTask) {
+    if (!userId) return;
+    const key = String(task.id);
+    setHideErrorByKey((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    setTasks((current) => current.filter((item) => String(item.id) !== key));
+
+    const result = await postSellerMessages({
+      action: "hide",
+      user_id: userId,
+      ts: uidSignature.ts,
+      sig: uidSignature.sig,
+      task_id: task.id,
+    });
+
+    if (!result.ok) {
+      // 回滚：把卡片放回去，并给出内联报错。
+      setTasks((current) => {
+        if (current.some((item) => String(item.id) === key)) return current;
+        return [...current, task];
+      });
+      setHideErrorByKey((current) => ({ ...current, [key]: result.errmsg }));
+    }
   }
 
   const activeTab =
@@ -697,6 +745,19 @@ export default function SellerMessagesH5Page() {
                 商品链接
               </button>
             ) : null}
+            {task.customer_status === "closed" ? (
+              <button
+                type="button"
+                className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-500"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void hideTask(task);
+                }}
+                data-testid={`seller-messages-hide-${key}`}
+              >
+                隐藏
+              </button>
+            ) : null}
             <span className="flex items-center gap-0.5 text-[11px] text-slate-400">
               {expanded ? "收起" : "详情"}
               {expanded ? (
@@ -707,6 +768,12 @@ export default function SellerMessagesH5Page() {
             </span>
           </span>
         </div>
+
+        {hideErrorByKey[key] ? (
+          <p className="mt-1.5 text-right text-[11px] text-amber-600">
+            {hideErrorByKey[key]}
+          </p>
+        ) : null}
 
         {/* 内联展开详情：简单时间线（提交 → 已发给卖家 → 卖家回复） */}
         {expanded ? (
@@ -884,6 +951,16 @@ export default function SellerMessagesH5Page() {
               </button>
             );
           })}
+        </div>
+        <div className="mt-1 px-4 pb-2 text-right">
+          <button
+            type="button"
+            className="text-[11px] text-slate-400 underline-offset-2 hover:underline"
+            onClick={() => setShowHidden((current) => !current)}
+            data-testid="seller-messages-toggle-hidden"
+          >
+            {showHidden ? "收起已隐藏" : "查看已隐藏"}
+          </button>
         </div>
       </header>
 
