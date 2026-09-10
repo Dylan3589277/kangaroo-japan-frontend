@@ -197,3 +197,10 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 为什么：煤炉竞拍被超提醒改走公众号模板消息（老后台 adb47c4），未绑公众号的客户收不到；花哥定「不发短信，骚扰性太强」，改在出价成功页引导绑定。
 - 改动：`src/app/[lang]/mercari-auction/page.tsx` 出价提交成功后按钮下方显示「绑定公众号可免费收到被超提醒」，链到已有关注页 `/${lang}/mnp`。文案写死中文未走 i18n（煤炉竞拍仅 zh 站使用）。
 - 部署：main 8bb9fe5 → ghcr run 34027835995 绿 → ECS `docker pull` + `run-frontend.sh`（旧镜像 aef57a6d20fe 为回滚锚点，新镜像 0eef3289689b）；jp-buy.com/zh/mercari-auction 200、/zh/mnp 200，线上 chunk 0upuv7x36heua.js 含新文案。
+
+### 2026-09-10 · 留言中心：代留言任意状态隐藏 + 「已隐藏」tab + 恢复按钮 + 状态文案改「处理中」
+
+- 为什么：配合后端方案1+2（花哥 09-10 批准），留言中心需要支持任意状态隐藏、新增「已隐藏」tab 查看/恢复、隐藏卡片不显示 hidden_at；状态文案「审核中，待发出」改「处理中」。方案3 N天自动关闭未批准未做。
+- 改动：`route.ts`+`shared.ts` 加 unhide action、hidden_only 字段、hidden_at 解析（62a6eb5）；`MessagesClient.tsx` FILTERS 加「已隐藏」tab、loadHiddenList、任意状态显示隐藏按钮、恢复按钮，虚拟队列占位 id 前缀 `queue-participant:` 不显示按钮（9957dab）；对抗审查修4处：`hiddenReqSeqRef` 防并发串台、`mainListStaleRef` 离开已隐藏tab后重拉主列表、隐藏/恢复失败回滚按原index splice回插、删除旧 `include_hidden` 开关（fb28fb9）；`STATUS_PILLS` processing label 改「处理中」（eb94838）。
+- 验证：ghcr run 34425048872/34425774000/34426909965 绿；ECS 09-10 部署（回滚锚点 `rollback-20260910`，frontend 镜像 7c85c9f184e2），容器 4d3aeabb；烟测 jp-buy.com/zh 200、/zh/support/messages 200；容器内 grep `.next/server/chunks` 含 `hidden_only` 与「处理中」，「审核中，待发出」已无 [实测]。
+- 未做：方案3 N天自动关闭未批准未做。
