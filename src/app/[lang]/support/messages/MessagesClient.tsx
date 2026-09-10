@@ -272,8 +272,6 @@ export default function SellerMessagesH5Page({
   const [detailByKey, setDetailByKey] = useState<Record<string, DetailState>>(
     {},
   );
-  // Feature A：查看已隐藏留言的开关（默认关，仅展示未隐藏记录）。
-  const [showHidden, setShowHidden] = useState(false);
   const [hideErrorByKey, setHideErrorByKey] = useState<Record<string, string>>(
     {},
   );
@@ -292,6 +290,10 @@ export default function SellerMessagesH5Page({
   >({});
   // StrictMode 双挂载防重复拉取（与 support/h5 的 ref 防抖同款思路）。
   const initialLoadRef = useRef(false);
+  // 「已隐藏」tab 内恢复留言后，主列表 tasks 是旧缓存；切回其它 tab 时补拉一次。
+  const mainListStaleRef = useRef(false);
+  // 已隐藏列表请求序号：快速切 tab 时丢弃后到的过期响应，避免先发后到覆盖。
+  const hiddenReqSeqRef = useRef(0);
 
   // 预加载 jweixin SDK，让点击「商品链接」时 wx.miniProgram.navigateTo 尽量已就绪
   // （小程序 webview 内 wx 对象需要该脚本注入才可用；非小程序环境里此脚本无副作用）。
@@ -315,7 +317,6 @@ export default function SellerMessagesH5Page({
         ts: uidSignature.ts,
         sig: uidSignature.sig,
         page: targetPage,
-        include_hidden: showHidden,
       });
 
       if (!result.ok) {
@@ -348,7 +349,7 @@ export default function SellerMessagesH5Page({
       setLoading(false);
       setLoadingMore(false);
     },
-    [userId, uidSignature.ts, uidSignature.sig, showHidden],
+    [userId, uidSignature.ts, uidSignature.sig],
   );
 
   useEffect(() => {
@@ -361,23 +362,11 @@ export default function SellerMessagesH5Page({
     return () => window.clearTimeout(timer);
   }, [userId, loadList]);
 
-  // showHidden 切换后重新拉第一页（跳过首次挂载，避免和上面的首拉 effect 重复请求）。
-  const showHiddenMountedRef = useRef(false);
-  useEffect(() => {
-    if (!userId) return;
-    if (!showHiddenMountedRef.current) {
-      showHiddenMountedRef.current = true;
-      return;
-    }
-    // 同上：0ms 定时器挪出 effect 同步体（react-hooks/set-state-in-effect）。
-    const timer = window.setTimeout(() => void loadList(1, "replace"), 0);
-    return () => window.clearTimeout(timer);
-  }, [showHidden, userId, loadList]);
-
   // 「已隐藏」tab 专属拉取：hidden_only:true，只返回隐藏留言（不含排队占位）。
   const loadHiddenList = useCallback(
     async (targetPage: number, mode: "replace" | "append") => {
       if (!userId) return;
+      const seq = ++hiddenReqSeqRef.current;
       if (mode === "replace") {
         setHiddenLoading(true);
       } else {
@@ -393,6 +382,9 @@ export default function SellerMessagesH5Page({
         page: targetPage,
         hidden_only: true,
       });
+
+      // 快速切 tab 导致先发后到：响应到达时已不是最新一次请求，直接丢弃。
+      if (seq !== hiddenReqSeqRef.current) return;
 
       if (!result.ok) {
         setHiddenError(result.errmsg);
@@ -433,6 +425,16 @@ export default function SellerMessagesH5Page({
     const timer = window.setTimeout(() => void loadHiddenList(1, "replace"), 0);
     return () => window.clearTimeout(timer);
   }, [filter, userId, loadHiddenList]);
+
+  // 「已隐藏」tab 内恢复过留言后，切回其它 tab 时主列表已是旧缓存，补拉一次。
+  useEffect(() => {
+    if (!userId) return;
+    if (filter === "hidden") return;
+    if (!mainListStaleRef.current) return;
+    mainListStaleRef.current = false;
+    const timer = window.setTimeout(() => void loadList(1, "replace"), 0);
+    return () => window.clearTimeout(timer);
+  }, [filter, userId, loadList]);
 
   const loadDetail = useCallback(
     async (task: VisitorTask) => {
@@ -516,7 +518,11 @@ export default function SellerMessagesH5Page({
       delete next[key];
       return next;
     });
-    setTasks((current) => current.filter((item) => String(item.id) !== key));
+    let removedIndex = -1;
+    setTasks((current) => {
+      removedIndex = current.findIndex((item) => String(item.id) === key);
+      return current.filter((item) => String(item.id) !== key);
+    });
 
     const result = await postSellerMessages({
       action: "hide",
@@ -527,10 +533,16 @@ export default function SellerMessagesH5Page({
     });
 
     if (!result.ok) {
-      // 回滚：把卡片放回去，并给出内联报错。
+      // 回滚：按原 index 用 splice 放回去（避免追加到末尾打乱排序），并给出内联报错。
       setTasks((current) => {
         if (current.some((item) => String(item.id) === key)) return current;
-        return [...current, task];
+        const next = [...current];
+        const insertAt =
+          removedIndex >= 0 && removedIndex <= next.length
+            ? removedIndex
+            : next.length;
+        next.splice(insertAt, 0, task);
+        return next;
       });
       setHideErrorByKey((current) => ({ ...current, [key]: result.errmsg }));
     }
@@ -545,9 +557,11 @@ export default function SellerMessagesH5Page({
       delete next[key];
       return next;
     });
-    setHiddenTasks((current) =>
-      current.filter((item) => String(item.id) !== key),
-    );
+    let removedIndex = -1;
+    setHiddenTasks((current) => {
+      removedIndex = current.findIndex((item) => String(item.id) === key);
+      return current.filter((item) => String(item.id) !== key);
+    });
 
     const result = await postSellerMessages({
       action: "unhide",
@@ -558,12 +572,21 @@ export default function SellerMessagesH5Page({
     });
 
     if (!result.ok) {
-      // 回滚：把卡片放回去，并给出内联报错。
+      // 回滚：按原 index 用 splice 放回去（避免追加到末尾打乱排序），并给出内联报错。
       setHiddenTasks((current) => {
         if (current.some((item) => String(item.id) === key)) return current;
-        return [...current, task];
+        const next = [...current];
+        const insertAt =
+          removedIndex >= 0 && removedIndex <= next.length
+            ? removedIndex
+            : next.length;
+        next.splice(insertAt, 0, task);
+        return next;
       });
       setUnhideErrorByKey((current) => ({ ...current, [key]: result.errmsg }));
+    } else {
+      // 恢复成功：主列表（tasks）是旧缓存，标脏，等切回其它 tab 时补拉一次。
+      mainListStaleRef.current = true;
     }
   }
 
@@ -1019,16 +1042,6 @@ export default function SellerMessagesH5Page({
               </button>
             );
           })}
-        </div>
-        <div className="mt-1 px-4 pb-2 text-right">
-          <button
-            type="button"
-            className="text-[11px] text-slate-400 underline-offset-2 hover:underline"
-            onClick={() => setShowHidden((current) => !current)}
-            data-testid="seller-messages-toggle-hidden"
-          >
-            {showHidden ? "收起已隐藏" : "查看已隐藏"}
-          </button>
         </div>
       </header>
 
