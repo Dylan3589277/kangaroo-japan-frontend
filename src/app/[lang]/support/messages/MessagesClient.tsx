@@ -122,7 +122,7 @@ const FILTER_TABS: { key: FilterKey; label: string; statuses?: string[] }[] = [
 // 后端固定文案；closed 后端按原因下发多种文案，本地兜底保留通用「已结束」。
 const STATUS_PILLS: Record<string, { label: string; className: string }> = {
   processing: {
-    label: "审核中，待发出",
+    label: "处理中",
     className: "border-amber-200 bg-amber-50 text-amber-700",
   },
   sent: {
