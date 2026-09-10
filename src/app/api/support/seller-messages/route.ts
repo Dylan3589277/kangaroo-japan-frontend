@@ -11,7 +11,7 @@ import { callVisitorBackend } from "@/lib/seller-messages-visitor";
 
 export const dynamic = "force-dynamic";
 
-type VisitorAction = "leave-message" | "list" | "detail" | "hide";
+type VisitorAction = "leave-message" | "list" | "detail" | "hide" | "unhide";
 
 // action → 后端 visitor 端点路径 + 出错时给买家看的友好话术（绝不透传后端原始报错）。
 const ACTIONS: Record<
@@ -34,6 +34,10 @@ const ACTIONS: Record<
     backendPath: "seller-messages/visitor/hide",
     friendlyError: "隐藏失败了，请稍后重试～",
   },
+  unhide: {
+    backendPath: "seller-messages/visitor/unhide",
+    friendlyError: "恢复失败了，请稍后重试～",
+  },
 };
 
 // 各 action 允许透传给后端的业务字段白名单（user_id/ts/sig 三件套单独必检、原样透传）。
@@ -48,9 +52,10 @@ const ACTION_FIELDS: Record<VisitorAction, string[]> = {
     "customerRequestZh",
     "presetTemplateId",
   ],
-  list: ["page", "include_hidden"],
+  list: ["page", "include_hidden", "hidden_only"],
   detail: ["id"],
   hide: ["task_id"],
+  unhide: ["task_id"],
 };
 
 function getString(value: unknown): string | undefined {
@@ -62,7 +67,8 @@ function isVisitorAction(value: unknown): value is VisitorAction {
     value === "leave-message" ||
     value === "list" ||
     value === "detail" ||
-    value === "hide"
+    value === "hide" ||
+    value === "unhide"
   );
 }
 

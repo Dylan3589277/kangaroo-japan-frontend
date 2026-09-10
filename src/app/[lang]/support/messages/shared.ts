@@ -30,6 +30,9 @@ export type VisitorTask = {
   // 后端下发的转人工判定（新版后端才有）；undefined 时（老后端）退回按
   // status_text 文案子串判断。
   can_transfer_human?: boolean;
+  // 隐藏时间（ISO 时间戳），仅"已隐藏"tab（hidden_only:true）下的条目会有值；
+  // 未隐藏或后端未下发时为 undefined。
+  hidden_at?: string;
 };
 
 export function getRecord(value: unknown): Record<string, unknown> {
@@ -81,5 +84,6 @@ export function parseTask(value: unknown): VisitorTask | null {
       typeof record.can_transfer_human === "boolean"
         ? record.can_transfer_human
         : undefined,
+    hidden_at: getString(record.hidden_at),
   };
 }

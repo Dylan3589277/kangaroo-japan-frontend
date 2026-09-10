@@ -105,13 +105,15 @@ type DetailState = {
   data?: VisitorTask;
 };
 
-type FilterKey = "all" | "active" | "replied" | "closed";
+type FilterKey = "all" | "active" | "replied" | "closed" | "hidden";
 
 const FILTER_TABS: { key: FilterKey; label: string; statuses?: string[] }[] = [
   { key: "all", label: "全部" },
   { key: "active", label: "进行中", statuses: ["processing", "sent"] },
   { key: "replied", label: "已回复", statuses: ["replied", "agreed"] },
   { key: "closed", label: "已结束", statuses: ["rejected", "closed"] },
+  // 已隐藏：独立入口，不参与 customer_status 过滤，走 hidden_only:true 的专属拉取。
+  { key: "hidden", label: "已隐藏" },
 ];
 
 // 状态胶囊配色：processing/sent=琥珀（进行中）、replied=蓝、agreed=绿、
@@ -275,6 +277,19 @@ export default function SellerMessagesH5Page({
   const [hideErrorByKey, setHideErrorByKey] = useState<Record<string, string>>(
     {},
   );
+  // 「已隐藏」tab：独立列表 + 分页状态，与主列表（tasks/page/total）互不影响；
+  // 客户端拉取（hidden_only:true），不做 SSR。
+  const [hiddenTasks, setHiddenTasks] = useState<VisitorTask[]>([]);
+  const [hiddenPage, setHiddenPage] = useState(1);
+  const [hiddenTotal, setHiddenTotal] = useState<number | undefined>(
+    undefined,
+  );
+  const [hiddenLoading, setHiddenLoading] = useState(false);
+  const [hiddenLoadingMore, setHiddenLoadingMore] = useState(false);
+  const [hiddenError, setHiddenError] = useState("");
+  const [unhideErrorByKey, setUnhideErrorByKey] = useState<
+    Record<string, string>
+  >({});
   // StrictMode 双挂载防重复拉取（与 support/h5 的 ref 防抖同款思路）。
   const initialLoadRef = useRef(false);
 
@@ -358,6 +373,66 @@ export default function SellerMessagesH5Page({
     const timer = window.setTimeout(() => void loadList(1, "replace"), 0);
     return () => window.clearTimeout(timer);
   }, [showHidden, userId, loadList]);
+
+  // 「已隐藏」tab 专属拉取：hidden_only:true，只返回隐藏留言（不含排队占位）。
+  const loadHiddenList = useCallback(
+    async (targetPage: number, mode: "replace" | "append") => {
+      if (!userId) return;
+      if (mode === "replace") {
+        setHiddenLoading(true);
+      } else {
+        setHiddenLoadingMore(true);
+      }
+      setHiddenError("");
+
+      const result = await postSellerMessages({
+        action: "list",
+        user_id: userId,
+        ts: uidSignature.ts,
+        sig: uidSignature.sig,
+        page: targetPage,
+        hidden_only: true,
+      });
+
+      if (!result.ok) {
+        setHiddenError(result.errmsg);
+        setHiddenLoading(false);
+        setHiddenLoadingMore(false);
+        return;
+      }
+
+      const data = getRecord(result.data);
+      const rawList = Array.isArray(data.list) ? data.list : [];
+      const parsed = rawList
+        .map((item) => parseTask(item))
+        .filter((item): item is VisitorTask => item !== null);
+
+      setHiddenTotal(getNumber(data.total));
+      setHiddenPage(targetPage);
+      if (mode === "replace") {
+        setHiddenTasks(parsed);
+      } else {
+        setHiddenTasks((current) => {
+          const seen = new Set(current.map((task) => String(task.id)));
+          return [
+            ...current,
+            ...parsed.filter((task) => !seen.has(String(task.id))),
+          ];
+        });
+      }
+      setHiddenLoading(false);
+      setHiddenLoadingMore(false);
+    },
+    [userId, uidSignature.ts, uidSignature.sig],
+  );
+
+  // 进入「已隐藏」tab 时客户端拉取第一页（不做 SSR）；每次切进来都重拉，避免陈旧数据。
+  useEffect(() => {
+    if (!userId) return;
+    if (filter !== "hidden") return;
+    const timer = window.setTimeout(() => void loadHiddenList(1, "replace"), 0);
+    return () => window.clearTimeout(timer);
+  }, [filter, userId, loadHiddenList]);
 
   const loadDetail = useCallback(
     async (task: VisitorTask) => {
@@ -461,17 +536,55 @@ export default function SellerMessagesH5Page({
     }
   }
 
+  // 「已隐藏」tab：恢复（乐观移除，失败则回滚 + 内联报错），与 hideTask 同构。
+  async function unhideTask(task: VisitorTask) {
+    if (!userId) return;
+    const key = String(task.id);
+    setUnhideErrorByKey((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    setHiddenTasks((current) =>
+      current.filter((item) => String(item.id) !== key),
+    );
+
+    const result = await postSellerMessages({
+      action: "unhide",
+      user_id: userId,
+      ts: uidSignature.ts,
+      sig: uidSignature.sig,
+      task_id: task.id,
+    });
+
+    if (!result.ok) {
+      // 回滚：把卡片放回去，并给出内联报错。
+      setHiddenTasks((current) => {
+        if (current.some((item) => String(item.id) === key)) return current;
+        return [...current, task];
+      });
+      setUnhideErrorByKey((current) => ({ ...current, [key]: result.errmsg }));
+    }
+  }
+
   const activeTab =
     FILTER_TABS.find((tab) => tab.key === filter) ?? FILTER_TABS[0];
-  const visibleTasks = activeTab.statuses
-    ? tasks.filter(
-        (task) =>
-          task.customer_status &&
-          activeTab.statuses!.includes(task.customer_status),
-      )
-    : tasks;
+  const visibleTasks =
+    filter === "hidden"
+      ? hiddenTasks
+      : activeTab.statuses
+        ? tasks.filter(
+            (task) =>
+              task.customer_status &&
+              activeTab.statuses!.includes(task.customer_status),
+          )
+        : tasks;
   const hasMore =
-    total !== undefined && tasks.length < total && tasks.length > 0;
+    filter === "hidden"
+      ? hiddenTotal !== undefined &&
+        hiddenTasks.length < hiddenTotal &&
+        hiddenTasks.length > 0
+      : total !== undefined && tasks.length < total && tasks.length > 0;
 
   // ── 身份缺失：不发任何 API，只给回小程序的指引占位。 ──
   if (!userId) {
@@ -511,7 +624,10 @@ export default function SellerMessagesH5Page({
     );
   }
 
-  const renderTaskCard = (task: VisitorTask) => {
+  const renderTaskCard = (
+    task: VisitorTask,
+    variant: "normal" | "hidden" = "normal",
+  ) => {
     const key = String(task.id);
     const pill =
       (task.customer_status && STATUS_PILLS[task.customer_status]) ||
@@ -679,9 +795,19 @@ export default function SellerMessagesH5Page({
                 商品链接
               </button>
             ) : null}
-            {task.customer_status === "closed" ||
-            task.customer_status === "rejected" ||
-            task.customer_status === "agreed" ? (
+            {variant === "hidden" ? (
+              <button
+                type="button"
+                className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-500"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void unhideTask(task);
+                }}
+                data-testid={`seller-messages-unhide-${key}`}
+              >
+                恢复
+              </button>
+            ) : (
               <button
                 type="button"
                 className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-500"
@@ -693,7 +819,7 @@ export default function SellerMessagesH5Page({
               >
                 隐藏
               </button>
-            ) : null}
+            )}
             <span className="flex items-center gap-0.5 text-[11px] text-slate-400">
               {expanded ? "收起" : "详情"}
               {expanded ? (
@@ -705,11 +831,17 @@ export default function SellerMessagesH5Page({
           </span>
         </div>
 
-        {hideErrorByKey[key] ? (
-          <p className="mt-1.5 text-right text-[11px] text-amber-600">
-            {hideErrorByKey[key]}
-          </p>
-        ) : null}
+        {variant === "hidden"
+          ? unhideErrorByKey[key] && (
+              <p className="mt-1.5 text-right text-[11px] text-amber-600">
+                {unhideErrorByKey[key]}
+              </p>
+            )
+          : hideErrorByKey[key] && (
+              <p className="mt-1.5 text-right text-[11px] text-amber-600">
+                {hideErrorByKey[key]}
+              </p>
+            )}
 
         {/* 内联展开详情：简单时间线（提交 → 已发给卖家 → 卖家回复） */}
         {expanded ? (
@@ -901,6 +1033,74 @@ export default function SellerMessagesH5Page({
       </header>
 
       <section className="space-y-3 px-3 pb-10 pt-3">
+        {filter === "hidden" ? (
+          <>
+            {hiddenError && hiddenTasks.length === 0 && !hiddenLoading ? (
+              <div
+                className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center"
+                data-testid="seller-messages-hidden-error"
+              >
+                <AlertTriangle className="mx-auto h-6 w-6 text-amber-500" />
+                <p className="mt-2 text-sm text-amber-800">{hiddenError}</p>
+                <button
+                  type="button"
+                  className="mt-3 rounded-md bg-[#FD7E3B] px-4 py-2 text-sm font-medium text-white shadow-sm"
+                  onClick={() => void loadHiddenList(1, "replace")}
+                  data-testid="seller-messages-hidden-retry"
+                >
+                  重试
+                </button>
+              </div>
+            ) : null}
+
+            {hiddenLoading && hiddenTasks.length === 0 && !hiddenError ? (
+              <div className="rounded-lg border border-orange-100 bg-white px-3 py-4 text-center text-xs leading-5 text-slate-500 shadow-sm">
+                正在加载已隐藏的留言，请稍等…
+              </div>
+            ) : null}
+
+            {!hiddenLoading && !hiddenError && hiddenTasks.length === 0 ? (
+              <div
+                className="rounded-lg border border-orange-100 bg-white p-5 text-center shadow-sm"
+                data-testid="seller-messages-hidden-empty"
+              >
+                <MessageCircle className="mx-auto h-8 w-8 text-orange-300" />
+                <p className="mt-3 text-sm font-medium text-slate-700">
+                  没有已隐藏的留言
+                </p>
+              </div>
+            ) : null}
+
+            {hiddenTasks.map((task) => renderTaskCard(task, "hidden"))}
+
+            {hiddenError && hiddenTasks.length > 0 ? (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                <span className="text-xs text-amber-800">{hiddenError}</span>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-md bg-[#FD7E3B] px-3 py-1.5 text-xs font-medium text-white"
+                  onClick={() => void loadHiddenList(1, "replace")}
+                  data-testid="seller-messages-hidden-retry-inline"
+                >
+                  重试
+                </button>
+              </div>
+            ) : null}
+
+            {hasMore && !hiddenError ? (
+              <button
+                type="button"
+                className="w-full rounded-lg border border-orange-200 bg-white px-3 py-2.5 text-sm font-medium text-[#F97E2F] shadow-sm disabled:opacity-50"
+                onClick={() => void loadHiddenList(hiddenPage + 1, "append")}
+                disabled={hiddenLoadingMore}
+                data-testid="seller-messages-hidden-load-more"
+              >
+                {hiddenLoadingMore ? "正在加载…" : "加载更多"}
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <>
         {listError && tasks.length === 0 && !loading ? (
           <div
             className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center"
@@ -987,6 +1187,8 @@ export default function SellerMessagesH5Page({
             {loadingMore ? "正在加载…" : "加载更多"}
           </button>
         ) : null}
+          </>
+        )}
       </section>
     </main>
   );
