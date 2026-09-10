@@ -807,7 +807,7 @@ export default function SellerMessagesH5Page({
               >
                 恢复
               </button>
-            ) : (
+            ) : String(task.id).startsWith("queue-participant:") ? null : (
               <button
                 type="button"
                 className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-500"
