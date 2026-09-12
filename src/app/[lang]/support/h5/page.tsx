@@ -33,6 +33,7 @@ import {
   getH5App,
   getH5UidSignature,
   getNumericH5UserId,
+  isCandySkinApp,
   type H5App,
 } from "./identity";
 import { useReviewMode } from "./review-mode";
@@ -3187,9 +3188,9 @@ export default function MiniProgramSupportH5Page() {
     <main
       className="flex min-h-0 flex-col overflow-hidden bg-[#f5f7fb] text-slate-900"
       style={viewportStyle}
-      data-theme={isCandyTheme ? "candy" : undefined}
+      data-theme={isCandySkinApp(h5App) ? "candy" : undefined}
     >
-      {isCandyTheme ? <style>{CANDY_THEME_CSS}</style> : null}
+      {isCandySkinApp(h5App) ? <style>{CANDY_THEME_CSS}</style> : null}
       <header className="sticky top-0 z-10 border-b bg-white/95 px-4 py-3 backdrop-blur">
         <div className="text-center text-base font-semibold">袋鼠酱</div>
         <div className="mt-1 text-center text-xs text-slate-500">

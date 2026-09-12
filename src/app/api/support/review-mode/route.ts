@@ -18,7 +18,9 @@ function offResponse() {
 
 export async function GET(request: NextRequest) {
   const rawApp = request.nextUrl.searchParams.get("app");
-  const app = rawApp === "candy" ? "candy" : "legacy";
+  // 老后台 /api/config/reviewmode 只认 legacy|candy；ripai（袋鼠君日淘）皮肤/
+  // 审核开关按 candy 走，这里要把 ripai 折叠成 candy 再转发。
+  const app = rawApp === "candy" || rawApp === "ripai" ? "candy" : "legacy";
 
   const timeoutController = new AbortController();
   const timeoutTimer = setTimeout(

@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, Loader2 } from "lucide-react";
 
 import { CANDY_THEME_CSS } from "../../candy-theme";
-import { getDepositRechargePagePath } from "../../h5/identity";
+import { getDepositRechargePagePath, getH5App, isCandySkinApp } from "../../h5/identity";
 
 type Source = "yahoo" | "mercari";
 
@@ -126,8 +126,7 @@ export default function SupportAuctionMinePage() {
   const ts = searchParams.get("ts") || "";
   const sig = searchParams.get("sig") || "";
   const isCandyTheme = searchParams.get("theme") === "candy";
-  const rawApp = searchParams.get("app");
-  const h5App = rawApp === "candy" || (rawApp !== "legacy" && isCandyTheme) ? "candy" : "legacy";
+  const h5App = getH5App(searchParams);
 
   const originalQuery = useMemo(() => {
     const qs = new URLSearchParams();
@@ -509,7 +508,7 @@ export default function SupportAuctionMinePage() {
     router.push(`/${lang}/support/h5${originalQuery ? "?" + originalQuery : ""}`);
   }
 
-  const themeAttr = isCandyTheme ? "candy" : undefined;
+  const themeAttr = isCandySkinApp(h5App) ? "candy" : undefined;
   const hasMore = yahooState.hasMore || mercariState.hasMore;
 
   return (
@@ -518,7 +517,7 @@ export default function SupportAuctionMinePage() {
       data-theme={themeAttr}
       data-testid="support-auction-mine-page"
     >
-      {isCandyTheme ? <style>{CANDY_THEME_CSS}</style> : null}
+      {isCandySkinApp(h5App) ? <style>{CANDY_THEME_CSS}</style> : null}
 
       <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-slate-100 bg-white px-3 py-3">
         <button
