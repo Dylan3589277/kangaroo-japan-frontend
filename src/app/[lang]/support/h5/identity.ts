@@ -35,6 +35,15 @@ export function isCandySkinApp(h5App: H5App): boolean {
   return h5App === "candy" || h5App === "ripai";
 }
 
+// 煤炉供销社小程序（appid wx208645d960d3f104）被老后台当 candy 皮肤处理，进 H5
+// 时带 app=candy&theme=candy，但它的审核开关该按 legacy 走（id76 而非 candy 的
+// id77）。押金充值跳转仍按 app（h5App）走，不受此参数影响，故独立开
+// `review_app` 参数覆盖审核开关查询用的 app，不改 h5App 本身。
+export function getReviewApp(searchParams: SearchParamReader, h5App: H5App): H5App {
+  const raw = searchParams.get("review_app")?.trim();
+  return raw === "legacy" || raw === "candy" ? raw : h5App;
+}
+
 // candy 包没有 legacy 那个押金充值页，充值页是 /pages/pay/cashier（uni-app 页，
 // onLoad 读 from/type/money，type=deposit 为押金充值）；legacy 包没有 cashier 页。
 // ripai（日淘）虽然皮肤/审核开关按 candy 走，但包是旧包，也没有 cashier 页，

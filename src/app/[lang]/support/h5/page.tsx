@@ -33,6 +33,7 @@ import {
   getH5App,
   getH5UidSignature,
   getNumericH5UserId,
+  getReviewApp,
   isCandySkinApp,
   type H5App,
 } from "./identity";
@@ -977,9 +978,13 @@ export default function MiniProgramSupportH5Page() {
   // 客服 H5 由两个小程序打开：老版（legacy）/ candy 版；PHP 侧 app 参数优先，
   // 缺省按现有 theme=candy 换肤参数推断。
   const h5App = getH5App(searchParams);
+  // 审核开关查询用的 app：默认沿用 h5App，但煤炉供销社小程序等「皮肤按 candy
+  // 走、审核开关该按 legacy 走」的场景可用 ?review_app=legacy|candy 单独覆盖，
+  // 不影响押金充值跳转（仍按 h5App）。
+  const reviewApp = getReviewApp(searchParams, h5App);
   // 小程序送审期间老后台「审核模式」开关：true 时隐藏一切竞拍相关内容。
   // loading 期间三个竞拍按钮先不渲染（防审核模式下闪现），失败按 false（不隐藏）处理。
-  const { loading: reviewModeLoading, reviewMode } = useReviewMode(h5App);
+  const { loading: reviewModeLoading, reviewMode } = useReviewMode(reviewApp);
   // teaser effect（挂载即发、只跑一次）需要读到「当下最新」的 reviewMode，
   // 而不是挂载那一刻闭包里永远是 false 的值；ref 与 state 同步更新，供该 effect 兜底读取。
   const reviewModeRef = useRef(reviewMode);
