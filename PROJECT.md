@@ -204,3 +204,10 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 改动：`route.ts`+`shared.ts` 加 unhide action、hidden_only 字段、hidden_at 解析（62a6eb5）；`MessagesClient.tsx` FILTERS 加「已隐藏」tab、loadHiddenList、任意状态显示隐藏按钮、恢复按钮，虚拟队列占位 id 前缀 `queue-participant:` 不显示按钮（9957dab）；对抗审查修4处：`hiddenReqSeqRef` 防并发串台、`mainListStaleRef` 离开已隐藏tab后重拉主列表、隐藏/恢复失败回滚按原index splice回插、删除旧 `include_hidden` 开关（fb28fb9）；`STATUS_PILLS` processing label 改「处理中」（eb94838）。
 - 验证：ghcr run 34425048872/34425774000/34426909965 绿；ECS 09-10 部署（回滚锚点 `rollback-20260910`，frontend 镜像 7c85c9f184e2），容器 4d3aeabb；烟测 jp-buy.com/zh 200、/zh/support/messages 200；容器内 grep `.next/server/chunks` 含 `hidden_only` 与「处理中」，「审核中，待发出」已无 [实测]。
 - 未做：方案3 N天自动关闭未批准未做。
+
+### 2026-09-12 · 智能客服 H5「帮我给卖家留言」贴链接出卡：route 透传 leave_msg_ref（main 98c3d29，ECS 已部署）
+
+- 为什么：客服 FAQ「帮我给卖家留言」点了没反应。bridge 6d3cba7 改成引导顾客贴 Mercari 链接后在 `extra.leave_msg_ref` 出商品卡，但前端 `api/support/chat/route.ts` 没把该字段透传给页面，卡出不来。
+- 改动：`src/app/api/support/chat/route.ts` 两行透传 `leave_msg_ref`（方案 A：`support/h5/page.tsx` 现成 `getLeaveMsgRef` + 商品卡（查看商品/帮我砍价/咨询卖家→既有留言弹窗），零改页面）。配套后端 d558bf5（LLM 草稿两步提取+术语硬校验）。
+- 验证：ghcr 镜像绿；ECS 09-12 pull + `run-frontend.sh`（回滚锚点镜像 e130613d9e8a）；jp-buy.com/zh/support/h5?user_id=569 实测 FAQ→引导→贴链接→「已找到商品」→卡片渲染 OK。
+- 未做/待拍板：①卡片渲染门槛 `item.leaveMsgRef && userId`，游客（URL 无 user_id）只见「请点下方卡片」文案见不到卡；②bridge 发 `mode_hint:"question"` 不在 `getLeaveMsgRef` 白名单(bargain/consult)，无害但约定不一致；③bridge 文案「留言」按钮≠卡上「帮我砍价/咨询卖家」。
