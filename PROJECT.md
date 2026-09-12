@@ -211,3 +211,10 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 改动：`src/app/api/support/chat/route.ts` 两行透传 `leave_msg_ref`（方案 A：`support/h5/page.tsx` 现成 `getLeaveMsgRef` + 商品卡（查看商品/帮我砍价/咨询卖家→既有留言弹窗），零改页面）。配套后端 d558bf5（LLM 草稿两步提取+术语硬校验）。
 - 验证：ghcr 镜像绿；ECS 09-12 pull + `run-frontend.sh`（回滚锚点镜像 e130613d9e8a）；jp-buy.com/zh/support/h5?user_id=569 实测 FAQ→引导→贴链接→「已找到商品」→卡片渲染 OK。
 - 未做/待拍板：①卡片渲染门槛 `item.leaveMsgRef && userId`，游客（URL 无 user_id）只见「请点下方卡片」文案见不到卡；②bridge 发 `mode_hint:"question"` 不在 `getLeaveMsgRef` 白名单(bargain/consult)，无害但约定不一致；③bridge 文案「留言」按钮≠卡上「帮我砍价/咨询卖家」。
+
+### 2026-09-12 · candy 包「我的竞拍」押金充值按包分流跳转（origin main e0ad36a，ECS pull 待花哥令）
+
+- 为什么：09-07 0bc6ce3 把 legacy/candy 两包统一跳 `/pages/daishujun/mine/deposit`，但 candy 包该页是「竞拍押金(历史)」页无充值按钮（且 candy mine.vue 1ceeafe 过滤了这个菜单），candy 的充值实际入口在收银台页 `/pages/pay/cashier`(from=h5deposit&type=deposit)，navigateTo 到不存在/无按钮的页静默失败，点充值无反应。
+- 改动：新增 `support/h5/identity.ts` 的 `getDepositRechargePagePath(h5App, legacyPath)`：candy→`NEXT_PUBLIC_CANDY_DEPOSIT_RECHARGE_PAGE_PATH`（默认 `/pages/pay/cashier`），legacy→原 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH`；`mine/page.tsx` 与 `h5/page.tsx` 两处充值跳转都按 h5App 分流；Dockerfile ARG/ENV + `.github/workflows/docker-image.yml` 加 build-arg。
+- 状态：镜像构建中，ECS pull 未做，需花哥「推」。
+- 风险未核实：candy 线上正式版是否已含 cashier 页——体验版 1.0.2026090601e 起有，正式版未核实。
