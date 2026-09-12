@@ -535,8 +535,22 @@ TCG 内容）；约 20 个页面全站零入口，只能手敲 URL。同时站�
 - **验证**：花哥真机验证通过。
 - **教训**：ECS `/opt/kangaroo-backend/run-frontend.sh` 只 `rm+run`，**不含 `docker pull`**——
   第一次重建空转仍是旧镜像 `33cee835`，之后必须先 `docker pull
-  ghcr.io/dylan3589277/kangaroo-japan-frontend:latest` 再跑该脚本。
+ghcr.io/dylan3589277/kangaroo-japan-frontend:latest` 再跑该脚本。
 - **待办**：candy 新版（带 `pages/pay/cashier`）发布后，若想切回收银台，只需改 workflow
   的 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH` build-arg，不必改代码。
 - **纠正**：此前记忆/链路卡「去充值可跳押金页（`67ff98f`）」只对 kefu H5 对话按钮成立，
   「我的竞拍」押金 tab 那颗充值按钮当时并未通过，本次一并修复。
+
+### 2026-09-12 · 留言中心显示卖家还价 + 「同意 X 日元」直接下单（commit c961183）
+
+- **为什么**：后端代留言新增「同意卖家还价」能力（backend commit 73bb90a），前端需要在留言中心
+  把卖家还价金额亮出来，并给顾客一键同意的入口，避免继续人工来回沟通。
+- **逻辑**：`MessagesClient.tsx` 读取 BFF 透传的 `seller_counter_price_jpy`/`can_accept`/
+  `price_verified` 字段，命中还价时显示金额与「同意 X 日元」按钮；点击调 BFF 转发到后端
+  `POST seller-messages/visitor/accept`。`agreedPriceJpy` 已定但卖家未改价 / 卖家已改价可下单 /
+  已同意等待卖家改价三种状态分别给对应文案。
+- **改动**：`src/app/[lang]/.../MessagesClient.tsx`（留言中心组件）及对应 BFF route。
+- **验证**：commit `c961183`，已推 origin/main。
+- **未做**：与后端 `visitor/accept`/`price-changed` 的生产联调需等 ECS 拉镜像后端 73bb90a。
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
