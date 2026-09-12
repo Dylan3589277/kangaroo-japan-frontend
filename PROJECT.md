@@ -226,3 +226,12 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 验证：`npx tsx --test identity.test.ts` 4/4 pass；curl 实测日拍返回 `app=ripai&theme=candy`、煤炉返回 `app=candy`。前端 a4397c4 已推 origin/main，镜像构建成功后 ECS 已 pull+重启（花哥「2.推」），容器 .next 产物含 ripai。
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+
+### 2026-09-12 · 客服H5 审核开关支持 review_app 覆盖（8be77ee，已上 ECS）
+
+- 为什么：煤炉供销社（appid wx208645d960d3f104）被划进 `is_candy_request()` 白名单后，小程序端 `api/config/reviewmode` 不带 app 参数时会误按 candy 逻辑返回日淘的开关值（st_config id77=0），客服H5拼的链接也带 `app=candy`，导致该 appid 拿到错误的审核模式开关。
+- 逻辑：老后台新增 `is_legacy_relaunch_request()`，`Config.php::reviewmode()` 无 app 参数且命中该 appid 时按 legacy 取值（id76）；H5 链接改由 `Chat.php` 追加 `&review_app=legacy` 覆盖。前端新增 `support/h5/identity.ts::getReviewApp(searchParams,h5App)` 优先读 URL 上的 `review_app`，`page.tsx` 用 `useReviewMode(reviewApp)` 消费。
+- 验证：curl 该 appid 走 candy 参数 → `review_mode:true,app:legacy`；candy 本体 appid → false；镜像已 pull 上 ECS，线上 chunk 含 `review_app`。
+- 未做：其它非 mercari 平台（フリマ/ラクマ/雅虎）购物车卖家名点击跳转页待花哥拍板，与本条无关（见 daishujunApp-legacy-relaunch 侧记录）。
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
