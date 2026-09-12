@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, Loader2 } from "lucide-react";
 
 import { CANDY_THEME_CSS } from "../../candy-theme";
+import { getDepositRechargePagePath } from "../../h5/identity";
 
 type Source = "yahoo" | "mercari";
 
@@ -486,7 +487,12 @@ export default function SupportAuctionMinePage() {
         wx?: { miniProgram?: { navigateTo: (opts: { url: string }) => void } };
       };
       if (w2.wx?.miniProgram) {
-        w2.wx.miniProgram.navigateTo({ url: YAHOO_DEPOSIT_RECHARGE_PAGE_PATH });
+        const targetPath = getDepositRechargePagePath(h5App, YAHOO_DEPOSIT_RECHARGE_PAGE_PATH);
+        const url =
+          h5App === "candy"
+            ? `${targetPath}${targetPath.includes("?") ? "&" : "?"}from=h5deposit&type=deposit`
+            : targetPath;
+        w2.wx.miniProgram.navigateTo({ url });
       } else {
         setRechargeMsg("请在小程序内打开后充值");
       }

@@ -28,7 +28,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { getH5App, getH5UidSignature, getNumericH5UserId } from "./identity";
+import {
+  getDepositRechargePagePath,
+  getH5App,
+  getH5UidSignature,
+  getNumericH5UserId,
+  type H5App,
+} from "./identity";
 import { useReviewMode } from "./review-mode";
 import { CANDY_THEME_CSS } from "../candy-theme";
 
@@ -928,15 +934,17 @@ function navigateToMiniProgramSitesConfirm(
 
 // moneyRmb：建议充值额（元）。传给 pay.vue 的 money 参数须为 ≥1 的整数，缺失/非法时兜底 1，
 // 绝不传 0 或小数（pay.vue 按此参数发起充值）。
-function navigateToMiniProgramDepositRecharge(moneyRmb?: number) {
-  if (!YAHOO_DEPOSIT_RECHARGE_PAGE_PATH) return false;
+function navigateToMiniProgramDepositRecharge(h5App: H5App, moneyRmb?: number) {
+  const targetPath = getDepositRechargePagePath(h5App, YAHOO_DEPOSIT_RECHARGE_PAGE_PATH);
+  if (!targetPath) return false;
   if (typeof window === "undefined") return false;
   const win = window as MiniProgramWindow;
   if (!win.wx?.miniProgram?.navigateTo) return false;
   const money = Math.max(1, Math.round(moneyRmb ?? 1) || 1);
-  const joiner = YAHOO_DEPOSIT_RECHARGE_PAGE_PATH.includes("?") ? "&" : "?";
+  const joiner = targetPath.includes("?") ? "&" : "?";
+  const fromParam = h5App === "candy" ? "&from=h5deposit" : "";
   win.wx.miniProgram.navigateTo({
-    url: `${YAHOO_DEPOSIT_RECHARGE_PAGE_PATH}${joiner}type=deposit&money=${money}`,
+    url: `${targetPath}${joiner}type=deposit&money=${money}${fromParam}`,
   });
   return true;
 }
@@ -1873,7 +1881,7 @@ export default function MiniProgramSupportH5Page() {
   // 竞拍（雅虎/煤炉）「去充押金」：仅跳转小程序充值页，不触发任何金钱动作。
   // path 未配置（占位）时按钮本就禁用，这里再兜底：跳不动就引导回小程序。
   function goRechargeDeposit(moneyRmb?: number) {
-    if (navigateToMiniProgramDepositRecharge(moneyRmb)) return;
+    if (navigateToMiniProgramDepositRecharge(h5App, moneyRmb)) return;
     setHumanTransferVisible(true);
     setHumanTransferNote(
       "请在袋鼠君小程序内打开『我的-我的押金』充值押金后再参与竞拍。",
@@ -2100,7 +2108,9 @@ export default function MiniProgramSupportH5Page() {
     const isMercariAuction =
       quote.platform === "mercari" && quote.sale_type === "auction";
     // 「去充押金」入口是否可用：仅当配置了充值页 path 才可点。
-    const depositRechargeEnabled = Boolean(YAHOO_DEPOSIT_RECHARGE_PAGE_PATH);
+    const depositRechargeEnabled = Boolean(
+      getDepositRechargePagePath(h5App, YAHOO_DEPOSIT_RECHARGE_PAGE_PATH),
+    );
     // 封面图/标题可点跳详情：platform + item_id 都齐才可点（openQuoteDetail 内部也会兜底）。
     const canOpenDetail = Boolean(quote.platform && quote.item_id);
 

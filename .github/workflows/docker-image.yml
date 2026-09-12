@@ -2,6 +2,7 @@
 # rewrite 目标 build 期固化为 127.0.0.1:3100（同机后端，--network host 运行）。
 # Vercel 部署不使用本镜像，互不影响。NEXT_PUBLIC_* 均为浏览器公开值非机密；
 # NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH 是小程序页面路径（雅虎押金充值页），非密钥。
+# NEXT_PUBLIC_CANDY_DEPOSIT_RECHARGE_PAGE_PATH 是 candy 包押金充值页路径，同样非密钥。
 name: docker-image
 on:
   push:
@@ -37,6 +38,7 @@ jobs:
             NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51TMP6J8yr16GNKWrZxEF2Ua9G8qS7YYQzW1mZyApw4AF01egVohDf51qP4FYLjo97icIQMPdhtv9O7pCW9RL6Vhi00rJ4pAC99
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAADngdkigXwrrNQsC
             NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH=/pages/daishujun/mine/deposit
+            NEXT_PUBLIC_CANDY_DEPOSIT_RECHARGE_PAGE_PATH=/pages/pay/cashier
           tags: |
             ghcr.io/${{ env.REPO_LC }}:latest
             ghcr.io/${{ env.REPO_LC }}:${{ github.sha }}

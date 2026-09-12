@@ -26,3 +26,14 @@ export function getH5App(searchParams: SearchParamReader): H5App {
   if (rawApp === "legacy" || rawApp === "candy") return rawApp;
   return searchParams.get("theme") === "candy" ? "candy" : "legacy";
 }
+
+// candy 包没有 legacy 那个押金充值页，充值页是 /pages/pay/cashier（uni-app 页，
+// onLoad 读 from/type/money，type=deposit 为押金充值）；legacy 包没有 cashier 页。
+// 两页（auction/mine、h5）押金充值跳转按 h5App 二选一，legacy 分支的具体 path/兜底
+// 各页自己算（历史默认值不同），这里只统一 candy 分支。
+export const CANDY_DEPOSIT_RECHARGE_PAGE_PATH =
+  process.env.NEXT_PUBLIC_CANDY_DEPOSIT_RECHARGE_PAGE_PATH || "/pages/pay/cashier";
+
+export function getDepositRechargePagePath(h5App: H5App, legacyPath: string): string {
+  return h5App === "candy" ? CANDY_DEPOSIT_RECHARGE_PAGE_PATH : legacyPath;
+}
