@@ -944,6 +944,7 @@ async function callHermesBridge(
   // 必须像 order_ref / quote_ref / choice / list 一样原样透传；漏转会让待支付卡被中继吞掉、前端永远收不到。
   // 缺省即 undefined，零回归（开关 OFF 时这段 dormant）。
   const proxyBuyPay = bridge.proxy_buy_pay;
+  const leaveMsgRef = bridge.leave_msg_ref;
 
   if (action === "transfer_human") {
     return transferHumanResponse(
@@ -978,6 +979,7 @@ async function callHermesBridge(
       choice,
       list,
       proxy_buy_pay: proxyBuyPay,
+      leave_msg_ref: leaveMsgRef,
       sourceIds,
       answeredBy: answeredBy || "m4-hermes-customer-support",
       requiresTicket: false,
