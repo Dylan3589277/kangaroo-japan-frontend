@@ -628,7 +628,7 @@ export default function SellerMessagesH5Page({
                 agreed_price_jpy: agreedPriceJpy ?? item.agreed_price_jpy,
                 customer_status: "agreed",
                 can_accept: false,
-                status_text: "已同意，等待卖家改价",
+                status_text: agreedPriceJpy !== undefined ? `已同意 ${formatJpy(agreedPriceJpy)} 日元，等待卖家改价` : "已同意，等待卖家改价",
               }
             : item,
         ),
