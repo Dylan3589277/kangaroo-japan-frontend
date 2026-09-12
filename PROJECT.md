@@ -218,3 +218,11 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 改动：新增 `support/h5/identity.ts` 的 `getDepositRechargePagePath(h5App, legacyPath)`：candy→`NEXT_PUBLIC_CANDY_DEPOSIT_RECHARGE_PAGE_PATH`（默认 `/pages/pay/cashier`），legacy→原 `NEXT_PUBLIC_YAHOO_DEPOSIT_RECHARGE_PAGE_PATH`；`mine/page.tsx` 与 `h5/page.tsx` 两处充值跳转都按 h5App 分流；Dockerfile ARG/ENV + `.github/workflows/docker-image.yml` 加 build-arg。
 - 状态：镜像构建中，ECS pull 未做，需花哥「推」。
 - 风险未核实：candy 线上正式版是否已含 cashier 页——体验版 1.0.2026090601e 起有，正式版未核实。
+
+### 2026-09-12 日拍（app=ripai）押金充值分流 + 老后台 Chat.php 三态判定
+- 为什么：袋鼠君日淘（appid wx84d6de39d3136d49）「我的竞拍」押金 tab 点「充值」不跳——老后台 `getkefu` 对日拍误判发 `app=candy`，前端按 candy 跳 `/pages/pay/cashier`，但日拍旧包无此页（只有 `/pages/daishujun/mine/deposit`）——煤炉供销社(candy 2.0.7)有 cashier 所以此前一直正常。
+- 逻辑：三身份重新划分——legacy=老版包；candy=煤炉供销社（有 cashier）；ripai=日拍（candy 皮肤+审核开关 id77，旧包无 cashier）。老后台 `Chat.php` L44/L103/L176 三处 `app=` 改为 `is_candy_request() ? 'candy' : ($candySkin ? 'ripai' : 'legacy')`；前端 `identity.ts` 的 `H5App` 加 `"ripai"` + 新 `isCandySkinApp()`（candy||ripai 用于皮肤展示），但 `getDepositRechargePagePath` 只有 `app===candy` 才跳 cashier，ripai 仍走旧押金页。
+- 改动文件（a4397c4，五个）：`identity.ts`、`review-mode/route.ts`（把 ripai 折成 candy 传老后台）、`auction/mine/page.tsx`、`h5/page.tsx`（皮肤判断用 isCandySkinApp，押金路径/文案仍 ===candy）、`identity.test.ts`（+3 断言）；老后台 `Chat.php` 三处（ECS 已改即生效，备份 `Chat.php.bak-20260912-ripai`）。
+- 验证：`npx tsx --test identity.test.ts` 4/4 pass；curl 实测日拍返回 `app=ripai&theme=candy`、煤炉返回 `app=candy`。前端 a4397c4 已推 origin/main，ghcr 镜像构建中，**ECS pull 待花哥令**。
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
