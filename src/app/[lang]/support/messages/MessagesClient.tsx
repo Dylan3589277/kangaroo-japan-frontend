@@ -288,6 +288,13 @@ export default function SellerMessagesH5Page({
   const [unhideErrorByKey, setUnhideErrorByKey] = useState<
     Record<string, string>
   >({});
+  // Feature：同意卖家还价——按 task id 记录提交中/错误态，同构 hide/unhide。
+  const [acceptPendingByKey, setAcceptPendingByKey] = useState<
+    Record<string, boolean>
+  >({});
+  const [acceptErrorByKey, setAcceptErrorByKey] = useState<
+    Record<string, string>
+  >({});
   // StrictMode 双挂载防重复拉取（与 support/h5 的 ref 防抖同款思路）。
   const initialLoadRef = useRef(false);
   // 「已隐藏」tab 内恢复留言后，主列表 tasks 是旧缓存；切回其它 tab 时补拉一次。
@@ -590,6 +597,49 @@ export default function SellerMessagesH5Page({
     }
   }
 
+  // Feature：同意卖家还价——与 hide/unhide 同构，但不从列表移除，只原地更新该条
+  // + 触发一次 list 重拉（后端可能连带下发其它字段变化）。
+  async function acceptTask(task: VisitorTask) {
+    if (!userId) return;
+    const key = String(task.id);
+    setAcceptErrorByKey((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    setAcceptPendingByKey((current) => ({ ...current, [key]: true }));
+
+    const result = await postSellerMessages({
+      action: "accept",
+      user_id: userId,
+      ts: uidSignature.ts,
+      sig: uidSignature.sig,
+      task_id: task.id,
+    });
+
+    if (result.ok) {
+      const data = getRecord(result.data);
+      const agreedPriceJpy = getNumber(data.agreed_price_jpy);
+      setTasks((current) =>
+        current.map((item) =>
+          String(item.id) === key
+            ? {
+                ...item,
+                agreed_price_jpy: agreedPriceJpy ?? item.agreed_price_jpy,
+                customer_status: "agreed",
+                can_accept: false,
+                status_text: "已同意，等待卖家改价",
+              }
+            : item,
+        ),
+      );
+      void loadList(1, "replace");
+    } else {
+      setAcceptErrorByKey((current) => ({ ...current, [key]: result.errmsg }));
+    }
+    setAcceptPendingByKey((current) => ({ ...current, [key]: false }));
+  }
+
   const activeTab =
     FILTER_TABS.find((tab) => tab.key === filter) ?? FILTER_TABS[0];
   const visibleTasks =
@@ -738,18 +788,38 @@ export default function SellerMessagesH5Page({
           </div>
         ) : null}
 
-        {/* 砍价成功横幅：显眼绿色，agreed_price 为准 */}
+        {/* 砍价成功横幅：显眼绿色，agreed_price 为准；price_verified===true 时卖家
+            已实际改价，换文案 + 给「去下单」按钮（复用 openItemUrl，不新写跳转逻辑）。 */}
         {isAgreed ? (
           <div
             className="mt-2 rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-white"
             data-testid="seller-messages-agreed-banner"
           >
-            {task.agreed_price_jpy !== undefined
-              ? `砍价成功 ${formatJpy(task.agreed_price_jpy)} 日元`
-              : "卖家已同意降价"}
-            <span className="mt-0.5 block text-xs font-normal text-emerald-50">
-              卖家已同意，请回小程序按新价格下单～
-            </span>
+            {task.price_verified
+              ? `卖家已改价 ${formatJpy(task.agreed_price_jpy ?? 0)} 日元，可以下单了`
+              : task.status_text ||
+                (task.agreed_price_jpy !== undefined
+                  ? `砍价成功 ${formatJpy(task.agreed_price_jpy)} 日元`
+                  : "卖家已同意降价")}
+            {task.price_verified ? (
+              itemUrl ? (
+                <button
+                  type="button"
+                  className="mt-1.5 flex items-center gap-1 rounded-md bg-white px-2.5 py-1.5 text-xs font-semibold text-emerald-600"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openItemUrl(itemUrl, task);
+                  }}
+                  data-testid={`seller-messages-go-order-${key}`}
+                >
+                  去下单
+                </button>
+              ) : null
+            ) : (
+              <span className="mt-0.5 block text-xs font-normal text-emerald-50">
+                卖家已同意，请回小程序按新价格下单～
+              </span>
+            )}
           </div>
         ) : null}
 
@@ -769,6 +839,34 @@ export default function SellerMessagesH5Page({
               卖家回复
             </div>
             <p className="text-xs leading-5 text-slate-700">{task.reply_zh}</p>
+          </div>
+        ) : null}
+
+        {/* Feature：同意卖家还价——仅当后端判定 can_accept 时展示，同构 hide/unhide 的
+            按钮 + 内联报错模式；点击后我们替顾客回复卖家，不新开发送逻辑。 */}
+        {task.can_accept === true ? (
+          <div className="mt-2" data-testid={`seller-messages-accept-${key}`}>
+            <button
+              type="button"
+              disabled={acceptPendingByKey[key]}
+              className="flex items-center gap-1 rounded-md bg-emerald-500 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+              onClick={(event) => {
+                event.stopPropagation();
+                void acceptTask(task);
+              }}
+            >
+              {acceptPendingByKey[key]
+                ? "提交中…"
+                : `同意 ${formatJpy(task.seller_counter_price_jpy ?? 0)} 日元`}
+            </button>
+            <p className="mt-1 text-[11px] text-slate-400">
+              我们会替您回复卖家，等卖家改价后通知您
+            </p>
+            {acceptErrorByKey[key] ? (
+              <p className="mt-1 text-[11px] text-red-500">
+                {acceptErrorByKey[key]}
+              </p>
+            ) : null}
           </div>
         ) : null}
 

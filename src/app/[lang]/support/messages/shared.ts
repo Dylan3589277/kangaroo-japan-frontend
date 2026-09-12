@@ -33,6 +33,12 @@ export type VisitorTask = {
   // 隐藏时间（ISO 时间戳），仅"已隐藏"tab（hidden_only:true）下的条目会有值；
   // 未隐藏或后端未下发时为 undefined。
   hidden_at?: string;
+  // 从 reply_raw_ja 解析出的卖家还价（纯函数、不落库），无法解析时为 null。
+  seller_counter_price_jpy?: number | null;
+  // 是否可展示「同意 X 日元」按钮。
+  can_accept?: boolean;
+  // customer_status===price_verified 时为 true：卖家已改价，可下单。
+  price_verified?: boolean;
 };
 
 export function getRecord(value: unknown): Record<string, unknown> {
@@ -85,5 +91,18 @@ export function parseTask(value: unknown): VisitorTask | null {
         ? record.can_transfer_human
         : undefined,
     hidden_at: getString(record.hidden_at),
+    seller_counter_price_jpy:
+      typeof record.seller_counter_price_jpy === "number" &&
+      Number.isFinite(record.seller_counter_price_jpy)
+        ? record.seller_counter_price_jpy
+        : record.seller_counter_price_jpy === null
+          ? null
+          : undefined,
+    can_accept:
+      typeof record.can_accept === "boolean" ? record.can_accept : undefined,
+    price_verified:
+      typeof record.price_verified === "boolean"
+        ? record.price_verified
+        : undefined,
   };
 }
