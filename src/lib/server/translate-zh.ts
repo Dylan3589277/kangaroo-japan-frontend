@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { randomUUID } from "node:crypto";
 
 /**
  * 日→中翻译（OpenCode Go / DeepSeek），服务端专用。
@@ -85,6 +86,7 @@ async function callOpenCodeGoBatch(
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
+        "x-opencode-session": `translate-zh-${randomUUID()}`,
       },
       body: JSON.stringify({
         model: getModel(),
