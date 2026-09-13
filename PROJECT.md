@@ -4,6 +4,13 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 
 ## 变更记录
 
+### 2026-09-13 · zh 站列表标题日→中翻译真正上线（三 commit + ECS env）
+
+- 为什么：`src/lib/server/translate-zh.ts`（OpenCode Go / deepseek-v4-flash）此前始终静默失效——端点缺必需请求头 400、合批时序错、思考模型烧光 token 超时，三个独立故障叠加导致「代码在但从没真正工作过」。
+- 逻辑/改动：①commit 289e7dc 加 `x-opencode-session: translate-zh-<uuid>` 头（09-08 起端点强制此头，否则 400 MissingSessionID）；②commit 734dd37 合批从 `queueMicrotask` 改成 30ms 定时器窗口（`unstable_cache` 异步查找让同一请求的标题落在不同 tick，微任务合批会被拆成 40 个单条批次撞并发上限）；③commit eedb564 加 `reasoning_effort: "none"`（deepseek-v4-flash 是思考模型，不关思考会把 `max_tokens=1500` 全烧在 reasoning_content，content 空、`finish_reason=length`、耗时 25-30s 撞 30s 超时；`thinking:{type:"disabled"}` 走 OpenCode Go 无效）+ `MAX_CONCURRENCY` 2→6（一页 120 条=6 批，2 会降级 4 批）。ECS `/opt/kangaroo-backend/run-frontend.sh` 已加 `OPENCODE_GO_API_KEY`/`OPENCODE_GO_BASE_URL`（完整端点 `https://opencode.ai/zen/go/v1/chat/completions`）/`OPENCODE_GO_MODEL` 三项 env，花哥 09-13 pull+重建容器 7540e0c1（镜像 eedb564 构建 05:07 UTC）。
+- 验证：直连 5 次均 finish=stop、~5s、~345 tokens；jp-buy.com/zh/mercari 关键词「一番くじ」「ニンテンドースイッチ」两页 120 条标题全部渲染中文副标题，容器日志无 TimeoutError / degrading [实测]。
+- 教训：a) 上思考模型前先看 `usage.completion_tokens` 与 content 长度，"超时"可能是思考吃光 token；b) 合批用微任务 vs 定时器要看上游有没有异步缓存查找；c) 并发上限要按一页需要的批次数算。详见私有记忆 `deepseek-flash-thinking-model-reasoning-effort`、chainmap `chain-23-opencode-go-consumers.md`。
+
 ### 2026-09-07 · 留言中心 H5 列表 SSR 首屏（兼容旧小程序 webview 无 JS）
 
 - 为什么：老「煤炉供销社」小程序（wx208645d960d3f104）/iOS 15.4.1 的 webview 不执行客户端 JS，原纯 Client 页永远停在加载中。
@@ -220,6 +227,7 @@ jp-buy 前端（en/zh 双语站）在此仓的工作分支（cardC），本文�
 - 风险未核实：candy 线上正式版是否已含 cashier 页——体验版 1.0.2026090601e 起有，正式版未核实。
 
 ### 2026-09-12 日拍（app=ripai）押金充值分流 + 老后台 Chat.php 三态判定
+
 - 为什么：袋鼠君日淘（appid wx84d6de39d3136d49）「我的竞拍」押金 tab 点「充值」不跳——老后台 `getkefu` 对日拍误判发 `app=candy`，前端按 candy 跳 `/pages/pay/cashier`，但日拍旧包无此页（只有 `/pages/daishujun/mine/deposit`）——煤炉供销社(candy 2.0.7)有 cashier 所以此前一直正常。
 - 逻辑：三身份重新划分——legacy=老版包；candy=煤炉供销社（有 cashier）；ripai=日拍（candy 皮肤+审核开关 id77，旧包无 cashier）。老后台 `Chat.php` L44/L103/L176 三处 `app=` 改为 `is_candy_request() ? 'candy' : ($candySkin ? 'ripai' : 'legacy')`；前端 `identity.ts` 的 `H5App` 加 `"ripai"` + 新 `isCandySkinApp()`（candy||ripai 用于皮肤展示），但 `getDepositRechargePagePath` 只有 `app===candy` 才跳 cashier，ripai 仍走旧押金页。
 - 改动文件（a4397c4，五个）：`identity.ts`、`review-mode/route.ts`（把 ripai 折成 candy 传老后台）、`auction/mine/page.tsx`、`h5/page.tsx`（皮肤判断用 isCandySkinApp，押金路径/文案仍 ===candy）、`identity.test.ts`（+3 断言）；老后台 `Chat.php` 三处（ECS 已改即生效，备份 `Chat.php.bak-20260912-ripai`）。
