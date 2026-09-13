@@ -19,6 +19,7 @@ import {
   Loader2,
   MessageCircle,
   MessageSquarePlus,
+  Search,
   ShoppingBag,
   ShoppingCart,
   Send,
@@ -119,6 +120,11 @@ type ProxyBuyPay = {
 type QuoteRef = {
   platform?: string;
   item_id?: string;
+  // Shops（mercari 官方店铺）标记：item_type==='shops' 或 shop===true 时，留言按
+  // 'mercari_shops' 转发（区别于普通个人卖家 'mercari'）。两个字段均可选、二选一即可
+  // 命中，具体由 bridge 下发哪个字段以其为准。
+  item_type?: string;
+  shop?: boolean;
   // bridge 新增：'auction' 标记煤炉竞拍卡（区别于普通购买卡）。缺省即 undefined，
   // 用于 openQuoteDetail 分流——竞拍品跳小程序详情页会被老后台判成「已售出」。
   kind?: string;
@@ -887,6 +893,36 @@ function navigateToMiniProgramGoodsDetail(platform: string, itemId: string) {
         encodeURIComponent(itemId);
   win.wx.miniProgram.navigateTo({ url });
   return true;
+}
+
+// 报价卡「已售」态「看看类似商品」：跳袋鼠君小程序检索结果页（而非检索输入页——
+// search/search 的 onLoad 只读 site、不收关键词；kw 由 search.vue 提交搜索后拼
+// 到结果页 mercari.vue 的 URL 上，mercari.vue onLoad 读 e.kw/e.lng/e.cat）。
+// 参数名已核实：daishujunApp/pages/bundle/search/search.vue L102 拼的就是这条，
+// pages/daishujun/index/mercari.vue onLoad 消费 kw。
+function navigateToMiniProgramSearch(keyword: string) {
+  if (typeof window === "undefined") return false;
+  const win = window as MiniProgramWindow;
+  if (!win.wx?.miniProgram?.navigateTo) return false;
+  const url =
+    "/pages/daishujun/index/mercari?cat=0&cname=" +
+    encodeURIComponent("分类检索") +
+    "&kw=" +
+    encodeURIComponent(keyword) +
+    "&lng=japan";
+  win.wx.miniProgram.navigateTo({ url });
+  return true;
+}
+
+// 留言给卖家透传的 platform：Shops（mercari 官方店铺，item_type==='shops' 或
+// shop===true）转发为 'mercari_shops'，其余（含普通个人卖家、leaveMsgRef 结构化卡片
+// 场景——quote 上无 item_type/shop 字段）沿用原 'mercari'。抽成纯函数便于单测。
+export function resolveLeaveMsgPlatform(
+  quote: Pick<QuoteRef, "item_type" | "shop">,
+): "mercari_shops" | "mercari" {
+  return quote.item_type === "shops" || quote.shop === true
+    ? "mercari_shops"
+    : "mercari";
 }
 
 // 报价卡「支付」（rakuma/yahoofrima 三等分场景）：跳袋鼠君小程序购物车页统一结算。
@@ -2004,12 +2040,14 @@ export default function MiniProgramSupportH5Page() {
       return;
     }
 
+    const leaveMsgPlatform = resolveLeaveMsgPlatform(quote);
+
     const body: Record<string, unknown> = {
       action: "leave-message",
       user_id: userId,
       ts: uidSignature.ts,
       sig: uidSignature.sig,
-      platform: "mercari",
+      platform: leaveMsgPlatform,
       goods_no: goodsNo,
       type: leaveMsgType,
     };
@@ -2642,7 +2680,7 @@ export default function MiniProgramSupportH5Page() {
               <div className="mt-3" data-testid="support-quote-sokketsu-cta">
                 <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
                   {quote.action_text ||
-                    "核对无误后可点下方按钮立即购买，先到先得。"}
+                    "请根据需求点击下方按钮，先到先得。"}
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
@@ -2675,13 +2713,59 @@ export default function MiniProgramSupportH5Page() {
             );
           })()
         ) : quote.purchasable === false ? (
-          <div
-            className="mt-3 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs font-medium leading-5 text-red-700"
-            data-testid="support-quote-unpurchasable"
-          >
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            {quote.unpurchasable_reason || "该商品暂时无法购买"}
-          </div>
+          (() => {
+            // 已售态：卡体（图片/标题/价格）照常渲染，不因售出缩水；按钮区只保留「咨询」
+            // 和「看看类似商品」——加购/支付/留言/确认出价等会失败的操作一律不出。
+            // 「看看类似商品」依赖小程序 webview（跳检索页需 wx.miniProgram），与加购同门槛。
+            const canShowSimilar = Boolean(wxReady && isMiniProgramWebview());
+            const similarKeyword = (
+              quote.goods_name_zh ||
+              quote.goods_name ||
+              ""
+            ).slice(0, 30);
+            return (
+              <div className="mt-3" data-testid="support-quote-unpurchasable">
+                <div className="flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-2">
+                  <span className="inline-flex shrink-0 items-center rounded bg-slate-400 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                    已售出
+                  </span>
+                  <span className="text-xs leading-5 text-slate-500">
+                    {quote.unpurchasable_reason || "该商品已售出或无法购买"}
+                  </span>
+                </div>
+                <div
+                  className={
+                    canShowSimilar
+                      ? "mt-2 grid grid-cols-2 gap-2"
+                      : "mt-2 grid grid-cols-1 gap-2"
+                  }
+                >
+                  <button
+                    type="button"
+                    className="flex items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
+                    onClick={() => consultQuote(quote)}
+                    disabled={loading}
+                    data-testid="support-quote-btn-consult"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    咨询
+                  </button>
+                  {canShowSimilar ? (
+                    <button
+                      type="button"
+                      className="flex items-center justify-center gap-1 rounded-md bg-orange-500 px-3 py-2 text-sm font-medium text-white shadow-sm disabled:bg-orange-200"
+                      onClick={() => navigateToMiniProgramSearch(similarKeyword)}
+                      disabled={loading}
+                      data-testid="support-quote-btn-similar"
+                    >
+                      <Search className="h-4 w-4" />
+                      看看类似商品
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })()
         ) : (
           (() => {
             // 风险闸：>5万需确认且买家尚未点确认时，禁用「我要购买」，逼买家先确认风险。
@@ -2706,7 +2790,7 @@ export default function MiniProgramSupportH5Page() {
             return (
               <div className="mt-3" data-testid="support-quote-cta">
                 <p className="rounded-md bg-orange-50 px-2.5 py-2 text-xs leading-5 text-orange-700">
-                  核对无误后可点下方按钮，或回复『确认』，我为您录入订单。
+                  请根据需求点击下方按钮。
                 </p>
                 <div
                   className={
@@ -2753,7 +2837,12 @@ export default function MiniProgramSupportH5Page() {
                     请先在上方完成『高额订单风险确认』，再点『{buyButtonLabel}』。
                   </p>
                 ) : null}
-                {quote.platform === "mercari" && quote.item_id && userId ? (
+                {quote.platform === "mercari" &&
+                quote.item_id &&
+                userId ? (
+                  // 注：此分支已在外层 `quote.purchasable === false ? ... : 这里`
+                  // 的 else 里，TS 已将 quote.purchasable 收窄为排除 false，
+                  // 故不再重复写 `quote.purchasable !== false`（会被 TS2367 拦下）。
                   <button
                     type="button"
                     className="support-quote-btn-leavemsg mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-orange-200 bg-white px-3 py-2 text-sm font-medium text-orange-700 shadow-sm disabled:opacity-50"
