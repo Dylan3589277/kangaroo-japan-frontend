@@ -44,6 +44,11 @@ test("titles enqueued at staggered async intervals within the batch window still
     fetchCalls++;
     const body = JSON.parse(opts.body);
     const texts: string[] = JSON.parse(body.messages[1].content);
+    assert.equal(
+      body.reasoning_effort,
+      "none",
+      "expected request body to disable DeepSeek thinking via reasoning_effort",
+    );
     return {
       ok: true,
       json: async () => ({

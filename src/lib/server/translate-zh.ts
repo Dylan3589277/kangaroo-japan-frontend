@@ -15,6 +15,10 @@ import { randomUUID } from "node:crypto";
  *
  * 外部调用三件套（见 ~/.claude/rules/external-call-resilience.md）：
  * - **超时**：30s AbortSignal（批量请求 + 合批窗口，比 en/Azure 的单标题 3s 更长）。
+ *   deepseek-v4-flash 是思考模型，不关思考的话 20 条真实标题一批会把 max_tokens
+ *   全烧在 reasoning_content 上、content 空、finish_reason=length、耗时 25-30s
+ *   撞超时（2026-09-13 ECS 实测）；请求体加 `reasoning_effort: "none"` 后 6.2s
+ *   就能拿到干净 JSON（`thinking:{type:"disabled"}` 实测无效）。
  * - **缓存**：unstable_cache 30 天，key=原文单条标题——批量请求节省的是并发次数，
  *   缓存粒度仍按标题拆分，命中率不受批量大小影响。
  * - **熔断/降级**：无 key / 超时 / 非 2xx / 结构不符 / 并发超限 一律返回 null，
@@ -42,8 +46,9 @@ const MAX_BATCH_SIZE = 20;
 /** 合批等待窗口（ms）：收集这段时间内到达的 cache-miss 请求再统一发送，
  *  盖过 unstable_cache 异步查找造成的 tick 抖动。 */
 const BATCH_WINDOW_MS = 30;
-/** 全局同时在飞的批次数上限；超出立即降级，不排队。 */
-const MAX_CONCURRENCY = 2;
+/** 全局同时在飞的批次数上限；超出立即降级，不排队。一页列表 120 条 = 6 批（MAX_BATCH_SIZE=20），
+ *  设为 6 才能一页全放行，不然超出的批次会被降级丢 null（2026-09-13 调整，原为 2）。 */
+const MAX_CONCURRENCY = 6;
 
 const SYSTEM_PROMPT = `你是日语到中文的商品标题翻译器，服务于日本代购电商列表页。
 规则：
@@ -99,6 +104,7 @@ async function callOpenCodeGoBatch(
       body: JSON.stringify({
         model: getModel(),
         max_tokens: MAX_TOKENS,
+        reasoning_effort: "none",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: JSON.stringify(texts) },
