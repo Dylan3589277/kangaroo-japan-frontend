@@ -14,26 +14,34 @@ import { randomUUID } from "node:crypto";
  * 的列表卡片，接线处永远后端译名优先、本管线兜底。
  *
  * 外部调用三件套（见 ~/.claude/rules/external-call-resilience.md）：
- * - **超时**：15s AbortSignal（比 en/Azure 的单标题 3s 更长，因为这里是批量请求）。
+ * - **超时**：30s AbortSignal（批量请求 + 合批窗口，比 en/Azure 的单标题 3s 更长）。
  * - **缓存**：unstable_cache 30 天，key=原文单条标题——批量请求节省的是并发次数，
  *   缓存粒度仍按标题拆分，命中率不受批量大小影响。
  * - **熔断/降级**：无 key / 超时 / 非 2xx / 结构不符 / 并发超限 一律返回 null，
  *   调用方回退到日文原名；绝不 throw 到调用方。
  *
- * 批量合并（省 DeepSeek 调用次数、不引入定时器）：
- * 同一 tick 内发生的 cache-miss 请求，用微任务（queueMicrotask）合并成一批，
+ * 批量合并（省 DeepSeek 调用次数）：
+ * 用短定时器（BATCH_WINDOW_MS）把一段时间内到达的 cache-miss 请求合并成一批。
+ * 之所以不用微任务（queueMicrotask）：cachedTranslateOne 先经过 unstable_cache
+ * 的异步缓存查找才调用 enqueueForBatch，同一请求里不同标题的缓存查找落在不同的
+ * microtask tick 上，微任务合批会把一次 40 条的请求拆成 40 个单条批次，
+ * 全部撞上 MAX_CONCURRENCY 被降级（生产实测：一次页面请求只译出 1-2 条）。
+ * 定时器窗口能跨多个 tick 收集，才能把同一请求的标题真正合成一批；
  * 每批最多 MAX_BATCH_SIZE 条；全局同时在飞的批次请求数不超过 MAX_CONCURRENCY，
  * 超出的批次**立即降级返回 null**，不排队等待（避免一次流量尖峰拖垮响应时间）。
  */
 
 const DEFAULT_ENDPOINT = "https://opencode.ai/zen/go/v1/chat/completions";
 const DEFAULT_MODEL = "deepseek-v4-flash";
-const TIMEOUT_MS = 15_000;
+const TIMEOUT_MS = 30_000;
 const MAX_TOKENS = 1500;
 /** 单条标题超过这个长度多半是脏数据，不值得送去翻译（API 路由层已按 300 校验，这里是第二道防线）。 */
 const MAX_INPUT_LENGTH = 500;
-/** 微任务批量合并：单批最多带这么多条标题。 */
+/** 定时器批量合并：单批最多带这么多条标题。 */
 const MAX_BATCH_SIZE = 20;
+/** 合批等待窗口（ms）：收集这段时间内到达的 cache-miss 请求再统一发送，
+ *  盖过 unstable_cache 异步查找造成的 tick 抖动。 */
+const BATCH_WINDOW_MS = 30;
 /** 全局同时在飞的批次数上限；超出立即降级，不排队。 */
 const MAX_CONCURRENCY = 2;
 
@@ -156,7 +164,7 @@ let activeConcurrency = 0;
 function scheduleFlush() {
   if (batchScheduled) return;
   batchScheduled = true;
-  queueMicrotask(flushPendingBatch);
+  setTimeout(flushPendingBatch, BATCH_WINDOW_MS);
 }
 
 function flushPendingBatch() {
@@ -190,7 +198,7 @@ async function runChunk(chunk: [string, PendingResolver[]][]) {
   });
 }
 
-/** 把一条标题挂进当前批次；同一 tick 内的其他标题会在微任务里被一起打包发送。 */
+/** 把一条标题挂进当前批次；BATCH_WINDOW_MS 窗口内到达的其他标题会被一起打包发送。 */
 function enqueueForBatch(text: string): Promise<string | null> {
   return new Promise((resolve) => {
     const resolvers = pendingBatch.get(text) ?? [];
@@ -229,7 +237,7 @@ async function translateOneJaToZh(text: string): Promise<string | null> {
 /**
  * 批量翻译商品标题（ja→zh）。返回数组与入参 titles 等长、逐位对应；
  * 任何一条失败/超限/未配置都是 null，调用方回退显示该条日文原名。
- * 内部按标题拆分缓存 + 微任务合批，调用方不需要自己去重或分块
+ * 内部按标题拆分缓存 + 定时器合批，调用方不需要自己去重或分块
  * （但 hook 层仍会做去重，避免同一标题重复占用批次名额）。
  */
 export async function translateTitlesJaToZh(
