@@ -243,3 +243,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 - 未做：其它非 mercari 平台（フリマ/ラクマ/雅虎）购物车卖家名点击跳转页待花哥拍板，与本条无关（见 daishujunApp-legacy-relaunch 侧记录）。
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### 2026-09-13 · 客服H5 已售商品统一出卡 + 全平台留言/文案统一（d7e027b）
+- **为什么**：花哥四点指示——①Mercari Shops 商品能建卡了但留言功能未打通；②商品已售出时不该简单回一行字转人工，应仍出卡标「已售」、隐藏加购/支付，建议看类似商品；③该逻辑覆盖所有建卡平台；④卡片提示文案「核对无误后可点下方按钮，或回复『确认』…」改为中性「请根据需求点击下方功能按钮」。
+- **逻辑/改动**：`src/app/[lang]/support/h5/page.tsx` 售罄态卡 `support-quote-unpurchasable` 保留卡体，按钮精简为「咨询」+「看看类似商品」（跳转 `/pages/daishujun/index/mercari?cat=0&cname=分类检索&kw=<商品名>`），隐藏加购/支付按钮；全平台（mercari/mercari_shops/yahoo auction/yahoofrima/rakuma/yahoo_shopping）卡片提示文案统一改中性文案；`resolveLeaveMsgPlatform` 对 Shops 商品发送留言时传 `mercari_shops` 平台值。
+- **验证**：commit `d7e027b`（已推 origin/main）；ghcr 镜像构建成功；**ECS 尚未 pull**（部署命令已交花哥/Dylan）。
+- **未做**：ECS 未拉镜像上线；后端 `mercari_shops` 枚举（backend bd48432）与 M4 Shops DM 适配（8f22191）均已就位但 Shops DM 真实 DOM 行为未实测。详见链路卡 chain-07⑥-e。
