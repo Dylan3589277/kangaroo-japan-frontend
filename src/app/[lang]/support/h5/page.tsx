@@ -2481,7 +2481,7 @@ export default function MiniProgramSupportH5Page() {
               </button>
             </div>
           </div>
-        ) : isMercariAuction ? (
+        ) : isMercariAuction && quote.purchasable !== false ? (
           // 煤炉竞拍卡：押金区按 deposit_state 分支（ok/insufficient/no_account/unavailable）；
           // 「确认竞拍」直接把 action_text 当消息发送（sendMessage，与手输同路径），不经小程序出价页。
           <div className="mt-3" data-testid="support-quote-mercari-auction-deposit">

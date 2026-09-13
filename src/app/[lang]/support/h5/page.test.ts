@@ -60,6 +60,24 @@ test("已售态卡片：渲染已售出徽章 + 看看类似商品按钮，且�
   }
 });
 
+// ---- 改动 3：竞拍 CTA 分支守卫 purchasable !== false（已结束竞拍走已售态卡）----
+test("雅虎/煤炉竞拍 CTA 分支条件都守卫 purchasable !== false", () => {
+  const auctionCtaBlock = sliceBetween(
+    source,
+    'data-testid="support-quote-auction-info"',
+    'data-testid="support-quote-unpurchasable"',
+  );
+
+  assert.match(
+    auctionCtaBlock,
+    /\{isYahooAuction && quote\.purchasable !== false \? \(/,
+  );
+  assert.match(
+    auctionCtaBlock,
+    /\) : isMercariAuction && quote\.purchasable !== false \? \(/,
+  );
+});
+
 // ---- 改动 1：默认 CTA 文案不再提「回复」 ----
 test("默认 CTA 文案改为按钮引导，不再要求回复确认字样", () => {
   const ctaBlock = sliceBetween(
