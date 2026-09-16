@@ -56,7 +56,7 @@
   "rules": {
     "heading": "Ketentuan Penawaran",
     "irrevocable": "Tawaran tidak dapat ditarik kembali setelah dikirim",
-    "bidDirectPrice": "⚠️Lelang Mercari berbeda dari Yahoo: jumlah bid langsung menjadi harga saat ini (tanpa proxy bidding otomatis). Kami menaikkan bid dengan kenaikan minimum yang diperlukan, tidak langsung ke batas Anda",
+    "bidDirectPrice": "⚠️Lelang Mercari berbeda dari Yahoo: jumlah bid langsung menjadi harga saat ini (tanpa proxy bidding otomatis)",
     "endTimeMayChange": "Waktu berakhir lelang dapat diperpanjang, atau diakhiri lebih awal oleh penjual",
     "payWithin24h": "Setelah menang tidak dapat dibatalkan — pembayaran harus diselesaikan dalam 24 jam",
     "forfeitOnDefault": "Jika pembayaran tidak diselesaikan dalam 24 jam setelah menang, deposit tidak akan dikembalikan dan barang akan ditangani oleh situs ini",

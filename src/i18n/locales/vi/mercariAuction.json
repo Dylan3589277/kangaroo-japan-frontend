@@ -56,7 +56,7 @@
   "rules": {
     "heading": "Lưu ý khi đấu giá",
     "irrevocable": "Lượt đấu giá đã gửi không thể rút lại",
-    "bidDirectPrice": "⚠️Đấu giá Mercari khác Yahoo: số tiền bạn trả giá sẽ trực tiếp trở thành giá hiện tại (không có đấu giá ủy quyền tự động). Chúng tôi chỉ tăng giá ở mức tối thiểu cần thiết, không bao giờ đặt thẳng đến hạn mức của bạn",
+    "bidDirectPrice": "⚠️Đấu giá Mercari khác Yahoo: số tiền bạn trả giá sẽ trực tiếp trở thành giá hiện tại (không có đấu giá ủy quyền tự động)",
     "endTimeMayChange": "Thời gian kết thúc đấu giá có thể được gia hạn, hoặc bị người bán kết thúc sớm",
     "payWithin24h": "Sau khi thắng đấu giá không thể hủy — phải hoàn tất thanh toán trong vòng 24 giờ",
     "forfeitOnDefault": "Nếu không hoàn tất thanh toán trong vòng 24 giờ sau khi thắng đấu giá, tiền đặt cọc sẽ không được hoàn lại và sản phẩm sẽ do trang web này xử lý",
